@@ -37,7 +37,7 @@ $source = str_replace(
 );
 $source = str_replace(
     'Moderation rules, reporting procedures, and security controls are continuously maintained.',
-    'Moderation rules, reporting procedures, and security controls are continuously maintained. Usage is correlated with a random browser pseudonym; only country hints and referrer domains are retained. Raw IP addresses, identities, user agents, and complete referrer URLs are not stored by InkWall.',
+    'Moderation rules, reporting procedures, and security controls are continuously maintained. Usage is correlated with a random browser pseudonym; only country hints and referrer domains are retained. Raw IP addresses, identities, browser fingerprints, and complete referrer URLs are not stored by InkWall.',
     $source
 );
 $source = str_replace(

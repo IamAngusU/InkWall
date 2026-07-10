@@ -37,31 +37,47 @@ CSS, 'layout CSS');
     .display-content[data-layout-align="center"] .display-author { justify-content: center; }
     .display-content[data-layout-align="right"] .display-author { justify-content: flex-end; }
     .display-content.has-image[data-layout-media="left"] .display-body,
-    .display-content.has-image[data-layout-media="right"] .display-body { grid-template-rows: auto auto; align-items: center; column-gap: 22px; }
-    .display-content.has-image[data-layout-media="left"] .display-body { grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); grid-template-areas: "media message" "media author"; }
-    .display-content.has-image[data-layout-media="right"] .display-body { grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr); grid-template-areas: "message media" "author media"; }
+    .display-content.has-image[data-layout-media="right"] .display-body { grid-template-rows: auto auto; align-items: center; column-gap: 4%; }
+    .display-content.has-image[data-layout-media="left"] .display-body { grid-template-columns: 28% 68%; grid-template-areas: "media message" "media author"; }
+    .display-content.has-image[data-layout-media="right"] .display-body { grid-template-columns: 68% 28%; grid-template-areas: "message media" "author media"; }
     .display-content.has-image[data-layout-media="left"] .display-media,
     .display-content.has-image[data-layout-media="right"] .display-media { grid-area: media; height: 100%; min-height: 168px; }
     .display-content.has-image[data-layout-media="left"] .display-message,
     .display-content.has-image[data-layout-media="right"] .display-message { grid-area: message; }
     .display-content.has-image[data-layout-media="left"] .display-author,
     .display-content.has-image[data-layout-media="right"] .display-author { grid-area: author; }
+    .display { min-height: 0; aspect-ratio: 1200 / 340; container-type: inline-size; }
+    .display-content, .display-ghost { padding: 2cqw 5.15cqw; }
+    .display-meta, .display-foot { gap: 1.2cqw; font-size: 1.05cqw; }
+    .display-meta { padding-bottom: 1.2cqw; }
+    .display-foot { padding-top: 1.2cqw; }
+    .display-body { gap: 1.5cqw; padding: 1.4cqw 0; }
+    .display-message,
+    .display-content[data-density="compact"] .display-message { font-family: var(--mono); font-size: 2.67cqw; font-weight: 700; line-height: 1.15; letter-spacing: 0; }
+    .display-content.has-image .display-message,
+    .display-content.has-image[data-density="compact"] .display-message { font-size: 2.3cqw; }
+    .display-author { gap: .9cqw; margin-top: .35cqw; font-size: 1.25cqw; }
+    .display-author::before { width: 2.5cqw; }
+    .display-media { height: 7.17cqw; }
+    .display-content.has-image[data-layout-media="left"] .display-media,
+    .display-content.has-image[data-layout-media="right"] .display-media { height: 14.33cqw; min-height: 0; }
 CSS, 'display layout CSS');
 
     $source = inkwall_template_replace_once($source,
         '      .display-content.has-image .display-message { font-size: clamp(22px, 7vw, 31px); }',
         <<<'CSS'
       .display-content.has-image .display-message { font-size: clamp(22px, 7vw, 31px); }
-      .display-content.has-image[data-layout-media="left"] .display-body,
-      .display-content.has-image[data-layout-media="right"] .display-body { grid-template-columns: 1fr; grid-template-areas: "media" "message" "author"; grid-template-rows: auto; }
       .layout-options { grid-template-columns: 1fr; }
       .composer { gap: 15px; padding: 14px; border-radius: 13px; }
       .field, .layout-field, .image-field { padding: 12px; }
       .device { width: 100%; overflow: hidden; }
-      .display { min-height: clamp(330px, 104vw, 410px); border-radius: 8px; }
-      .display-content, .display-ghost { padding: 18px 17px; }
-      .display-message, .display-content.has-image .display-message { font-size: clamp(21px, 7.2vw, 29px); line-height: 1.12; letter-spacing: -.035em; }
-      .display-content.has-image .display-media { height: 108px; min-height: 108px; }
+      .display { min-height: 0; aspect-ratio: 1200 / 340; border-radius: 6px; }
+      .display-content, .display-ghost { padding: 2cqw 5.15cqw; }
+      .display-message, .display-content[data-density="compact"] .display-message { font-size: 2.67cqw; line-height: 1.15; }
+      .display-content.has-image .display-message, .display-content.has-image[data-density="compact"] .display-message { font-size: 2.3cqw; }
+      .display-content.has-image .display-media { height: 7.17cqw; min-height: 0; }
+      .display-content.has-image[data-layout-media="left"] .display-media,
+      .display-content.has-image[data-layout-media="right"] .display-media { height: 14.33cqw; }
       .display-meta span, .display-foot span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 CSS, 'mobile layout CSS');
 
@@ -102,8 +118,26 @@ HTML, 'layout controls');
         '        Dom.displayContent.classList.toggle("has-image", Boolean(payload.image));',
         '        const layout = payload.layout || {};\n        const visualLines = String(payload.message || "").split(String.fromCharCode(10)).length;\n        const visualLength = Array.from(String(payload.message || "")).length;\n        Dom.displayContent.dataset.density = visualLength > 52 || visualLines > 1 || payload.image ? "compact" : "normal";\n        Dom.displayContent.dataset.layoutAlign = ["left", "center", "right"].includes(layout.align) ? layout.align : "left";\n        Dom.displayContent.dataset.layoutMedia = ["auto", "top", "left", "right"].includes(layout.media) ? layout.media : "auto";\n        Dom.displayContent.classList.toggle("has-image", Boolean(payload.image));', 'display layout');
     $source = inkwall_template_replace_once($source,
+        '        this.processing = false;\n        this.bindEvents();',
+        '        this.processing = false;\n        this.frame = { key: "top", ratio: 1076 / 86, width: 1076, height: 86, label: "wide top" };\n        this.bindEvents();\n        this.setLayout(Dom.layoutMediaSelect.value, false);', 'image frame constructor');
+    $source = inkwall_template_replace_once($source,
+        '      renderPreview() {',
+        '      setLayout(media, scheduleBuild = true) {\n        const top = media === "auto" || media === "top";\n        this.frame = top\n          ? { key: "top", ratio: 1076 / 86, width: 1076, height: 86, label: "wide top" }\n          : { key: media, ratio: 300 / 172, width: 800, height: Math.round(800 * 172 / 300), label: `${media} 16:9` };\n        Dom.cropCanvas.width = this.frame.width;\n        Dom.cropCanvas.height = this.frame.height;\n        Dom.cropStage.style.aspectRatio = `${this.frame.width} / ${this.frame.height}`;\n        if (!this.source) return;\n        Dom.imageEditorState.textContent = `Adjusting ${this.frame.label} frame`;\n        this.renderPreview();\n        if (scheduleBuild) this.schedule(40);\n      }\n\n      renderPreview() {', 'image layout method');
+    $source = inkwall_template_replace_once($source,
+        '          canvas.height = Math.round(width * 9 / 16);',
+        '          canvas.height = Math.max(1, Math.round(width / this.frame.ratio));', 'layout output ratio');
+    $source = inkwall_template_replace_once($source,
+        '          signature: `${this.source.signature}:${this.crop.x.toFixed(2)}:${this.crop.y.toFixed(2)}:${this.crop.zoom.toFixed(2)}:${this.crop.invert ? 1 : 0}:${result.blob.size}`',
+        '          signature: `${this.source.signature}:${this.frame.key}:${this.crop.x.toFixed(2)}:${this.crop.y.toFixed(2)}:${this.crop.zoom.toFixed(2)}:${this.crop.invert ? 1 : 0}:${result.blob.size}`', 'layout image signature');
+    $source = inkwall_template_replace_once($source,
+        '        Dom.imageMeta.textContent = `${cleanName} · ${Math.max(1, Math.round(result.blob.size / 1024))} KB · 16:9`;',
+        '        Dom.imageMeta.textContent = `${cleanName} · ${Math.max(1, Math.round(result.blob.size / 1024))} KB · ${this.frame.label}`;', 'layout image meta');
+    $source = inkwall_template_replace_once($source,
+        '          Dom.imageMeta.textContent = `${file.name} · choose the frame`;\n          this.renderPreview();',
+        '          Dom.imageMeta.textContent = `${file.name} · choose the frame`;\n          this.setLayout(Dom.layoutMediaSelect.value, false);\n          this.renderPreview();', 'select layout frame');
+    $source = inkwall_template_replace_once($source,
         '        Dom.faviconToggle.addEventListener("click", () => {',
-        '        [Dom.layoutAlignSelect, Dom.layoutMediaSelect].forEach(control => control.addEventListener("change", () => this.updateState()));\n        Dom.faviconToggle.addEventListener("click", () => {', 'layout events');
+        '        Dom.layoutAlignSelect.addEventListener("change", () => this.updateState());\n        Dom.layoutMediaSelect.addEventListener("change", () => { this.imageWorkbench.setLayout(Dom.layoutMediaSelect.value); this.updateState(); });\n        Dom.faviconToggle.addEventListener("click", () => {', 'layout events');
     $source = inkwall_template_replace_once($source,
         '        const signature = [\n          nameResult.clean,',
         '        const layout = { align: Dom.layoutAlignSelect.value, media: Dom.layoutMediaSelect.value };\n        const signature = [\n          nameResult.clean,', 'draft layout');

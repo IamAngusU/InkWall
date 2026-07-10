@@ -562,15 +562,30 @@ inkwall_begin_public_request('view');
     .display-content[data-layout-align="center"] .display-author { justify-content: center; }
     .display-content[data-layout-align="right"] .display-author { justify-content: flex-end; }
     .display-content.has-image[data-layout-media="left"] .display-body,
-    .display-content.has-image[data-layout-media="right"] .display-body { grid-template-rows: auto auto; align-items: center; column-gap: 22px; }
-    .display-content.has-image[data-layout-media="left"] .display-body { grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); grid-template-areas: "media message" "media author"; }
-    .display-content.has-image[data-layout-media="right"] .display-body { grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr); grid-template-areas: "message media" "author media"; }
+    .display-content.has-image[data-layout-media="right"] .display-body { grid-template-rows: auto auto; align-items: center; column-gap: 4%; }
+    .display-content.has-image[data-layout-media="left"] .display-body { grid-template-columns: 28% 68%; grid-template-areas: "media message" "media author"; }
+    .display-content.has-image[data-layout-media="right"] .display-body { grid-template-columns: 68% 28%; grid-template-areas: "message media" "author media"; }
     .display-content.has-image[data-layout-media="left"] .display-media,
     .display-content.has-image[data-layout-media="right"] .display-media { grid-area: media; height: 100%; min-height: 168px; }
     .display-content.has-image[data-layout-media="left"] .display-message,
     .display-content.has-image[data-layout-media="right"] .display-message { grid-area: message; }
     .display-content.has-image[data-layout-media="left"] .display-author,
     .display-content.has-image[data-layout-media="right"] .display-author { grid-area: author; }
+    .display { min-height: 0; aspect-ratio: 1200 / 340; container-type: inline-size; }
+    .display-content, .display-ghost { padding: 2cqw 5.15cqw; }
+    .display-meta, .display-foot { gap: 1.2cqw; font-size: 1.05cqw; }
+    .display-meta { padding-bottom: 1.2cqw; }
+    .display-foot { padding-top: 1.2cqw; }
+    .display-body { gap: 1.5cqw; padding: 1.4cqw 0; }
+    .display-message,
+    .display-content[data-density="compact"] .display-message { font-family: var(--mono); font-size: 2.67cqw; font-weight: 700; line-height: 1.15; letter-spacing: 0; }
+    .display-content.has-image .display-message,
+    .display-content.has-image[data-density="compact"] .display-message { font-size: 2.3cqw; }
+    .display-author { gap: .9cqw; margin-top: .35cqw; font-size: 1.25cqw; }
+    .display-author::before { width: 2.5cqw; }
+    .display-media { height: 7.17cqw; }
+    .display-content.has-image[data-layout-media="left"] .display-media,
+    .display-content.has-image[data-layout-media="right"] .display-media { height: 14.33cqw; min-height: 0; }
     .display-author { display: flex; align-items: center; gap: 11px; margin-top: 5px; color: var(--screen-muted); font-family: var(--mono); font-size: 9px; font-weight: 760; letter-spacing: .06em; text-transform: uppercase; }
     .display-author::before { width: 30px; height: 1px; content: ""; background: var(--screen-ink); }
 
@@ -820,16 +835,17 @@ inkwall_begin_public_request('view');
       .display-message { font-size: clamp(27px, 9vw, 38px); line-height: 1.02; }
       .display-content.has-image .display-media { height: 82px; }
       .display-content.has-image .display-message { font-size: clamp(22px, 7vw, 31px); }
-      .display-content.has-image[data-layout-media="left"] .display-body,
-      .display-content.has-image[data-layout-media="right"] .display-body { grid-template-columns: 1fr; grid-template-areas: "media" "message" "author"; grid-template-rows: auto; }
       .layout-options { grid-template-columns: 1fr; }
       .composer { gap: 15px; padding: 14px; border-radius: 13px; }
       .field, .layout-field, .image-field { padding: 12px; }
       .device { width: 100%; overflow: hidden; }
-      .display { min-height: clamp(330px, 104vw, 410px); border-radius: 8px; }
-      .display-content, .display-ghost { padding: 18px 17px; }
-      .display-message, .display-content.has-image .display-message { font-size: clamp(21px, 7.2vw, 29px); line-height: 1.12; letter-spacing: -.035em; }
-      .display-content.has-image .display-media { height: 108px; min-height: 108px; }
+      .display { min-height: 0; aspect-ratio: 1200 / 340; border-radius: 6px; }
+      .display-content, .display-ghost { padding: 2cqw 5.15cqw; }
+      .display-message, .display-content[data-density="compact"] .display-message { font-size: 2.67cqw; line-height: 1.15; }
+      .display-content.has-image .display-message, .display-content.has-image[data-density="compact"] .display-message { font-size: 2.3cqw; }
+      .display-content.has-image .display-media { height: 7.17cqw; min-height: 0; }
+      .display-content.has-image[data-layout-media="left"] .display-media,
+      .display-content.has-image[data-layout-media="right"] .display-media { height: 14.33cqw; }
       .display-meta span, .display-foot span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .display-author { margin-top: 8px; font-size: 7px; }
       .display-author::before { width: 22px; }
@@ -1482,7 +1498,7 @@ inkwall_begin_public_request('view');
     <footer class="policy">
       <div>
         <span class="policy-kicker">Visitor content and external destinations</span>
-        <p>Notes and linked destinations are submitted by visitors and do not represent Angus Uelsmann. External destinations are not endorsed or verified. Visitor inks can be reported. The prepared ink from Angus is owner managed and excluded from public reports. Priority safety reports place a visitor ink on immediate review hold. Other report categories require two independent signals before the note is hidden for review. Moderation rules, reporting procedures, and security controls are continuously maintained. Usage is correlated with a random browser pseudonym; only country hints and referrer domains are retained. Raw IP addresses, identities, user agents, and complete referrer URLs are not stored by InkWall.</p>
+        <p>Notes and linked destinations are submitted by visitors and do not represent Angus Uelsmann. External destinations are not endorsed or verified. Visitor inks can be reported. The prepared ink from Angus is owner managed and excluded from public reports. Priority safety reports place a visitor ink on immediate review hold. Other report categories require two independent signals before the note is hidden for review. Moderation rules, reporting procedures, and security controls are continuously maintained. Usage is correlated with a random browser pseudonym; only country hints and referrer domains are retained. Raw IP addresses, identities, browser fingerprints, and complete referrer URLs are not stored by InkWall.</p>
       </div>
       <a class="policy__report" href="#recentInks">Report a note</a>
     </footer>
@@ -2258,7 +2274,9 @@ inkwall_begin_public_request('view');
         this.job = 0;
         this.timer = null;
         this.processing = false;
+        this.frame = { key: "top", ratio: 1076 / 86, width: 1076, height: 86, label: "wide top" };
         this.bindEvents();
+        this.setLayout(Dom.layoutMediaSelect.value, false);
       }
 
       bindEvents() {
@@ -2342,6 +2360,20 @@ inkwall_begin_public_request('view');
         context.putImageData(frame, 0, 0);
       }
 
+      setLayout(media, scheduleBuild = true) {
+        const top = media === "auto" || media === "top";
+        this.frame = top
+          ? { key: "top", ratio: 1076 / 86, width: 1076, height: 86, label: "wide top" }
+          : { key: media, ratio: 300 / 172, width: 800, height: Math.round(800 * 172 / 300), label: `${media} 16:9` };
+        Dom.cropCanvas.width = this.frame.width;
+        Dom.cropCanvas.height = this.frame.height;
+        Dom.cropStage.style.aspectRatio = `${this.frame.width} / ${this.frame.height}`;
+        if (!this.source) return;
+        Dom.imageEditorState.textContent = `Adjusting ${this.frame.label} frame`;
+        this.renderPreview();
+        if (scheduleBuild) this.schedule(40);
+      }
+
       renderPreview() {
         if (!this.source) return;
         this.drawCrop(Dom.cropCanvas, this.source.element);
@@ -2383,7 +2415,7 @@ inkwall_begin_public_request('view');
           await new Promise(requestAnimationFrame);
           const canvas = document.createElement("canvas");
           canvas.width = width;
-          canvas.height = Math.round(width * 9 / 16);
+          canvas.height = Math.max(1, Math.round(width / this.frame.ratio));
           this.drawCrop(canvas, this.source.element);
           this.dither(canvas);
           this.setProgress(68 + index * 8, "Encoding WebP");
@@ -2403,9 +2435,9 @@ inkwall_begin_public_request('view');
           bytes: result.blob.size,
           name: cleanName,
           inverted: this.crop.invert,
-          signature: `${this.source.signature}:${this.crop.x.toFixed(2)}:${this.crop.y.toFixed(2)}:${this.crop.zoom.toFixed(2)}:${this.crop.invert ? 1 : 0}:${result.blob.size}`
+          signature: `${this.source.signature}:${this.frame.key}:${this.crop.x.toFixed(2)}:${this.crop.y.toFixed(2)}:${this.crop.zoom.toFixed(2)}:${this.crop.invert ? 1 : 0}:${result.blob.size}`
         };
-        Dom.imageMeta.textContent = `${cleanName} · ${Math.max(1, Math.round(result.blob.size / 1024))} KB · 16:9`;
+        Dom.imageMeta.textContent = `${cleanName} · ${Math.max(1, Math.round(result.blob.size / 1024))} KB · ${this.frame.label}`;
         Dom.imageEditorState.textContent = "Drag to reposition";
         this.processing = false;
         this.setProgress(100, "E-Ink image ready");
@@ -2444,6 +2476,7 @@ inkwall_begin_public_request('view');
           Dom.imageEditor.hidden = false;
           Dom.removeImageButton.hidden = false;
           Dom.imageMeta.textContent = `${file.name} · choose the frame`;
+          this.setLayout(Dom.layoutMediaSelect.value, false);
           this.renderPreview();
           this.schedule(20);
         } catch (error) {
@@ -3324,7 +3357,8 @@ inkwall_begin_public_request('view');
         Dom.nameInput.addEventListener("input", () => this.updateState());
         Dom.nameInput.addEventListener("blur", () => this.queueAutomaticApply(30));
         Dom.messageInput.addEventListener("input", () => { this.renderEntities(); this.updateState(); });
-        [Dom.layoutAlignSelect, Dom.layoutMediaSelect].forEach(control => control.addEventListener("change", () => this.updateState()));
+        Dom.layoutAlignSelect.addEventListener("change", () => this.updateState());
+        Dom.layoutMediaSelect.addEventListener("change", () => { this.imageWorkbench.setLayout(Dom.layoutMediaSelect.value); this.updateState(); });
         Dom.faviconToggle.addEventListener("click", () => {
           this.showFavicons = !this.showFavicons;
           Dom.faviconToggle.setAttribute("aria-pressed", String(this.showFavicons));
