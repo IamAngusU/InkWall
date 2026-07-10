@@ -237,7 +237,7 @@ inkwall_begin_public_request('view');
       gap: clamp(54px, 7vw, 104px);
       align-items: start;
     }
-    .composer { position: sticky; top: 82px; display: grid; gap: 25px; min-width: 0; }
+    .composer { position: sticky; top: 82px; display: grid; gap: 18px; min-width: 0; padding: 20px; border: 1px solid color-mix(in srgb, var(--line) 82%, transparent); border-radius: 16px; background: color-mix(in srgb, var(--paper) 36%, transparent); box-shadow: 0 18px 54px rgba(35, 39, 34, .07); }
     .step-label {
       display: flex;
       align-items: center;
@@ -249,7 +249,9 @@ inkwall_begin_public_request('view');
       text-transform: uppercase;
     }
     .step-label::after { height: 1px; flex: 1; content: ""; background: var(--line); }
-    .field { display: grid; gap: 11px; }
+    .field { display: grid; gap: 9px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 9px; background: color-mix(in srgb, var(--paper) 58%, transparent); transition: border-color .18s ease, background .18s ease, box-shadow .18s ease; }
+    .field:focus-within { border-color: var(--line-strong); background: color-mix(in srgb, var(--paper) 82%, transparent); box-shadow: 0 0 0 3px var(--focus); }
+    .field input, .field textarea, .field input:focus, .field textarea:focus { border-bottom: 0; box-shadow: none; }
     .field-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
     .field-label, .counter {
       color: var(--muted);
@@ -387,7 +389,11 @@ inkwall_begin_public_request('view');
     .entity-picker__custom input { height: 37px; padding: 0 9px; border: 1px solid var(--line); border-radius: 4px; background: var(--paper); font-size: 11px; }
     .entity-picker__save { min-width: 68px; border: 1px solid var(--line-strong); border-radius: 4px; color: var(--ink); background: transparent; cursor: pointer; font-family: var(--mono); font-size: 8px; font-weight: 760; letter-spacing: .05em; text-transform: uppercase; }
 
-    .image-field { position: relative; display: grid; gap: 10px; }
+    .layout-field { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--line); border-radius: 9px; background: color-mix(in srgb, var(--paper) 48%, transparent); }
+    .layout-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .layout-option { display: grid; gap: 5px; color: var(--muted); font-family: var(--mono); font-size: 8px; font-weight: 720; letter-spacing: .05em; text-transform: uppercase; }
+    .layout-option select { width: 100%; min-height: 38px; padding: 0 30px 0 10px; border: 1px solid var(--line); border-radius: 5px; color: var(--ink); background: var(--paper); font-family: var(--ui); font-size: 12px; font-weight: 650; text-transform: none; }
+    .image-field { position: relative; display: grid; gap: 10px; padding: 14px; border: 1px solid var(--line); border-radius: 9px; background: color-mix(in srgb, var(--paper) 48%, transparent); }
     .image-field.is-drop-target .image-line { border-color: var(--ink); box-shadow: 0 1px 0 var(--ink); }
     .image-drop-popover {
       position: fixed;
@@ -549,6 +555,22 @@ inkwall_begin_public_request('view');
       overflow-wrap: anywhere;
     }
     .display-content.has-image .display-message { font-size: clamp(29px, 3.25vw, 45px); }
+    .display-content[data-density="compact"] .display-message { font-size: clamp(30px, 3vw, 44px); line-height: 1.08; letter-spacing: -.038em; }
+    .display-content.has-image[data-density="compact"] .display-message { font-size: clamp(25px, 2.55vw, 37px); }
+    .display-content[data-layout-align="center"] .display-message { text-align: center; }
+    .display-content[data-layout-align="right"] .display-message { text-align: right; }
+    .display-content[data-layout-align="center"] .display-author { justify-content: center; }
+    .display-content[data-layout-align="right"] .display-author { justify-content: flex-end; }
+    .display-content.has-image[data-layout-media="left"] .display-body,
+    .display-content.has-image[data-layout-media="right"] .display-body { grid-template-rows: auto auto; align-items: center; column-gap: 22px; }
+    .display-content.has-image[data-layout-media="left"] .display-body { grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); grid-template-areas: "media message" "media author"; }
+    .display-content.has-image[data-layout-media="right"] .display-body { grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr); grid-template-areas: "message media" "author media"; }
+    .display-content.has-image[data-layout-media="left"] .display-media,
+    .display-content.has-image[data-layout-media="right"] .display-media { grid-area: media; height: 100%; min-height: 168px; }
+    .display-content.has-image[data-layout-media="left"] .display-message,
+    .display-content.has-image[data-layout-media="right"] .display-message { grid-area: message; }
+    .display-content.has-image[data-layout-media="left"] .display-author,
+    .display-content.has-image[data-layout-media="right"] .display-author { grid-area: author; }
     .display-author { display: flex; align-items: center; gap: 11px; margin-top: 5px; color: var(--screen-muted); font-family: var(--mono); font-size: 9px; font-weight: 760; letter-spacing: .06em; text-transform: uppercase; }
     .display-author::before { width: 30px; height: 1px; content: ""; background: var(--screen-ink); }
 
@@ -798,6 +820,17 @@ inkwall_begin_public_request('view');
       .display-message { font-size: clamp(27px, 9vw, 38px); line-height: 1.02; }
       .display-content.has-image .display-media { height: 82px; }
       .display-content.has-image .display-message { font-size: clamp(22px, 7vw, 31px); }
+      .display-content.has-image[data-layout-media="left"] .display-body,
+      .display-content.has-image[data-layout-media="right"] .display-body { grid-template-columns: 1fr; grid-template-areas: "media" "message" "author"; grid-template-rows: auto; }
+      .layout-options { grid-template-columns: 1fr; }
+      .composer { gap: 15px; padding: 14px; border-radius: 13px; }
+      .field, .layout-field, .image-field { padding: 12px; }
+      .device { width: 100%; overflow: hidden; }
+      .display { min-height: clamp(330px, 104vw, 410px); border-radius: 8px; }
+      .display-content, .display-ghost { padding: 18px 17px; }
+      .display-message, .display-content.has-image .display-message { font-size: clamp(21px, 7.2vw, 29px); line-height: 1.12; letter-spacing: -.035em; }
+      .display-content.has-image .display-media { height: 108px; min-height: 108px; }
+      .display-meta span, .display-foot span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .display-author { margin-top: 8px; font-size: 7px; }
       .display-author::before { width: 22px; }
       .publish-stage { grid-template-columns: 1fr; gap: 11px; padding-top: 14px; }
@@ -1304,6 +1337,18 @@ inkwall_begin_public_request('view');
           <div class="entity-strip" id="entityStrip" aria-label="Detected destinations"></div>
         </div>
 
+        <div class="layout-field">
+          <div class="field-head"><span class="field-label">Layout</span><span class="counter">Preserved in SVG</span></div>
+          <div class="layout-options">
+            <label class="layout-option">Text alignment
+              <select id="layoutAlignSelect"><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select>
+            </label>
+            <label class="layout-option">Image position
+              <select id="layoutMediaSelect"><option value="auto">Automatic</option><option value="top">Above text</option><option value="left">Left of text</option><option value="right">Right of text</option></select>
+            </label>
+          </div>
+        </div>
+
         <div class="image-field" id="imageField">
           <div class="field-head">
             <span class="field-label">Image</span>
@@ -1549,6 +1594,7 @@ inkwall_begin_public_request('view');
         image: null,
         bindings: Object.freeze({}),
         showFavicons: true,
+        layout: Object.freeze({ align: "left", media: "auto" }),
         reportable: false,
         prepared: true,
         createdAt: "2026-07-10T12:00:00.000Z"
@@ -1585,6 +1631,8 @@ inkwall_begin_public_request('view');
       entityStrip: document.getElementById("entityStrip"),
       faviconToggle: document.getElementById("faviconToggle"),
       faviconToggleText: document.getElementById("faviconToggleText"),
+      layoutAlignSelect: document.getElementById("layoutAlignSelect"),
+      layoutMediaSelect: document.getElementById("layoutMediaSelect"),
       entityPicker: document.getElementById("entityPicker"),
       entityPickerHandle: document.getElementById("entityPickerHandle"),
       entityPickerChoices: document.getElementById("entityPickerChoices"),
@@ -2050,6 +2098,10 @@ inkwall_begin_public_request('view');
           image: this.safeImage(record?.image),
           bindings: new BindingStore().sanitize(record?.bindings),
           showFavicons: record?.showFavicons !== false,
+          layout: {
+            align: ["left", "center", "right"].includes(record?.layout?.align) ? record.layout.align : "left",
+            media: ["auto", "top", "left", "right"].includes(record?.layout?.media) ? record.layout.media : "auto"
+          },
           reportable: prepared ? false : record?.reportable !== false,
           prepared,
           reactions: this.normalizeReactions(record?.reactions),
@@ -2078,8 +2130,7 @@ inkwall_begin_public_request('view');
 
       includePreparedMessage(messages) {
         const normalized = Array.isArray(messages) ? messages.map(item => this.normalize(item)) : [];
-        if (!normalized.some(item => item.id === AppConfig.preparedInk.id)) normalized.push(this.preparedMessage());
-        return normalized.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        return normalized.filter(item => item.id !== AppConfig.preparedInk.id).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
       }
 
       loadLocal() {
@@ -2101,7 +2152,7 @@ inkwall_begin_public_request('view');
         if (!response.ok) throw new Error("The live archive could not be loaded.");
         const payload = await response.json();
         const records = Array.isArray(payload) ? payload : payload.messages;
-        return this.includePreparedMessage(Array.isArray(records) ? records : []);
+        return (Array.isArray(records) ? records : []).map(item => this.normalize(item)).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
       }
 
       async publish(record, currentMessages) {
@@ -2142,6 +2193,12 @@ inkwall_begin_public_request('view');
         Dom.displayDate.textContent = this.formatDate(payload.date);
         Dom.displayName.textContent = payload.name || "Anonymous";
         LinkRenderer.render(Dom.displayMessage, payload.message, { bindings: payload.bindings, showFavicons: payload.showFavicons });
+        const layout = payload.layout || {};
+        const visualLines = String(payload.message || "").split(String.fromCharCode(10)).length;
+        const visualLength = Array.from(String(payload.message || "")).length;
+        Dom.displayContent.dataset.density = visualLength > 52 || visualLines > 1 || payload.image ? "compact" : "normal";
+        Dom.displayContent.dataset.layoutAlign = ["left", "center", "right"].includes(layout.align) ? layout.align : "left";
+        Dom.displayContent.dataset.layoutMedia = ["auto", "top", "left", "right"].includes(layout.media) ? layout.media : "auto";
         Dom.displayContent.classList.toggle("has-image", Boolean(payload.image));
         Dom.displayMedia.hidden = !payload.image;
         if (payload.image) {
@@ -3267,6 +3324,7 @@ inkwall_begin_public_request('view');
         Dom.nameInput.addEventListener("input", () => this.updateState());
         Dom.nameInput.addEventListener("blur", () => this.queueAutomaticApply(30));
         Dom.messageInput.addEventListener("input", () => { this.renderEntities(); this.updateState(); });
+        [Dom.layoutAlignSelect, Dom.layoutMediaSelect].forEach(control => control.addEventListener("change", () => this.updateState()));
         Dom.faviconToggle.addEventListener("click", () => {
           this.showFavicons = !this.showFavicons;
           Dom.faviconToggle.setAttribute("aria-pressed", String(this.showFavicons));
@@ -3296,14 +3354,16 @@ inkwall_begin_public_request('view');
         const nameResult = ModerationPolicy.inspectName(Dom.nameInput.value);
         const messageResult = ModerationPolicy.inspectMessage(Dom.messageInput.value);
         const bindings = this.bindingStore.activeFor(messageResult.clean);
+        const layout = { align: Dom.layoutAlignSelect.value, media: Dom.layoutMediaSelect.value };
         const signature = [
           nameResult.clean,
           messageResult.moderated,
           this.imageWorkbench.output?.signature || "",
           this.bindingStore.signature(messageResult.clean),
-          this.showFavicons ? "favicons:1" : "favicons:0"
+          this.showFavicons ? "favicons:1" : "favicons:0",
+          `layout:${layout.align}:${layout.media}`
         ].join("\n--\n");
-        return { nameResult, messageResult, bindings, signature, image: this.imageWorkbench.output };
+        return { nameResult, messageResult, bindings, signature, image: this.imageWorkbench.output, layout };
       }
 
       setStatus(message, tone = "neutral") {
@@ -3473,6 +3533,7 @@ inkwall_begin_public_request('view');
           image: draft.image,
           bindings: draft.bindings,
           showFavicons: this.showFavicons,
+          layout: draft.layout,
           date: new Date()
         }, { revealOnMobile });
         this.renderRecent();
@@ -3495,6 +3556,7 @@ inkwall_begin_public_request('view');
             image: draft.image,
             bindings: draft.bindings,
             showFavicons: this.showFavicons,
+            layout: draft.layout,
             createdAt: new Date().toISOString()
           }, this.messages);
           this.messages = [record, ...this.messages.filter(item => item.id !== record.id)].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));

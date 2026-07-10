@@ -1,13 +1,13 @@
 <?php
 declare(strict_types=1);
 $theme = ($_GET['theme'] ?? 'light') === 'dark' ? 'dark' : 'light';
-$action = ($_GET['action'] ?? 'live') === 'repo' ? 'repo' : 'live';
+$action = in_array(($_GET['action'] ?? 'live'), ['live', 'repo', 'profile'], true) ? (string)$_GET['action'] : 'live';
 $dark = $theme === 'dark';
 $paper = $dark ? '#191916' : '#efefe9';
 $ink = $dark ? '#f1f0e8' : '#171714';
 $muted = $dark ? '#a9a89e' : '#66665f';
-$label = $action === 'repo' ? 'VIEW REPOSITORY' : 'OPEN LIVE SURFACE';
-$detail = $action === 'repo' ? 'SOURCE / README' : 'LEAVE THE NEXT INK';
+$label = match ($action) { 'repo' => 'VIEW REPOSITORY', 'profile' => 'VIEW LIVE PROFILE', default => 'OPEN LIVE SURFACE' };
+$detail = match ($action) { 'repo' => 'SOURCE / README', 'profile' => 'GITHUB / IAMANGUSU', default => 'LEAVE THE NEXT INK' };
 header('Content-Type: image/svg+xml; charset=utf-8');
 header('Cache-Control: no-cache, max-age=0, must-revalidate');
 header('X-Content-Type-Options: nosniff');

@@ -39,6 +39,7 @@ if ($method === 'POST' && $path === 'messages') {
         $imageInverted = !empty($image['inverted']) ? 1 : 0; $imageSignature = inkwall_clean_text($image['signature'] ?? '', 190);
     }
     $bindings = is_array($body['bindings'] ?? null) ? $body['bindings'] : [];
+    $layout = inkwall_layout($body['layout'] ?? []);
     $cleanBindings = [];
     foreach (array_slice($bindings, 0, 8, true) as $handle => $binding) {
         if (!preg_match('/^[a-z0-9_.-]{1,40}$/i', (string)$handle) || !is_array($binding)) continue;
@@ -47,10 +48,10 @@ if ($method === 'POST' && $path === 'messages') {
         $cleanBindings[(string)$handle] = ['platform' => inkwall_clean_text($binding['platform'] ?? '', 20), 'url' => substr($url, 0, 500)];
     }
     $now = inkwall_now();
-    $stmt = inkwall_db()->prepare('INSERT INTO inkwall_notes (id, author_name, message_text, image_data, image_mime, image_name, image_width, image_height, image_bytes, image_inverted, image_signature, bindings_json, show_favicons, status, moderation_flags, visitor_hash, country, referrer_host, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    $stmt = inkwall_db()->prepare('INSERT INTO inkwall_notes (id, author_name, message_text, image_data, image_mime, image_name, image_width, image_height, image_bytes, image_inverted, image_signature, bindings_json, layout_json, show_favicons, status, moderation_flags, visitor_hash, country, referrer_host, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
     $stmt->bindValue(1, $id); $stmt->bindValue(2, $name); $stmt->bindValue(3, $message);
     $stmt->bindValue(4, $imageData, $imageData === null ? PDO::PARAM_NULL : PDO::PARAM_LOB);
-    $values = [$imageMime, $imageName, $imageWidth, $imageHeight, $imageBytes, $imageInverted, $imageSignature, json_encode($cleanBindings, JSON_UNESCAPED_SLASHES), !empty($body['showFavicons']) ? 1 : 0, 'published', json_encode($flags), $visitor, inkwall_country(), inkwall_referrer_host(), $now, $now];
+    $values = [$imageMime, $imageName, $imageWidth, $imageHeight, $imageBytes, $imageInverted, $imageSignature, json_encode($cleanBindings, JSON_UNESCAPED_SLASHES), json_encode($layout, JSON_UNESCAPED_SLASHES), !empty($body['showFavicons']) ? 1 : 0, 'published', json_encode($flags), $visitor, inkwall_country(), inkwall_referrer_host(), $now, $now];
     foreach ($values as $index => $value) $stmt->bindValue($index + 5, $value);
     $stmt->execute();
     inkwall_event('publish', $id, ['has_image' => $imageBytes > 0]);
