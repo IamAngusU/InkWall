@@ -69,7 +69,7 @@ The production deployment targets PHP 8.1+ with PDO SQLite and the `/inkwall` pa
 ```bash
 git clone https://github.com/IamAngusU/InkWall.git
 cd InkWall
-php -S 127.0.0.1:8080 -t public
+php -S 127.0.0.1:8080 -t public public/router.php
 ```
 
 For clean API routes and `latest.svg`, use the example Nginx locations in [`deploy/nginx.location.conf`](deploy/nginx.location.conf). The runtime needs write access to `data/`; that directory and its generated HMAC secret are ignored by Git.
