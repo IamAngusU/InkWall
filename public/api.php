@@ -29,12 +29,12 @@ if ($method === 'POST' && $path === 'messages') {
     $imageData = null; $imageMime = null; $imageName = null; $imageWidth = 0; $imageHeight = 0; $imageBytes = 0; $imageInverted = 0; $imageSignature = null;
     if (is_array($body['image'] ?? null)) {
         $image = $body['image'];
-        if (!preg_match('~^data:image/webp;base64,([A-Za-z0-9+/=]+)$~', (string)($image['src'] ?? ''), $match)) inkwall_json(['error' => 'Only processed WebP images are accepted.'], 422);
-        $imageData = base64_decode($match[1], true);
+        if (!preg_match('~^data:image/(webp|png|jpeg);base64,([A-Za-z0-9+/=]+)$~', (string)($image['src'] ?? ''), $match)) inkwall_json(['error' => 'Only processed WebP, PNG or JPEG images are accepted.'], 422);
+        $imageData = base64_decode($match[2], true);
         if ($imageData === false || strlen($imageData) > 480 * 1024) inkwall_json(['error' => 'The processed image is too large.'], 422);
         $info = @getimagesizefromstring($imageData);
-        if (!$info || ($info['mime'] ?? '') !== 'image/webp') inkwall_json(['error' => 'The processed image is invalid.'], 422);
-        $imageMime = 'image/webp'; $imageName = inkwall_clean_text($image['name'] ?? 'image.webp', 96);
+        if (!$info || !in_array(($info['mime'] ?? ''), ['image/webp', 'image/png', 'image/jpeg'], true)) inkwall_json(['error' => 'The processed image is invalid.'], 422);
+        $imageMime = (string)$info['mime']; $imageName = inkwall_clean_text($image['name'] ?? 'image', 96);
         $imageWidth = (int)$info[0]; $imageHeight = (int)$info[1]; $imageBytes = strlen($imageData);
         $imageInverted = !empty($image['inverted']) ? 1 : 0; $imageSignature = inkwall_clean_text($image['signature'] ?? '', 190);
     }

@@ -151,8 +151,25 @@ function inkwall_migrate(PDO $pdo): void {
 function inkwall_layout(mixed $input): array {
     $input = is_array($input) ? $input : [];
     $align = in_array(($input['align'] ?? ''), ['left', 'center', 'right'], true) ? $input['align'] : 'left';
-    $media = in_array(($input['media'] ?? ''), ['auto', 'top', 'left', 'right'], true) ? $input['media'] : 'auto';
-    return ['align' => $align, 'media' => $media];
+    $media = in_array(($input['media'] ?? ''), ['top', 'left', 'right'], true) ? $input['media'] : 'left';
+    $texture = in_array(($input['texture'] ?? ''), ['dots', 'clean'], true) ? $input['texture'] : 'dots';
+    $fontSize = max(24, min(42, (int)($input['fontSize'] ?? 32)));
+    $bold = array_key_exists('bold', $input) ? (bool)$input['bold'] : true;
+    $radiusMode = ($input['radiusMode'] ?? '') === 'custom' ? 'custom' : 'all';
+    $radiusAll = max(0, min(42, (int)($input['radiusAll'] ?? 0)));
+    $rawRadii = is_array($input['radii'] ?? null) ? $input['radii'] : [];
+    $radii = [
+        'tl' => max(0, min(42, (int)($rawRadii['tl'] ?? $radiusAll))),
+        'tr' => max(0, min(42, (int)($rawRadii['tr'] ?? $radiusAll))),
+        'br' => max(0, min(42, (int)($rawRadii['br'] ?? $radiusAll))),
+        'bl' => max(0, min(42, (int)($rawRadii['bl'] ?? $radiusAll))),
+    ];
+    if ($radiusMode === 'all') $radii = ['tl' => $radiusAll, 'tr' => $radiusAll, 'br' => $radiusAll, 'bl' => $radiusAll];
+    return [
+        'align' => $align, 'media' => $media, 'texture' => $texture,
+        'fontSize' => $fontSize, 'bold' => $bold,
+        'radiusMode' => $radiusMode, 'radiusAll' => $radiusAll, 'radii' => $radii,
+    ];
 }
 
 function inkwall_event(string $type, ?string $noteId = null, array $meta = []): void {
@@ -232,7 +249,8 @@ function inkwall_public_note(array $row, string $visitorHash): array {
         $image = [
             'src' => '/inkwall/media.php?id=' . rawurlencode($row['id']),
             'width' => (int)$row['image_width'], 'height' => (int)$row['image_height'],
-            'bytes' => (int)$row['image_bytes'], 'name' => $row['image_name'] ?: 'image.webp',
+            'bytes' => (int)$row['image_bytes'], 'name' => $row['image_name'] ?: 'image',
+            'mime' => $row['image_mime'] ?: 'image/webp',
             'inverted' => (bool)$row['image_inverted'], 'signature' => $row['image_signature'] ?: '',
         ];
     }

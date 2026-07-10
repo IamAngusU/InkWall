@@ -389,10 +389,50 @@ inkwall_begin_public_request('view');
     .entity-picker__custom input { height: 37px; padding: 0 9px; border: 1px solid var(--line); border-radius: 4px; background: var(--paper); font-size: 11px; }
     .entity-picker__save { min-width: 68px; border: 1px solid var(--line-strong); border-radius: 4px; color: var(--ink); background: transparent; cursor: pointer; font-family: var(--mono); font-size: 8px; font-weight: 760; letter-spacing: .05em; text-transform: uppercase; }
 
-    .layout-field { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--line); border-radius: 9px; background: color-mix(in srgb, var(--paper) 48%, transparent); }
-    .layout-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-    .layout-option { display: grid; gap: 5px; color: var(--muted); font-family: var(--mono); font-size: 8px; font-weight: 720; letter-spacing: .05em; text-transform: uppercase; }
-    .layout-option select { width: 100%; min-height: 38px; padding: 0 30px 0 10px; border: 1px solid var(--line); border-radius: 5px; color: var(--ink); background: var(--paper); font-family: var(--ui); font-size: 12px; font-weight: 650; text-transform: none; }
+    .layout-field { display: grid; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 9px; background: color-mix(in srgb, var(--paper) 48%, transparent); }
+    .layout-options { display: grid; gap: 11px; }
+    .layout-option { display: grid; gap: 6px; color: var(--muted); font-family: var(--mono); font-size: 8px; font-weight: 720; letter-spacing: .05em; text-transform: uppercase; }
+    .choice-row { display: grid; grid-template-columns: repeat(var(--choice-count, 3), minmax(0, 1fr)); gap: 6px; }
+    .choice-row input { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; }
+    .choice-row span {
+      display: grid;
+      grid-template-rows: 22px auto;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      min-height: 54px;
+      padding: 8px 7px 7px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      color: var(--ink-soft);
+      background: color-mix(in srgb, var(--paper) 62%, transparent);
+      cursor: pointer;
+      font-family: var(--ui);
+      font-size: 12px;
+      font-weight: 690;
+      letter-spacing: -.012em;
+      text-align: center;
+      text-transform: none;
+      transition: color .16s ease, border-color .16s ease, background .16s ease, transform .18s var(--ease);
+    }
+    .choice-icon {
+      display: block;
+      width: 22px;
+      height: 22px;
+      background: currentColor;
+      mask: var(--choice-icon) center / contain no-repeat;
+      -webkit-mask: var(--choice-icon) center / contain no-repeat;
+    }
+    .choice-row b { font: inherit; line-height: 1; }
+    .choice-row label:hover span { border-color: var(--line-strong); color: var(--ink); background: var(--paper); transform: translateY(-1px); }
+    .choice-row input:focus-visible + span { outline: 3px solid var(--focus); outline-offset: 2px; }
+    .choice-row input:checked + span { border-color: var(--ink-soft); color: var(--ink); background: var(--paper); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 12%, transparent); }
+    .layout-sliders { display: grid; gap: 10px; }
+    .layout-range { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px 10px; align-items: center; color: var(--muted); font-family: var(--mono); font-size: 8px; font-weight: 720; letter-spacing: .05em; text-transform: uppercase; }
+    .layout-range input[type="range"] { grid-column: 1 / -1; height: auto; padding: 0; border: 0; accent-color: var(--screen-ink); }
+    .layout-range output { color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+    .radius-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 10px; }
+    .radius-grid[hidden] { display: none; }
     .image-field { position: relative; display: grid; gap: 10px; padding: 14px; border: 1px solid var(--line); border-radius: 9px; background: color-mix(in srgb, var(--paper) 48%, transparent); }
     .image-field.is-drop-target .image-line { border-color: var(--ink); box-shadow: 0 1px 0 var(--ink); }
     .image-drop-popover {
@@ -448,7 +488,7 @@ inkwall_begin_public_request('view');
     .image-progress__fill { display: block; width: 0; height: 100%; background: repeating-linear-gradient(135deg, var(--screen-ink) 0 2px, color-mix(in srgb, var(--screen-ink) 70%, var(--paper)) 2px 4px); transition: width .28s var(--ease); }
     .image-editor { display: grid; gap: 10px; padding: 4px 0 3px; }
     .image-editor__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--muted); font-family: var(--mono); font-size: 8px; font-weight: 720; letter-spacing: .05em; text-transform: uppercase; }
-    .crop-stage { position: relative; aspect-ratio: 16 / 9; overflow: hidden; border: 1px solid var(--line-strong); background: var(--paper); cursor: grab; touch-action: none; user-select: none; }
+    .crop-stage { position: relative; aspect-ratio: 16 / 9; overflow: hidden; border: 1px solid var(--line-strong); background: var(--paper); cursor: grab; touch-action: none; user-select: none; overscroll-behavior: contain; }
     .crop-stage:active { cursor: grabbing; }
     .crop-stage canvas { display: block; width: 100%; height: 100%; pointer-events: none; }
     .crop-stage::after {
@@ -510,7 +550,8 @@ inkwall_begin_public_request('view');
     .display-live::before { width: 6px; height: 6px; border-radius: 50%; content: ""; background: var(--positive); box-shadow: 0 0 0 3px color-mix(in srgb, var(--positive) 12%, transparent); }
     .display {
       position: relative;
-      min-height: 510px;
+      width: 100%;
+      aspect-ratio: var(--display-ratio, 1200 / 340);
       overflow: hidden;
       border: 1px solid var(--device-edge);
       border-radius: 4px;
@@ -519,22 +560,11 @@ inkwall_begin_public_request('view');
       isolation: isolate;
       transition: background .45s var(--ease), border-color .45s var(--ease), color .45s var(--ease);
     }
-    .display::before {
-      position: absolute;
-      inset: 0;
-      z-index: 7;
-      content: "";
-      pointer-events: none;
-      opacity: .28;
-      mix-blend-mode: multiply;
-      background:
-        radial-gradient(circle at 17% 23%, rgba(30, 34, 29, .12) 0 .42px, transparent .72px),
-        radial-gradient(circle at 72% 61%, rgba(30, 34, 29, .09) 0 .45px, transparent .78px),
-        repeating-linear-gradient(0deg, transparent 0 2px, rgba(32, 36, 31, .045) 2px 3px, transparent 3px 5px);
-      background-size: 5px 5px, 7px 7px, auto;
-    }
-    html[data-theme="dark"] .display::before { mix-blend-mode: screen; opacity: .16; }
+    .display::before { display: none; }
+    .display-svg-preview { position: relative; z-index: 3; display: block; width: 100%; height: 100%; background: var(--paper); }
+    .display-svg-preview svg { display: block; width: 100%; height: 100%; }
     .display-content, .display-ghost { position: absolute; inset: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; padding: clamp(34px, 4.4vw, 54px); }
+    .display-content, .display-ghost { display: none !important; }
     .display-content { z-index: 3; }
     .display-ghost { z-index: 2; opacity: 0; pointer-events: none; }
     .display-meta, .display-foot { display: flex; align-items: center; justify-content: space-between; gap: 14px; color: var(--screen-muted); font-size: 8px; font-weight: 720; letter-spacing: .07em; text-transform: uppercase; }
@@ -717,6 +747,16 @@ inkwall_begin_public_request('view');
     .recent-entry.is-active { background: color-mix(in srgb, var(--paper) 58%, transparent); }
     .recent-index { padding-top: 5px; color: var(--muted); font-size: 9px; font-weight: 720; }
     .recent-main { display: grid; gap: 12px; min-width: 0; }
+    .recent-svg-preview {
+      width: min(100%, 640px);
+      max-height: 230px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--paper);
+      box-shadow: 0 12px 34px rgba(35, 39, 34, .06);
+    }
+    .recent-svg-preview svg { display: block; width: 100%; height: auto; }
     .recent-message { margin: 0; color: var(--ink); font-family: var(--reader); font-size: clamp(22px, 2.3vw, 34px); font-weight: 600; letter-spacing: -.036em; line-height: 1.08; white-space: pre-wrap; overflow-wrap: anywhere; }
     .recent-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; color: var(--muted); font-size: 8px; font-weight: 680; letter-spacing: .025em; text-transform: uppercase; }
     .recent-meta strong { color: var(--ink-soft); }
@@ -823,6 +863,7 @@ inkwall_begin_public_request('view');
       .image-line { grid-template-columns: auto minmax(0, 1fr); }
       .image-remove { grid-column: 1 / -1; justify-self: start; }
       .image-controls { grid-template-columns: 1fr; }
+      .crop-stage { min-height: 186px; }
       .device { padding: 9px; border-radius: 17px; box-shadow: 0 18px 50px rgba(34, 38, 33, .13); }
       .device::before { inset: 4px; border-radius: 13px; }
       .display-label { padding: 6px 7px 9px; font-size: 7px; }
@@ -860,6 +901,7 @@ inkwall_begin_public_request('view');
       .site-footer__repo { width: 100%; justify-content: center; }
       .recent-entry { grid-template-columns: 28px minmax(0, 1fr); gap: 12px; padding: 20px 0; }
       .recent-actions { grid-column: 2; display: flex; gap: 14px; justify-items: start; justify-content: flex-start; }
+      .recent-svg-preview { max-height: 170px; }
       .recent-message { font-size: clamp(22px, 7vw, 29px); }
       .policy { grid-template-columns: 1fr; gap: 14px; margin-top: 58px; }
       .toast { right: 12px; bottom: 12px; left: 12px; max-width: none; }
@@ -1356,12 +1398,52 @@ inkwall_begin_public_request('view');
         <div class="layout-field">
           <div class="field-head"><span class="field-label">Layout</span><span class="counter">Preserved in SVG</span></div>
           <div class="layout-options">
-            <label class="layout-option">Text alignment
-              <select id="layoutAlignSelect"><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select>
-            </label>
-            <label class="layout-option">Image position
-              <select id="layoutMediaSelect"><option value="auto">Automatic</option><option value="top">Above text</option><option value="left">Left of text</option><option value="right">Right of text</option></select>
-            </label>
+            <div class="layout-option">Text alignment
+              <div class="choice-row" id="layoutAlignChoices" role="radiogroup" aria-label="Text alignment">
+                <label><input type="radio" name="layoutAlign" value="left" checked><span><i class="choice-icon" style="--choice-icon: url('assets/icons/align-left.svg')" aria-hidden="true"></i><b>Left</b></span></label>
+                <label><input type="radio" name="layoutAlign" value="center"><span><i class="choice-icon" style="--choice-icon: url('assets/icons/align-center.svg')" aria-hidden="true"></i><b>Center</b></span></label>
+                <label><input type="radio" name="layoutAlign" value="right"><span><i class="choice-icon" style="--choice-icon: url('assets/icons/align-right.svg')" aria-hidden="true"></i><b>Right</b></span></label>
+              </div>
+            </div>
+            <div class="layout-option">Image position
+              <div class="choice-row" id="layoutMediaChoices" role="radiogroup" aria-label="Image position">
+                <label><input type="radio" name="layoutMedia" value="top" checked><span><i class="choice-icon" style="--choice-icon: url('assets/icons/image-top.svg')" aria-hidden="true"></i><b>Above</b></span></label>
+                <label><input type="radio" name="layoutMedia" value="left"><span><i class="choice-icon" style="--choice-icon: url('assets/icons/image-left.svg')" aria-hidden="true"></i><b>Left</b></span></label>
+                <label><input type="radio" name="layoutMedia" value="right"><span><i class="choice-icon" style="--choice-icon: url('assets/icons/image-right.svg')" aria-hidden="true"></i><b>Right</b></span></label>
+              </div>
+            </div>
+            <div class="layout-option">Paper texture
+              <div class="choice-row" id="layoutTextureChoices" role="radiogroup" aria-label="Paper texture" style="--choice-count: 2">
+                <label><input type="radio" name="layoutTexture" value="dots" checked><span><i class="choice-icon" style="--choice-icon: url('assets/icons/texture-dots.svg')" aria-hidden="true"></i><b>Dots</b></span></label>
+                <label><input type="radio" name="layoutTexture" value="clean"><span><i class="choice-icon" style="--choice-icon: url('assets/icons/texture-clean.svg')" aria-hidden="true"></i><b>Clean</b></span></label>
+              </div>
+            </div>
+            <div class="layout-sliders">
+              <label class="layout-range">Font size <output id="fontSizeValue">32</output>
+                <input id="fontSizeInput" type="range" min="24" max="42" step="1" value="32">
+              </label>
+              <div class="layout-option">Weight
+                <div class="choice-row" id="fontWeightChoices" role="radiogroup" aria-label="Text weight" style="--choice-count: 2">
+                  <label><input type="radio" name="fontWeight" value="regular"><span><b>Regular</b></span></label>
+                  <label><input type="radio" name="fontWeight" value="bold" checked><span><b>Bold</b></span></label>
+                </div>
+              </div>
+              <div class="layout-option">Image corners
+                <div class="choice-row" id="radiusModeChoices" role="radiogroup" aria-label="Image corner radius mode" style="--choice-count: 2">
+                  <label><input type="radio" name="radiusMode" value="all" checked><span><b>All</b></span></label>
+                  <label><input type="radio" name="radiusMode" value="custom"><span><b>Corners</b></span></label>
+                </div>
+              </div>
+              <label class="layout-range" id="radiusAllControl">Image radius <output id="radiusAllValue">0</output>
+                <input id="radiusAllInput" type="range" min="0" max="42" step="1" value="0">
+              </label>
+              <div class="radius-grid" id="radiusCornerControls" hidden>
+                <label class="layout-range">Top left <output id="radiusTlValue">0</output><input id="radiusTlInput" type="range" min="0" max="42" step="1" value="0"></label>
+                <label class="layout-range">Top right <output id="radiusTrValue">0</output><input id="radiusTrInput" type="range" min="0" max="42" step="1" value="0"></label>
+                <label class="layout-range">Bottom right <output id="radiusBrValue">0</output><input id="radiusBrInput" type="range" min="0" max="42" step="1" value="0"></label>
+                <label class="layout-range">Bottom left <output id="radiusBlValue">0</output><input id="radiusBlInput" type="range" min="0" max="42" step="1" value="0"></label>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1379,7 +1461,7 @@ inkwall_begin_public_request('view');
             <button class="image-remove" id="removeImageButton" type="button" hidden>Remove</button>
           </div>
           <input class="file-input" id="imageInput" type="file" accept="image/jpeg,image/png,image/webp,image/avif">
-          <p class="image-note">Converted locally to a four-tone WebP. Drag the crop, zoom, or invert the image independently from the page theme.</p>
+          <p class="image-note">Converted locally to a four-tone WebP. Drag the crop, pinch with two fingers, use the zoom slider, or invert the image independently from the page theme.</p>
 
           <div class="image-progress" id="imageProgress" hidden>
             <div class="image-progress__head">
@@ -1422,6 +1504,7 @@ inkwall_begin_public_request('view');
             <span class="display-live" id="deviceState">Live surface</span>
           </div>
           <div class="display" id="display">
+            <div class="display-svg-preview" id="displaySvgPreview" role="img" aria-label="InkWall preview"></div>
             <div class="display-ghost" id="displayGhost" aria-hidden="true"></div>
             <div class="display-content" id="displayContent">
               <div class="display-meta">
@@ -1610,13 +1693,13 @@ inkwall_begin_public_request('view');
         image: null,
         bindings: Object.freeze({}),
         showFavicons: true,
-        layout: Object.freeze({ align: "left", media: "auto" }),
+        layout: Object.freeze({ align: "left", media: "left", texture: "dots", fontSize: 32, bold: true, radiusMode: "all", radiusAll: 0, radii: Object.freeze({ tl: 0, tr: 0, br: 0, bl: 0 }) }),
         reportable: false,
         prepared: true,
         createdAt: "2026-07-10T12:00:00.000Z"
       }),
       limits: Object.freeze({ name: 28, message: 120, imageInputBytes: 12 * 1024 * 1024, imageOutputBytes: 480 * 1024 }),
-      archivePageSize: 5,
+      archivePageSize: 3,
       archiveLocalLimit: 250,
       refreshDuration: 1350,
       refreshSwapDelay: 575,
@@ -1647,8 +1730,25 @@ inkwall_begin_public_request('view');
       entityStrip: document.getElementById("entityStrip"),
       faviconToggle: document.getElementById("faviconToggle"),
       faviconToggleText: document.getElementById("faviconToggleText"),
-      layoutAlignSelect: document.getElementById("layoutAlignSelect"),
-      layoutMediaSelect: document.getElementById("layoutMediaSelect"),
+      layoutAlignChoices: document.getElementById("layoutAlignChoices"),
+      layoutMediaChoices: document.getElementById("layoutMediaChoices"),
+      layoutTextureChoices: document.getElementById("layoutTextureChoices"),
+      fontSizeInput: document.getElementById("fontSizeInput"),
+      fontSizeValue: document.getElementById("fontSizeValue"),
+      fontWeightChoices: document.getElementById("fontWeightChoices"),
+      radiusModeChoices: document.getElementById("radiusModeChoices"),
+      radiusAllControl: document.getElementById("radiusAllControl"),
+      radiusAllInput: document.getElementById("radiusAllInput"),
+      radiusAllValue: document.getElementById("radiusAllValue"),
+      radiusCornerControls: document.getElementById("radiusCornerControls"),
+      radiusTlInput: document.getElementById("radiusTlInput"),
+      radiusTlValue: document.getElementById("radiusTlValue"),
+      radiusTrInput: document.getElementById("radiusTrInput"),
+      radiusTrValue: document.getElementById("radiusTrValue"),
+      radiusBrInput: document.getElementById("radiusBrInput"),
+      radiusBrValue: document.getElementById("radiusBrValue"),
+      radiusBlInput: document.getElementById("radiusBlInput"),
+      radiusBlValue: document.getElementById("radiusBlValue"),
       entityPicker: document.getElementById("entityPicker"),
       entityPickerHandle: document.getElementById("entityPickerHandle"),
       entityPickerChoices: document.getElementById("entityPickerChoices"),
@@ -1673,6 +1773,7 @@ inkwall_begin_public_request('view');
       imageInvertButton: document.getElementById("imageInvertButton"),
       imageDropPopover: document.getElementById("imageDropPopover"),
       display: document.getElementById("display"),
+      displaySvgPreview: document.getElementById("displaySvgPreview"),
       displayContent: document.getElementById("displayContent"),
       displayGhost: document.getElementById("displayGhost"),
       displayMode: document.getElementById("displayMode"),
@@ -1717,6 +1818,10 @@ inkwall_begin_public_request('view');
       PUBLISH: "publish",
       VIEW_LIVE: "view-live"
     });
+
+    function selectedChoice(name, fallback) {
+      return document.querySelector(`input[name="${name}"]:checked`)?.value || fallback;
+    }
 
     class NavigationController {
       static isAngusuReferrer() {
@@ -2107,6 +2212,19 @@ inkwall_begin_public_request('view');
         const date = new Date(record?.createdAt || Date.now());
         const createdAt = Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
         const prepared = Boolean(record?.prepared || record?.id === AppConfig.preparedInk.id);
+        const radiusMode = record?.layout?.radiusMode === "custom" ? "custom" : "all";
+        const radiusAll = Math.max(0, Math.min(42, Number(record?.layout?.radiusAll) || 0));
+        const cornerRadius = value => {
+          const numeric = Number(value);
+          return Math.max(0, Math.min(42, Number.isFinite(numeric) ? numeric : radiusAll));
+        };
+        const radii = {
+          tl: cornerRadius(record?.layout?.radii?.tl),
+          tr: cornerRadius(record?.layout?.radii?.tr),
+          br: cornerRadius(record?.layout?.radii?.br),
+          bl: cornerRadius(record?.layout?.radii?.bl)
+        };
+        if (radiusMode === "all") Object.assign(radii, { tl: radiusAll, tr: radiusAll, br: radiusAll, bl: radiusAll });
         return {
           id: String(record?.id || crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`),
           name: String(record?.name || "Anonymous").slice(0, AppConfig.limits.name),
@@ -2116,7 +2234,13 @@ inkwall_begin_public_request('view');
           showFavicons: record?.showFavicons !== false,
           layout: {
             align: ["left", "center", "right"].includes(record?.layout?.align) ? record.layout.align : "left",
-            media: ["auto", "top", "left", "right"].includes(record?.layout?.media) ? record.layout.media : "auto"
+            media: ["top", "left", "right"].includes(record?.layout?.media) ? record.layout.media : "left",
+            texture: ["dots", "clean"].includes(record?.layout?.texture) ? record.layout.texture : "dots",
+            fontSize: Math.max(24, Math.min(42, Number(record?.layout?.fontSize) || 32)),
+            bold: record?.layout?.bold !== false,
+            radiusMode,
+            radiusAll,
+            radii
           },
           reportable: prepared ? false : record?.reportable !== false,
           prepared,
@@ -2128,13 +2252,14 @@ inkwall_begin_public_request('view');
       safeImage(image) {
         if (!image || typeof image !== "object") return null;
         const src = String(image.src || "");
-        if (!/^data:image\/webp;base64,[A-Za-z0-9+/=]+$/.test(src) && !/^\/inkwall\/media\.php\?id=[a-f0-9-]{20,40}$/i.test(src)) return null;
+        if (!/^data:image\/(?:webp|png|jpeg);base64,[A-Za-z0-9+/=]+$/.test(src) && !/^\/inkwall\/media\.php\?id=[a-f0-9-]{20,40}$/i.test(src)) return null;
         return {
           src,
           width: Number(image.width) || 0,
           height: Number(image.height) || 0,
           bytes: Number(image.bytes) || 0,
-          name: String(image.name || "image.webp").slice(0, 96),
+          mime: String(image.mime || ""),
+          name: String(image.name || "image").slice(0, 96),
           inverted: Boolean(image.inverted),
           signature: String(image.signature || "")
         };
@@ -2190,40 +2315,144 @@ inkwall_begin_public_request('view');
     }
 
     class EInkDisplay {
-      constructor() { this.currentPayload = null; this.refreshing = false; }
+      constructor() { this.currentPayload = null; this.refreshing = false; this.svgSerial = 0; }
 
       formatDate(date) {
-        return new Intl.DateTimeFormat("en-GB", {
+        return new Intl.DateTimeFormat("de-DE", {
           day: "2-digit", month: "2-digit", year: "numeric",
-          hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false
-        }).format(date).replace(",", "");
+          hour: "2-digit", minute: "2-digit", hour12: false,
+          timeZone: "Europe/Berlin", timeZoneName: "short"
+        }).format(date).replace(",", " ·");
       }
 
       snapshotGhost() { Dom.displayGhost.innerHTML = Dom.displayContent.innerHTML; }
 
+      escapeSvg(value) {
+        return String(value ?? "").replace(/[&<>"']/g, character => {
+          if (character === "&") return "&" + "amp;";
+          if (character === "<") return "&" + "lt;";
+          if (character === ">") return "&" + "gt;";
+          if (character === '"') return "&" + "quot;";
+          return "&" + "apos;";
+        });
+      }
+
+      wrapParagraph(text, limit) {
+        const words = String(text || "").trim().split(/\s+/u).filter(Boolean);
+        const lines = [];
+        let line = "";
+        for (let word of words) {
+          while (Array.from(word).length > limit) {
+            if (line) { lines.push(line); line = ""; }
+            line = Array.from(word).slice(0, limit).join("");
+            lines.push(line);
+            word = Array.from(word).slice(limit).join("");
+          }
+          if (!word) continue;
+          const candidate = line ? `${line} ${word}` : word;
+          if (line && Array.from(candidate).length > limit) { lines.push(line); line = word; }
+          else line = candidate;
+        }
+        if (line) lines.push(line);
+        return lines;
+      }
+
+      svgLines(text, limit, maxLines) {
+        const all = [];
+        String(text || "").replace(/\r\n?/g, "\n").trim().split("\n").forEach(paragraph => {
+          if (!paragraph.trim()) { if (all.at(-1) !== "") all.push(""); return; }
+          all.push(...this.wrapParagraph(paragraph, limit));
+        });
+        const overflow = all.length > maxLines;
+        const lines = all.slice(0, maxLines);
+        if (overflow && lines.length) {
+          const last = lines.length - 1;
+          lines[last] = `${Array.from(lines[last]).slice(0, Math.max(1, limit - 1)).join("").trimEnd()}...`;
+        }
+        return lines.length ? lines : ["No public ink yet."];
+      }
+
+      svgEntityLabel(message, bindings) {
+        const destinations = LinkRenderer.destinationList(message, bindings || {}, true).slice(0, 2);
+        if (!destinations.length) return "angusu.de/inkwall · live";
+        return `${destinations.map(item => {
+          try {
+            const host = new URL(item.href).hostname.replace(/^www\./, "");
+            return item.entity.type === "mention" ? `Link · ${item.entity.raw}` : `Web · ${host}`;
+          } catch { return item.entity.raw; }
+        }).join("  ·  ")} ↗`;
+      }
+
+      cornerPath(x, y, width, height, radii = {}) {
+        const clamp = value => Math.max(0, Math.min(Number(value) || 0, width / 2, height / 2));
+        const tl = clamp(radii.tl); const tr = clamp(radii.tr); const br = clamp(radii.br); const bl = clamp(radii.bl);
+        return `M ${x + tl} ${y} H ${x + width - tr} Q ${x + width} ${y} ${x + width} ${y + tr} V ${y + height - br} Q ${x + width} ${y + height} ${x + width - br} ${y + height} H ${x + bl} Q ${x} ${y + height} ${x} ${y + height - bl} V ${y + tl} Q ${x} ${y} ${x + tl} ${y} Z`;
+      }
+
+      svgMarkup(payload) {
+        const serial = this.svgSerial = (this.svgSerial + 1) % 1000000;
+        const idSeed = String(payload.id || payload.mode || "preview").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 48) || "preview";
+        const grainId = `grain-${idSeed}-${serial}`;
+        const clipId = `imageClip-${idSeed}-${serial}`;
+        const dark = Dom.html.dataset.theme === "dark";
+        const paper = dark ? "#191916" : "#efefe9";
+        const ink = dark ? "#f1f0e8" : "#171714";
+        const muted = dark ? "#a9a89e" : "#66665f";
+        const red = "#d7422f";
+        const layout = payload.layout || {};
+        const align = ["left", "center", "right"].includes(layout.align) ? layout.align : "left";
+        const media = payload.image && ["top", "left", "right"].includes(layout.media) ? layout.media : "left";
+        const showDots = layout.texture !== "clean";
+        const hasImage = Boolean(payload.image);
+        const fontSize = Math.max(24, Math.min(42, Number(layout.fontSize) || 32));
+        const fontWeight = layout.bold === false ? 560 : 800;
+        const lineHeight = Math.max(34, Math.round(fontSize * 1.35));
+        let textLeft = 62; let textRight = 1138; let textTop = 125; let lineLimit = Math.max(30, Math.floor(1728 / fontSize)); let maxLines = 24;
+        let imageX = 62; let imageY = 76; let imageWidth = 1076; let imageHeight = 617;
+        if (hasImage && (media === "left" || media === "right")) {
+          imageX = media === "left" ? 62 : 838; imageWidth = 300; imageHeight = 172;
+          textLeft = media === "left" ? 405 : 62; textRight = media === "left" ? 1138 : 795;
+          lineLimit = Math.max(22, Math.floor(1060 / fontSize));
+        } else if (hasImage && media === "top") {
+          textTop = imageY + imageHeight + 54;
+        }
+        const textAnchor = align === "center" ? "middle" : align === "right" ? "end" : "start";
+        const messageX = align === "center" ? (textLeft + textRight) / 2 : align === "right" ? textRight : textLeft;
+        const lines = this.svgLines(payload.message, lineLimit, maxLines);
+        const visibleLineCount = Math.max(1, lines.filter(Boolean).length);
+        const lastTextY = textTop + ((visibleLineCount - 1) * lineHeight);
+        const authorY = Math.max(lastTextY + 56, hasImage ? imageY + imageHeight + 50 : 0);
+        const height = Math.max(340, authorY + 86);
+        const entityY = height - 48;
+        const date = this.formatDate(payload.date || new Date());
+        const imagePath = hasImage ? this.cornerPath(imageX, imageY, imageWidth, imageHeight, layout.radii || {}) : "";
+        const image = hasImage
+          ? `<defs><clipPath id="${clipId}"><path d="${imagePath}"/></clipPath></defs><image href="${this.escapeSvg(payload.image.src)}" x="${imageX}" y="${imageY}" width="${imageWidth}" height="${imageHeight}" preserveAspectRatio="xMidYMid slice" clip-path="url(#${clipId})"/><path d="${imagePath}" fill="none" stroke="${ink}" stroke-width="2"/>`
+          : "";
+        const entityLabel = this.svgEntityLabel(payload.message, payload.bindings);
+        const entityX = align === "right" ? 62 : 1138;
+        const entityAnchor = align === "right" ? "start" : "end";
+        const dots = showDots
+          ? `<defs><pattern id="${grainId}" width="23" height="23" patternUnits="userSpaceOnUse"><circle cx="4" cy="7" r=".55" fill="${muted}"/><circle cx="18" cy="19" r=".32" fill="${muted}"/></pattern></defs><rect width="1200" height="${height}" rx="24" fill="url(#${grainId})" opacity=".38"/>`
+          : "";
+        return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="${height}" viewBox="0 0 1200 ${height}" role="img"><title>Latest InkWall note by ${this.escapeSvg(payload.name || "Anonymous")}</title><desc>${this.escapeSvg(payload.message || "")}</desc><rect width="1200" height="${height}" rx="24" fill="${paper}"/>${dots}<rect x="24" y="24" width="1152" height="${height - 48}" rx="15" fill="none" stroke="${ink}" stroke-width="2"/><circle cx="62" cy="52" r="7" fill="${red}"/><text x="82" y="59" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="20" font-weight="700" letter-spacing="2" fill="${ink}">LATEST PUBLIC INK</text>${image}<g font-family="ui-monospace, SFMono-Regular, Consolas, monospace" fill="${ink}">${lines.map((line, index) => line ? `<text x="${messageX}" y="${textTop + (index * lineHeight)}" text-anchor="${textAnchor}" font-size="${fontSize}" font-weight="${fontWeight}">${this.escapeSvg(line)}</text>` : "").join("")}<text x="${messageX}" y="${authorY}" text-anchor="${textAnchor}" font-size="21" font-weight="700">— ${this.escapeSvg(payload.name || "Anonymous")}</text></g><text x="1138" y="58" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="15" fill="${muted}">${this.escapeSvg(date)}</text><text x="${entityX}" y="${entityY}" text-anchor="${entityAnchor}" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="15" fill="${muted}">${this.escapeSvg(entityLabel)}</text></svg>`;
+      }
+
       set(payload) {
         this.currentPayload = payload;
-        Dom.displayMode.textContent = payload.mode === "draft" ? "Draft preview" : payload.mode === "archive" ? "Archive note" : "Latest public note";
+        Dom.displayMode.textContent = payload.mode === "draft" ? "Draft preview" : payload.mode === "intro" ? "First public ink" : payload.mode === "archive" ? "Archive note" : "Latest public note";
         Dom.displayScope.textContent = payload.mode === "draft" ? "Not published" : "Public surface";
         Dom.displayDate.dateTime = payload.date.toISOString();
         Dom.displayDate.textContent = this.formatDate(payload.date);
-        Dom.displayName.textContent = payload.name || "Anonymous";
-        LinkRenderer.render(Dom.displayMessage, payload.message, { bindings: payload.bindings, showFavicons: payload.showFavicons });
         const layout = payload.layout || {};
-        const visualLines = String(payload.message || "").split(String.fromCharCode(10)).length;
-        const visualLength = Array.from(String(payload.message || "")).length;
-        Dom.displayContent.dataset.density = visualLength > 52 || visualLines > 1 || payload.image ? "compact" : "normal";
-        Dom.displayContent.dataset.layoutAlign = ["left", "center", "right"].includes(layout.align) ? layout.align : "left";
-        Dom.displayContent.dataset.layoutMedia = ["auto", "top", "left", "right"].includes(layout.media) ? layout.media : "auto";
-        Dom.displayContent.classList.toggle("has-image", Boolean(payload.image));
-        Dom.displayMedia.hidden = !payload.image;
-        if (payload.image) {
-          Dom.displayImage.src = payload.image.src;
-          Dom.displayImage.alt = `E-Ink image submitted by ${payload.name || "Anonymous"}`;
-        } else {
-          Dom.displayImage.removeAttribute("src");
-          Dom.displayImage.alt = "";
-        }
+        Dom.display.dataset.layoutTexture = ["dots", "clean"].includes(layout.texture) ? layout.texture : "dots";
+        const markup = this.svgMarkup(payload);
+        const heightMatch = markup.match(/height="(\d+)"/);
+        const height = heightMatch ? Number(heightMatch[1]) : 340;
+        Dom.display.style.setProperty("--display-ratio", `1200 / ${height}`);
+        Dom.displaySvgPreview.replaceChildren();
+        Dom.displaySvgPreview.innerHTML = markup;
+        Dom.displaySvgPreview.setAttribute("aria-label", `InkWall preview by ${payload.name || "Anonymous"}`);
       }
 
       async refresh(payload, { revealOnMobile = false } = {}) {
@@ -2269,14 +2498,19 @@ inkwall_begin_public_request('view');
         this.onReady = onReady;
         this.source = null;
         this.output = null;
+        this.expectedImage = false;
+        this.failed = false;
         this.crop = { x: 50, y: 50, zoom: 1, invert: false };
         this.drag = null;
+        this.pointers = new Map();
+        this.gesture = null;
+        this.previewFrame = null;
         this.job = 0;
         this.timer = null;
         this.processing = false;
-        this.frame = { key: "top", ratio: 1076 / 86, width: 1076, height: 86, label: "wide top" };
+        this.frame = { key: "top", ratio: 1076 / 617, width: 1076, height: 617, label: "above image" };
         this.bindEvents();
-        this.setLayout(Dom.layoutMediaSelect.value, false);
+        this.setLayout(selectedChoice("layoutMedia", "top"), false);
       }
 
       bindEvents() {
@@ -2288,6 +2522,7 @@ inkwall_begin_public_request('view');
         Dom.cropStage.addEventListener("pointermove", event => this.moveDrag(event));
         Dom.cropStage.addEventListener("pointerup", event => this.endDrag(event));
         Dom.cropStage.addEventListener("pointercancel", event => this.endDrag(event));
+        Dom.cropStage.addEventListener("wheel", event => this.wheelZoom(event), { passive: false });
       }
 
       setProgress(percent, label) {
@@ -2361,10 +2596,10 @@ inkwall_begin_public_request('view');
       }
 
       setLayout(media, scheduleBuild = true) {
-        const top = media === "auto" || media === "top";
+        const top = media === "top";
         this.frame = top
-          ? { key: "top", ratio: 1076 / 86, width: 1076, height: 86, label: "wide top" }
-          : { key: media, ratio: 300 / 172, width: 800, height: Math.round(800 * 172 / 300), label: `${media} 16:9` };
+          ? { key: "top", ratio: 1076 / 617, width: 800, height: Math.round(800 * 617 / 1076), label: "above image" }
+          : { key: media, ratio: 300 / 172, width: 800, height: Math.round(800 * 172 / 300), label: `${media} image` };
         Dom.cropCanvas.width = this.frame.width;
         Dom.cropCanvas.height = this.frame.height;
         Dom.cropStage.style.aspectRatio = `${this.frame.width} / ${this.frame.height}`;
@@ -2381,7 +2616,12 @@ inkwall_begin_public_request('view');
       }
 
       canvasBlob(canvas, quality) {
-        return new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("Image encoding failed.")), "image/webp", quality));
+        return new Promise((resolve, reject) => {
+          canvas.toBlob(blob => {
+            if (!blob) reject(new Error("Image encoding failed."));
+            else resolve(blob);
+          }, "image/webp", quality);
+        });
       }
 
       blobDataUrl(blob) {
@@ -2395,6 +2635,7 @@ inkwall_begin_public_request('view');
 
       schedule(delay = 190) {
         clearTimeout(this.timer);
+        this.failed = false;
         this.processing = true;
         const job = ++this.job;
         this.setProgress(9, "Frame changed");
@@ -2403,46 +2644,60 @@ inkwall_begin_public_request('view');
       }
 
       async build(job) {
-        if (!this.source || job !== this.job) return;
-        this.processing = true;
-        this.setProgress(16, "Reading visible frame");
-        this.onStateChange();
-        await new Promise(requestAnimationFrame);
-        let result = null;
-        for (const [index, width] of [1120, 960, 800].entries()) {
-          if (job !== this.job) return;
-          this.setProgress(31 + index * 17, "Mapping four ink tones");
+        try {
+          if (!this.source || job !== this.job) return;
+          this.processing = true;
+          this.failed = false;
+          this.setProgress(16, "Reading visible frame");
+          this.onStateChange();
           await new Promise(requestAnimationFrame);
-          const canvas = document.createElement("canvas");
-          canvas.width = width;
-          canvas.height = Math.max(1, Math.round(width / this.frame.ratio));
-          this.drawCrop(canvas, this.source.element);
-          this.dither(canvas);
-          this.setProgress(68 + index * 8, "Encoding WebP");
-          const blob = await this.canvasBlob(canvas, .78);
-          result = { blob, width: canvas.width, height: canvas.height };
-          if (blob.size <= AppConfig.limits.imageOutputBytes || width === 800) break;
+          let result = null;
+          const widths = [1120, 960, 800, 640, 520];
+          for (const [index, width] of widths.entries()) {
+            if (job !== this.job) return;
+            this.setProgress(28 + index * 12, "Mapping four ink tones");
+            await new Promise(requestAnimationFrame);
+            const canvas = document.createElement("canvas");
+            canvas.width = width;
+            canvas.height = Math.max(1, Math.round(width / this.frame.ratio));
+            this.drawCrop(canvas, this.source.element);
+            this.dither(canvas);
+            this.setProgress(70 + index * 5, "Encoding image");
+            const blob = await this.canvasBlob(canvas, .78);
+            result = { blob, width: canvas.width, height: canvas.height };
+            if (blob.size <= AppConfig.limits.imageOutputBytes) break;
+          }
+          if (!result || job !== this.job) return;
+          if (result.blob.size > AppConfig.limits.imageOutputBytes) throw new Error("The processed image is still too large. Try a simpler crop or another image.");
+          this.setProgress(95, "Removing metadata");
+          const src = await this.blobDataUrl(result.blob);
+          if (job !== this.job) return;
+          const extension = result.blob.type === "image/png" ? "png" : result.blob.type === "image/jpeg" ? "jpg" : "webp";
+          const cleanName = this.source.name.replace(/\.[^.]+$/, "").slice(0, 90) + `.${extension}`;
+          this.output = {
+            src,
+            width: result.width,
+            height: result.height,
+            bytes: result.blob.size,
+            mime: result.blob.type || "image/webp",
+            name: cleanName,
+            inverted: this.crop.invert,
+            signature: `${this.source.signature}:${this.frame.key}:${this.crop.x.toFixed(2)}:${this.crop.y.toFixed(2)}:${this.crop.zoom.toFixed(2)}:${this.crop.invert ? 1 : 0}:${result.blob.type}:${result.blob.size}`
+          };
+          Dom.imageMeta.textContent = `${cleanName} · ${Math.max(1, Math.round(result.blob.size / 1024))} KB · ${this.frame.label}`;
+          Dom.imageEditorState.textContent = "Drag or pinch to reposition";
+          this.processing = false;
+          this.setProgress(100, "E-Ink image ready");
+          this.onStateChange();
+          this.onReady();
+        } catch (error) {
+          if (job !== this.job) return;
+          this.processing = false;
+          this.output = null;
+          this.failed = true;
+          Dom.imageEditorState.textContent = "Image needs attention";
+          this.onStateChange(error?.message || "The image could not be encoded.", "danger");
         }
-        if (!result || job !== this.job) return;
-        this.setProgress(95, "Removing metadata");
-        const src = await this.blobDataUrl(result.blob);
-        if (job !== this.job) return;
-        const cleanName = this.source.name.replace(/\.[^.]+$/, "").slice(0, 90) + ".webp";
-        this.output = {
-          src,
-          width: result.width,
-          height: result.height,
-          bytes: result.blob.size,
-          name: cleanName,
-          inverted: this.crop.invert,
-          signature: `${this.source.signature}:${this.frame.key}:${this.crop.x.toFixed(2)}:${this.crop.y.toFixed(2)}:${this.crop.zoom.toFixed(2)}:${this.crop.invert ? 1 : 0}:${result.blob.size}`
-        };
-        Dom.imageMeta.textContent = `${cleanName} · ${Math.max(1, Math.round(result.blob.size / 1024))} KB · ${this.frame.label}`;
-        Dom.imageEditorState.textContent = "Drag to reposition";
-        this.processing = false;
-        this.setProgress(100, "E-Ink image ready");
-        this.onStateChange();
-        this.onReady();
       }
 
       async selectFile(file) {
@@ -2457,6 +2712,8 @@ inkwall_begin_public_request('view');
         }
         this.job += 1;
         this.processing = true;
+        this.expectedImage = true;
+        this.failed = false;
         this.output = null;
         this.clearSource();
         Dom.imageEditor.hidden = true;
@@ -2476,12 +2733,14 @@ inkwall_begin_public_request('view');
           Dom.imageEditor.hidden = false;
           Dom.removeImageButton.hidden = false;
           Dom.imageMeta.textContent = `${file.name} · choose the frame`;
-          this.setLayout(Dom.layoutMediaSelect.value, false);
+          this.setLayout(selectedChoice("layoutMedia", "top"), false);
           this.renderPreview();
           this.schedule(20);
         } catch (error) {
           this.processing = false;
           this.output = null;
+          this.expectedImage = false;
+          this.failed = false;
           this.clearSource();
           Dom.imageInput.value = "";
           Dom.imageMeta.textContent = "No image selected";
@@ -2494,6 +2753,8 @@ inkwall_begin_public_request('view');
         clearTimeout(this.timer);
         this.job += 1;
         this.processing = false;
+        this.expectedImage = false;
+        this.failed = false;
         this.output = null;
         this.clearSource();
         Dom.imageInput.value = "";
@@ -2506,11 +2767,33 @@ inkwall_begin_public_request('view');
       }
 
       zoom() {
-        this.crop.zoom = Number(Dom.imageZoom.value) / 100;
-        Dom.imageZoomValue.textContent = `${Dom.imageZoom.value}%`;
+        this.setZoom(Number(Dom.imageZoom.value) / 100);
         Dom.imageEditorState.textContent = "Updating frame";
         this.renderPreview();
         this.schedule();
+      }
+
+      setZoom(value) {
+        this.crop.zoom = Math.max(1, Math.min(2.2, value));
+        const percent = Math.round(this.crop.zoom * 100);
+        Dom.imageZoom.value = String(percent);
+        Dom.imageZoomValue.textContent = `${percent}%`;
+      }
+
+      requestPreview() {
+        if (this.previewFrame) return;
+        this.previewFrame = requestAnimationFrame(() => {
+          this.previewFrame = null;
+          this.renderPreview();
+        });
+      }
+
+      pointDistance(a, b) {
+        return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+      }
+
+      pointCenter(a, b) {
+        return { clientX: (a.clientX + b.clientX) / 2, clientY: (a.clientY + b.clientY) / 2 };
       }
 
       invert() {
@@ -2524,24 +2807,74 @@ inkwall_begin_public_request('view');
 
       beginDrag(event) {
         if (!this.source) return;
+        event.preventDefault();
         Dom.cropStage.setPointerCapture?.(event.pointerId);
+        this.pointers.set(event.pointerId, { clientX: event.clientX, clientY: event.clientY });
+        if (this.pointers.size >= 2) {
+          const [first, second] = Array.from(this.pointers.values()).slice(0, 2);
+          this.gesture = {
+            distance: Math.max(1, this.pointDistance(first, second)),
+            center: this.pointCenter(first, second),
+            x: this.crop.x,
+            y: this.crop.y,
+            zoom: this.crop.zoom
+          };
+          this.drag = null;
+          Dom.imageEditorState.textContent = "Pinch to zoom";
+          return;
+        }
         this.drag = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, x: this.crop.x, y: this.crop.y };
         Dom.imageEditorState.textContent = "Positioning";
       }
 
       moveDrag(event) {
-        if (!this.drag || event.pointerId !== this.drag.pointerId) return;
+        if (!this.source || !this.pointers.has(event.pointerId)) return;
+        event.preventDefault();
+        this.pointers.set(event.pointerId, { clientX: event.clientX, clientY: event.clientY });
         const rect = Dom.cropStage.getBoundingClientRect();
-        this.crop.x = Math.max(0, Math.min(100, this.drag.x - (event.clientX - this.drag.startX) / Math.max(rect.width, 1) * 125));
-        this.crop.y = Math.max(0, Math.min(100, this.drag.y - (event.clientY - this.drag.startY) / Math.max(rect.height, 1) * 125));
-        this.renderPreview();
+        if (this.pointers.size >= 2 && this.gesture) {
+          const [first, second] = Array.from(this.pointers.values()).slice(0, 2);
+          const center = this.pointCenter(first, second);
+          this.setZoom(this.gesture.zoom * (this.pointDistance(first, second) / this.gesture.distance));
+          this.crop.x = Math.max(0, Math.min(100, this.gesture.x - (center.clientX - this.gesture.center.clientX) / Math.max(rect.width, 1) * 115));
+          this.crop.y = Math.max(0, Math.min(100, this.gesture.y - (center.clientY - this.gesture.center.clientY) / Math.max(rect.height, 1) * 115));
+          this.requestPreview();
+          return;
+        }
+        if (!this.drag || event.pointerId !== this.drag.pointerId) return;
+        this.crop.x = Math.max(0, Math.min(100, this.drag.x - (event.clientX - this.drag.startX) / Math.max(rect.width, 1) * 105));
+        this.crop.y = Math.max(0, Math.min(100, this.drag.y - (event.clientY - this.drag.startY) / Math.max(rect.height, 1) * 105));
+        this.requestPreview();
       }
 
       endDrag(event) {
-        if (!this.drag || event.pointerId !== this.drag.pointerId) return;
+        if (!this.pointers.has(event.pointerId) && (!this.drag || event.pointerId !== this.drag.pointerId)) return;
+        this.pointers.delete(event.pointerId);
+        if (this.pointers.size >= 2) {
+          const [first, second] = Array.from(this.pointers.values()).slice(0, 2);
+          this.gesture = {
+            distance: Math.max(1, this.pointDistance(first, second)),
+            center: this.pointCenter(first, second),
+            x: this.crop.x,
+            y: this.crop.y,
+            zoom: this.crop.zoom
+          };
+          return;
+        }
+        this.gesture = null;
         this.drag = null;
         Dom.imageEditorState.textContent = "Updating frame";
         this.schedule(40);
+      }
+
+      wheelZoom(event) {
+        if (!this.source) return;
+        event.preventDefault();
+        const delta = event.deltaY < 0 ? .06 : -.06;
+        this.setZoom(this.crop.zoom + delta);
+        Dom.imageEditorState.textContent = "Zooming";
+        this.renderPreview();
+        this.schedule(90);
       }
     }
 
@@ -3277,6 +3610,7 @@ inkwall_begin_public_request('view');
         this.searchQuery = "";
         this.activeId = null;
         this.appliedSignature = null;
+        this.appliedContentSignature = null;
         this.publishedSignature = null;
         this.showFavicons = true;
         this.previewMode = "latest";
@@ -3284,7 +3618,7 @@ inkwall_begin_public_request('view');
         this.autoApplyTimer = null;
         this.imageWorkbench = new ImageWorkbench(
           (message, tone) => this.updateState(message, tone),
-          () => this.queueAutomaticApply(60)
+          () => this.updateState()
         );
         this.imageDropController = new ImageDropController(file => this.imageWorkbench.selectFile(file));
         this.bannerPixelField = new BannerPixelField(Dom.destinationPixelField);
@@ -3343,6 +3677,7 @@ inkwall_begin_public_request('view');
           if (hiddenWasVisible && this.publishedSignature) this.heldSignatures.add(this.publishedSignature);
           this.publishedSignature = null;
           this.appliedSignature = null;
+          this.appliedContentSignature = null;
           this.renderRecent();
           if (hiddenWasVisible || !this.publicMessages().some(item => item.id === this.activeId)) this.showLatest(true);
           this.updateState();
@@ -3354,11 +3689,18 @@ inkwall_begin_public_request('view');
 
       bindEvents() {
         Dom.pageBackButton.addEventListener("click", () => NavigationController.returnToPreviousSurface());
-        Dom.nameInput.addEventListener("input", () => this.updateState());
+        Dom.nameInput.addEventListener("input", () => { this.updateState(); this.queueAutomaticApply(220); });
         Dom.nameInput.addEventListener("blur", () => this.queueAutomaticApply(30));
         Dom.messageInput.addEventListener("input", () => { this.renderEntities(); this.updateState(); });
-        Dom.layoutAlignSelect.addEventListener("change", () => this.updateState());
-        Dom.layoutMediaSelect.addEventListener("change", () => { this.imageWorkbench.setLayout(Dom.layoutMediaSelect.value); this.updateState(); });
+        Dom.layoutAlignChoices.addEventListener("change", () => this.updateState());
+        Dom.layoutTextureChoices.addEventListener("change", () => this.updateState());
+        Dom.layoutMediaChoices.addEventListener("change", () => { this.imageWorkbench.setLayout(selectedChoice("layoutMedia", "top")); this.updateState(); });
+        Dom.fontSizeInput.addEventListener("input", () => { this.renderLayoutControls(); this.updateState(); });
+        Dom.fontWeightChoices.addEventListener("change", () => this.updateState());
+        Dom.radiusModeChoices.addEventListener("change", () => { this.renderLayoutControls(); this.updateState(); });
+        [Dom.radiusAllInput, Dom.radiusTlInput, Dom.radiusTrInput, Dom.radiusBrInput, Dom.radiusBlInput].forEach(input => {
+          input.addEventListener("input", () => { this.renderLayoutControls(); this.updateState(); });
+        });
         Dom.faviconToggle.addEventListener("click", () => {
           this.showFavicons = !this.showFavicons;
           Dom.faviconToggle.setAttribute("aria-pressed", String(this.showFavicons));
@@ -3384,20 +3726,48 @@ inkwall_begin_public_request('view');
         });
       }
 
+      renderLayoutControls() {
+        Dom.fontSizeValue.textContent = Dom.fontSizeInput.value;
+        Dom.radiusAllValue.textContent = Dom.radiusAllInput.value;
+        Dom.radiusTlValue.textContent = Dom.radiusTlInput.value;
+        Dom.radiusTrValue.textContent = Dom.radiusTrInput.value;
+        Dom.radiusBrValue.textContent = Dom.radiusBrInput.value;
+        Dom.radiusBlValue.textContent = Dom.radiusBlInput.value;
+        const custom = selectedChoice("radiusMode", "all") === "custom";
+        Dom.radiusAllControl.hidden = custom;
+        Dom.radiusCornerControls.hidden = !custom;
+      }
+
       currentDraft() {
         const nameResult = ModerationPolicy.inspectName(Dom.nameInput.value);
         const messageResult = ModerationPolicy.inspectMessage(Dom.messageInput.value);
         const bindings = this.bindingStore.activeFor(messageResult.clean);
-        const layout = { align: Dom.layoutAlignSelect.value, media: Dom.layoutMediaSelect.value };
-        const signature = [
-          nameResult.clean,
+        const layout = {
+          align: selectedChoice("layoutAlign", "left"),
+          media: selectedChoice("layoutMedia", "top"),
+          texture: selectedChoice("layoutTexture", "dots"),
+          fontSize: Math.max(24, Math.min(42, Number(Dom.fontSizeInput.value) || 32)),
+          bold: selectedChoice("fontWeight", "bold") === "bold",
+          radiusMode: selectedChoice("radiusMode", "all"),
+          radiusAll: Math.max(0, Math.min(42, Number(Dom.radiusAllInput.value) || 0)),
+          radii: {
+            tl: Math.max(0, Math.min(42, Number(Dom.radiusTlInput.value) || 0)),
+            tr: Math.max(0, Math.min(42, Number(Dom.radiusTrInput.value) || 0)),
+            br: Math.max(0, Math.min(42, Number(Dom.radiusBrInput.value) || 0)),
+            bl: Math.max(0, Math.min(42, Number(Dom.radiusBlInput.value) || 0))
+          }
+        };
+        if (layout.radiusMode === "all") layout.radii = { tl: layout.radiusAll, tr: layout.radiusAll, br: layout.radiusAll, bl: layout.radiusAll };
+        const imagePending = Boolean(this.imageWorkbench.expectedImage && !this.imageWorkbench.output);
+        const contentSignature = [
           messageResult.moderated,
           this.imageWorkbench.output?.signature || "",
           this.bindingStore.signature(messageResult.clean),
           this.showFavicons ? "favicons:1" : "favicons:0",
-          `layout:${layout.align}:${layout.media}`
+          `layout:${layout.align}:${layout.media}:${layout.texture}:${layout.fontSize}:${layout.bold ? 1 : 0}:${layout.radiusMode}:${layout.radiusAll}:${layout.radii.tl}:${layout.radii.tr}:${layout.radii.br}:${layout.radii.bl}`
         ].join("\n--\n");
-        return { nameResult, messageResult, bindings, signature, image: this.imageWorkbench.output, layout };
+        const signature = [nameResult.clean, contentSignature].join("\n--\n");
+        return { nameResult, messageResult, bindings, signature, contentSignature, image: this.imageWorkbench.output, imagePending, layout };
       }
 
       setStatus(message, tone = "neutral") {
@@ -3425,7 +3795,7 @@ inkwall_begin_public_request('view');
         Dom.nameCounter.textContent = `${Array.from(Dom.nameInput.value).length} / ${AppConfig.limits.name}`;
         Dom.messageCounter.textContent = `${Array.from(Dom.messageInput.value).length} / ${AppConfig.limits.message}`;
 
-        const valid = draft.nameResult.allowed && draft.messageResult.allowed && Boolean(draft.messageResult.clean);
+        const valid = draft.nameResult.allowed && draft.messageResult.allowed && Boolean(draft.messageResult.clean) && !draft.imagePending;
         const heldDraft = this.heldSignatures.has(draft.signature);
         const processing = this.imageWorkbench.processing || this.display.refreshing;
         const draftDiffersFromDisplay = valid && !heldDraft && this.appliedSignature !== draft.signature;
@@ -3457,9 +3827,12 @@ inkwall_begin_public_request('view');
           } else if (heldDraft) {
             Dom.publishHeadline.textContent = "This exact note is under review.";
             Dom.publishHint.textContent = "Change the draft before preparing another public ink.";
-          } else if (this.imageWorkbench.processing) {
+          } else if (this.imageWorkbench.failed) {
+            Dom.publishHeadline.textContent = "Image needs attention.";
+            Dom.publishHint.textContent = "Remove it or choose another image before publishing.";
+          } else if (draft.imagePending || this.imageWorkbench.processing) {
             Dom.publishHeadline.textContent = "Preparing the image.";
-            Dom.publishHint.textContent = "The display will refresh when the E-Ink conversion is ready.";
+            Dom.publishHint.textContent = "Wait for the image to finish, then update the ink.";
           } else if (draftDiffersFromDisplay) {
             Dom.publishHeadline.textContent = "Display is out of date.";
             Dom.publishHint.textContent = "Update the ink to review the exact public result.";
@@ -3477,7 +3850,8 @@ inkwall_begin_public_request('view');
         if (!draft.messageResult.allowed) return this.setStatus(draft.messageResult.reason, "danger");
         if (!draft.messageResult.clean) return this.setStatus("Write a name and a message.");
         if (heldDraft) return this.setStatus("This exact note is under review. Change the draft to continue.", "warning");
-        if (this.imageWorkbench.processing) return this.setStatus("Preparing the E-Ink image.");
+        if (this.imageWorkbench.failed) return this.setStatus("The selected image could not be prepared. Remove it or choose another image.", "danger");
+        if (draft.imagePending || this.imageWorkbench.processing) return this.setStatus("Preparing the E-Ink image. Publish stays locked until it is ready.");
         if (publishedDraftIsVisible) return this.setStatus("Published. Open the live profile while this note is still the latest.", "success");
         if (previewMatchesDraft && draft.messageResult.count) return this.setStatus(`${draft.messageResult.count} expression${draft.messageResult.count === 1 ? "" : "s"} obscured. Preview ready to publish.`, "warning");
         if (previewMatchesDraft) return this.setStatus("Ink is current. Ready to publish.", "success");
@@ -3543,7 +3917,8 @@ inkwall_begin_public_request('view');
         clearTimeout(this.autoApplyTimer);
         this.autoApplyTimer = window.setTimeout(() => {
           const draft = this.currentDraft();
-          if (draft.nameResult.allowed && draft.messageResult.allowed && draft.messageResult.clean && !this.imageWorkbench.processing && this.appliedSignature !== draft.signature) {
+          const nameOnlyChange = this.appliedSignature && this.appliedContentSignature === draft.contentSignature && this.appliedSignature !== draft.signature;
+          if (nameOnlyChange && draft.nameResult.allowed && draft.messageResult.allowed && draft.messageResult.clean && !draft.imagePending && !this.imageWorkbench.processing) {
             this.applyDraft({ revealOnMobile: false });
           }
         }, delay);
@@ -3555,10 +3930,12 @@ inkwall_begin_public_request('view');
         if (!draft.nameResult.allowed) return this.setStatus(draft.nameResult.reason, "danger");
         if (!draft.messageResult.allowed) return this.setStatus(draft.messageResult.reason, "danger");
         if (!draft.messageResult.clean) return this.setStatus("Write a message first.", "danger");
+        if (draft.imagePending) return this.setStatus("Wait for the image to finish before updating the ink.", "warning");
         if (this.heldSignatures.has(draft.signature)) return this.setStatus("Change the draft before preparing another public ink.", "warning");
         this.previewMode = "draft";
         this.activeId = null;
         this.appliedSignature = draft.signature;
+        this.appliedContentSignature = draft.contentSignature;
         this.updateState();
         await this.display.refresh({
           mode: "draft",
@@ -3578,6 +3955,7 @@ inkwall_begin_public_request('view');
         if (Dom.publishButton.disabled || this.display.refreshing || this.imageWorkbench.processing) return;
         if (Dom.websiteInput.value) return this.setStatus("The note could not be accepted.", "danger");
         const draft = this.currentDraft();
+        if (draft.imagePending) return this.setStatus("Wait for the image to finish before publishing.", "warning");
         if (!draft.nameResult.allowed || !draft.messageResult.allowed || this.heldSignatures.has(draft.signature) || this.appliedSignature !== draft.signature) return this.updateState();
 
         Dom.publishButton.disabled = true;
@@ -3593,12 +3971,14 @@ inkwall_begin_public_request('view');
             layout: draft.layout,
             createdAt: new Date().toISOString()
           }, this.messages);
+          if (draft.image && !record.image) throw new Error("The image was not accepted by the live endpoint. The note was not confirmed as published.");
           this.messages = [record, ...this.messages.filter(item => item.id !== record.id)].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
           if (this.repository.local) this.repository.saveLocal(this.messages);
           this.previewMode = "latest";
           this.activeId = record.id;
           this.publishedSignature = draft.signature;
           this.appliedSignature = draft.signature;
+          this.appliedContentSignature = draft.contentSignature;
           await this.display.refresh({ mode: "latest", ...record, date: new Date(record.createdAt) });
           this.visibleCount = Math.max(this.visibleCount, AppConfig.archivePageSize);
           this.renderRecent();
@@ -3707,11 +4087,15 @@ inkwall_begin_public_request('view');
 
           const number = document.createElement("span");
           number.className = "recent-index";
-          const sourceIndex = allPublicMessages.findIndex(item => item.id === message.id);
-          number.textContent = String(sourceIndex + 1).padStart(2, "0");
+          const chronologicalIndex = [...allPublicMessages].reverse().findIndex(item => item.id === message.id);
+          number.textContent = String(chronologicalIndex + 1).padStart(2, "0");
 
           const main = document.createElement("div");
           main.className = "recent-main";
+          const svgPreview = document.createElement("div");
+          svgPreview.className = "recent-svg-preview";
+          svgPreview.setAttribute("aria-hidden", "true");
+          svgPreview.innerHTML = this.display.svgMarkup({ mode: "archive", ...message, date: new Date(message.createdAt) });
           const copy = document.createElement("p");
           copy.className = "recent-message";
           LinkRenderer.render(copy, message.message, { bindings: message.bindings, showFavicons: message.showFavicons });
@@ -3729,7 +4113,7 @@ inkwall_begin_public_request('view');
             prepared.textContent = "From angusu.de";
             meta.append(prepared);
           }
-          main.append(copy, meta);
+          main.append(svgPreview, copy, meta);
 
           const destinations = LinkRenderer.destinationList(message.message, message.bindings, message.showFavicons);
           if (destinations.length) {
@@ -3750,6 +4134,7 @@ inkwall_begin_public_request('view');
             this.activeId = message.id;
             this.previewMode = "archive";
             this.appliedSignature = null;
+            this.appliedContentSignature = null;
             await this.display.refresh({ mode: "archive", ...message, date: new Date(message.createdAt) }, { revealOnMobile: true });
             this.renderRecent();
             this.updateState();
@@ -3789,11 +4174,24 @@ inkwall_begin_public_request('view');
         this.previewMode = "latest";
         this.activeId = latest?.id || null;
         this.appliedSignature = null;
+        this.appliedContentSignature = null;
         const payload = latest
           ? { mode: "latest", ...latest, date: new Date(latest.createdAt) }
           : { mode: "latest", name: "Anonymous", message: "No public ink yet.", image: null, bindings: {}, showFavicons: true, date: new Date() };
         if (animate) this.display.refresh(payload);
         else this.display.set(payload);
+        this.renderRecent();
+      }
+
+      showFirstInk() {
+        const messages = this.publicMessages();
+        const firstOwnerInk = [...messages].reverse().find(message => /angus/i.test(message.name));
+        const firstInk = firstOwnerInk || messages.at(-1) || this.repository.preparedMessage();
+        this.previewMode = "intro";
+        this.activeId = firstInk.id;
+        this.appliedSignature = null;
+        this.appliedContentSignature = null;
+        this.display.set({ mode: "intro", ...firstInk, date: new Date(firstInk.createdAt) });
         this.renderRecent();
       }
 
@@ -3831,7 +4229,8 @@ inkwall_begin_public_request('view');
         Dom.liveProfileLink.href = AppConfig.destinationUrl;
         Dom.repositoryLink.href = AppConfig.repositoryUrl;
         Dom.footerRepositoryLink.href = AppConfig.repositoryUrl;
-        this.showLatest(false);
+        this.renderLayoutControls();
+        this.showFirstInk();
         this.renderEntities();
         this.updateState();
       }
