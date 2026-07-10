@@ -1,0 +1,7 @@
+/data/*
+!/data/.gitkeep
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.key
+.DS_Store
