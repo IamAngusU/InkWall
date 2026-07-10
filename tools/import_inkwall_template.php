@@ -41,6 +41,11 @@ $source = str_replace(
     $source
 );
 $source = str_replace(
+    '<span>Angus Uelsmann</span>',
+    '<span>Angus Uelsmann</span><span aria-hidden="true">·</span><a href="https://db-ip.com" target="_blank" rel="noopener noreferrer">IP Geolocation by DB-IP</a>',
+    $source
+);
+$source = str_replace(
     'repositoryUrl: "https://github.com/IamAngusU/IamAngusU",',
     'repositoryUrl: "https://github.com/IamAngusU/InkWall",',
     $source
