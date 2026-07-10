@@ -19,7 +19,7 @@ $source = preg_replace_callback(
         $binary = base64_decode($match[1], true);
         if ($binary === false) throw new RuntimeException('Embedded image is invalid.');
         file_put_contents($assets . '/github-destination.png', $binary, LOCK_EX);
-        return 'assets/github-destination.png';
+        return 'assets/github-destination.png?v=<?= inkwall_asset_version("assets/github-destination.png") ?>';
     },
     $source
 );
@@ -61,6 +61,13 @@ $bootstrap = <<<'PHP'
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/app.php';
+header('Cache-Control: no-cache, max-age=0, must-revalidate');
+header('Pragma: no-cache');
+header('Expires: 0');
+function inkwall_asset_version(string $relative): string {
+    $modified = @filemtime(__DIR__ . '/' . ltrim($relative, '/'));
+    return (string)($modified ?: 1);
+}
 inkwall_begin_public_request('view');
 ?>
 PHP;

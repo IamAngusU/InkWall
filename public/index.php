@@ -1,6 +1,13 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/app.php';
+header('Cache-Control: no-cache, max-age=0, must-revalidate');
+header('Pragma: no-cache');
+header('Expires: 0');
+function inkwall_asset_version(string $relative): string {
+    $modified = @filemtime(__DIR__ . '/' . ltrim($relative, '/'));
+    return (string)($modified ?: 1);
+}
 inkwall_begin_public_request('view');
 ?><!doctype html>
 <html lang="en" data-theme="light">
@@ -1389,7 +1396,7 @@ inkwall_begin_public_request('view');
 
     <section class="destination" aria-labelledby="destinationTitle">
       <div class="destination__media">
-      <img class="destination__banner" src="assets/github-destination.png" alt="Angus Uelsmann GitHub profile banner">
+      <img class="destination__banner" src="assets/github-destination.png?v=<?= inkwall_asset_version("assets/github-destination.png") ?>" alt="Angus Uelsmann GitHub profile banner">
         <canvas class="destination__pixel-field" id="destinationPixelField" aria-hidden="true"></canvas>
       </div>
       <div class="destination__line">
