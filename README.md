@@ -60,7 +60,7 @@ PHP API ── SQLite ── revalidated live SVG
 InkWall intentionally supports correlation without identifying a person:
 
 - a random browser value is transformed into a server-side HMAC hash;
-- raw IP addresses and user agents are not stored by InkWall;
+- raw IP addresses and browser fingerprints are not stored by InkWall;
 - referrers are reduced to the hostname — paths, queries, and fragments are discarded;
 - country is accepted only as a coarse local edge/proxy hint and otherwise remains `unknown` (the live deployment uses the [DB-IP Country Lite](https://db-ip.com/db/lite.php) database locally);
 - the public interface explains this behavior where notes are submitted.

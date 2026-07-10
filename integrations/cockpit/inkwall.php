@@ -77,7 +77,7 @@ function iw_bar_rows(array $rows): string {
 </section>
 <section class="charts"><div class="panel"><h2>Usage events</h2><?= iw_bar_rows($eventBreakdown) ?></div><div class="panel"><h2>Countries (edge hint)</h2><?= iw_bar_rows($countryBreakdown) ?></div><div class="panel"><h2>Referrer domains</h2><?= iw_bar_rows($referrerBreakdown) ?></div></section>
 
-<div class="section-title"><h2>Messages</h2><span class="muted">No raw IP, user agent, full referrer URL or identity stored.</span></div>
+<div class="section-title"><h2>Messages</h2><span class="muted">No raw IP, browser fingerprint, full referrer URL or identity stored.</span></div>
 <nav class="filters"><?php foreach (['all','published','held','rejected','deleted'] as $status): ?><a class="<?= $statusFilter===$status?'active':'' ?>" href="?status=<?= $status ?>"><?= ucfirst($status) ?></a><?php endforeach ?><?php if ($visitorFilter): ?><a class="active" href="?visitor=<?= iw_e($visitorFilter) ?>">Pseudonym <?= iw_e(substr($visitorFilter,0,12)) ?>… ×</a><?php endif ?></nav>
 <section class="notes">
 <?php if (!$notes): ?><div class="panel muted">No matching messages.</div><?php endif ?>
