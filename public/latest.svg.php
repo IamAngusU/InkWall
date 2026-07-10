@@ -37,8 +37,8 @@ header('X-Content-Type-Options: nosniff');
   <title id="title">Latest InkWall note by <?= inkwall_svg_escape((string)$row['author_name']) ?></title>
   <desc id="desc"><?= inkwall_svg_escape((string)$row['message_text']) ?></desc>
   <rect width="1200" height="340" rx="24" fill="<?= $paper ?>"/>
-  <filter id="grain"><feTurbulence baseFrequency=".75" numOctaves="2" seed="8" type="fractalNoise"/><feColorMatrix values="0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 .08 0"/></filter>
-  <rect width="1200" height="340" rx="24" filter="url(#grain)" opacity=".22"/>
+  <defs><pattern id="grain" width="23" height="23" patternUnits="userSpaceOnUse"><circle cx="4" cy="7" r=".45" fill="<?= $muted ?>"/><circle cx="18" cy="19" r=".25" fill="<?= $muted ?>"/></pattern></defs>
+  <rect width="1200" height="340" rx="24" fill="url(#grain)" opacity=".22"/>
   <rect x="24" y="24" width="1152" height="292" rx="15" fill="none" stroke="<?= $ink ?>" stroke-width="2"/>
   <circle cx="62" cy="52" r="7" fill="<?= $red ?>"/><text x="82" y="59" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="20" font-weight="700" letter-spacing="2" fill="<?= $ink ?>">LATEST PUBLIC INK</text>
   <?= $image ?>
