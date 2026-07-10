@@ -101,6 +101,7 @@ function inkwall_migrate(PDO $pdo): void {
         image_inverted INTEGER NOT NULL DEFAULT 0,
         image_signature TEXT NULL,
         bindings_json TEXT NOT NULL DEFAULT '{}',
+        layout_json TEXT NOT NULL DEFAULT '{}',
         show_favicons INTEGER NOT NULL DEFAULT 1,
         status TEXT NOT NULL DEFAULT 'published',
         moderation_flags TEXT NOT NULL DEFAULT '[]',
@@ -144,6 +145,14 @@ function inkwall_migrate(PDO $pdo): void {
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_inkwall_notes_status_created ON inkwall_notes(status, created_at DESC)');
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_inkwall_events_created ON inkwall_events(created_at DESC)');
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_inkwall_events_visitor ON inkwall_events(visitor_hash, created_at DESC)');
+    try { $pdo->exec("ALTER TABLE inkwall_notes ADD COLUMN layout_json TEXT NOT NULL DEFAULT '{}'"); } catch (Throwable) { /* Already migrated. */ }
+}
+
+function inkwall_layout(mixed $input): array {
+    $input = is_array($input) ? $input : [];
+    $align = in_array(($input['align'] ?? ''), ['left', 'center', 'right'], true) ? $input['align'] : 'left';
+    $media = in_array(($input['media'] ?? ''), ['auto', 'top', 'left', 'right'], true) ? $input['media'] : 'auto';
+    return ['align' => $align, 'media' => $media];
 }
 
 function inkwall_event(string $type, ?string $noteId = null, array $meta = []): void {
@@ -230,6 +239,7 @@ function inkwall_public_note(array $row, string $visitorHash): array {
     return [
         'id' => $row['id'], 'name' => $row['author_name'], 'message' => $row['message_text'],
         'image' => $image, 'bindings' => json_decode($row['bindings_json'], true) ?: [],
+        'layout' => inkwall_layout(json_decode((string)($row['layout_json'] ?? '{}'), true)),
         'showFavicons' => (bool)$row['show_favicons'], 'reportable' => true, 'prepared' => false,
         'reactions' => inkwall_reaction_summary($row['id'], $visitorHash), 'createdAt' => $row['created_at'],
     ];

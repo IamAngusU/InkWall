@@ -6,14 +6,29 @@
 
 A public E‑Ink message surface with a live SVG, image processing, reactions, reporting, and privacy-conscious usage statistics.
 
-[Open InkWall](https://angusu.de/inkwall/) · [See the live profile](https://github.com/IamAngusU)
-
 </div>
 
+<p align="center">
+  <a href="https://angusu.de/inkwall/">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://angusu.de/inkwall/action.svg.php?action=live&amp;theme=dark&amp;v=2">
+      <source media="(prefers-color-scheme: light)" srcset="https://angusu.de/inkwall/action.svg.php?action=live&amp;theme=light&amp;v=2">
+      <img width="340" src="https://angusu.de/inkwall/action.svg.php?action=live&amp;theme=light&amp;v=2" alt="Open the live InkWall surface">
+    </picture>
+  </a>&nbsp;
+  <a href="https://github.com/IamAngusU">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://angusu.de/inkwall/action.svg.php?action=profile&amp;theme=dark&amp;v=2">
+      <source media="(prefers-color-scheme: light)" srcset="https://angusu.de/inkwall/action.svg.php?action=profile&amp;theme=light&amp;v=2">
+      <img width="340" src="https://angusu.de/inkwall/action.svg.php?action=profile&amp;theme=light&amp;v=2" alt="View the live GitHub profile">
+    </picture>
+  </a>
+</p>
+
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://angusu.de/inkwall/latest.svg?theme=dark">
-  <source media="(prefers-color-scheme: light)" srcset="https://angusu.de/inkwall/latest.svg?theme=light">
-  <img width="100%" src="https://angusu.de/inkwall/latest.svg?theme=light" alt="Latest public InkWall message">
+  <source media="(prefers-color-scheme: dark)" srcset="https://angusu.de/inkwall/latest.svg?theme=dark&amp;v=5">
+  <source media="(prefers-color-scheme: light)" srcset="https://angusu.de/inkwall/latest.svg?theme=light&amp;v=5">
+  <img width="100%" src="https://angusu.de/inkwall/latest.svg?theme=light&amp;v=5" alt="Latest public InkWall message">
 </picture>
 
 ## What it is
@@ -31,7 +46,7 @@ Browser editor
   └─ random browser pseudonym
               │
               ▼
-PHP API ── SQLite ── live SVG (60-second cache)
+PHP API ── SQLite ── revalidated live SVG
    │           │
    │           ├─ public notes and reactions
    │           ├─ reports and moderation state
@@ -55,6 +70,7 @@ This is a technical data-minimization design, not a substitute for reviewing the
 ## Features
 
 - responsive E‑Ink editor and live preview
+- preserved manual line breaks, text alignment, and image placement
 - local image conversion with crop, zoom, inversion, and size limits
 - public archive, search, reactions, and external-destination rendering
 - report thresholds with immediate holds for priority safety categories

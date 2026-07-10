@@ -57,6 +57,9 @@ $source = preg_replace(
     1
 );
 
+require_once __DIR__ . '/inkwall_template_overrides.php';
+$source = inkwall_apply_template_overrides($source);
+
 $bootstrap = <<<'PHP'
 <?php
 declare(strict_types=1);
