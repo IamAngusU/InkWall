@@ -8,20 +8,36 @@ if (!is_array($row)) {
     $row = ['author_name' => 'Angus Uelsmann', 'message_text' => 'This surface is yours for a moment. Leave the next ink on my GitHub profile.', 'created_at' => inkwall_now(), 'image_data' => null, 'image_mime' => null];
 }
 function inkwall_svg_escape(string $value): string { return htmlspecialchars($value, ENT_QUOTES | ENT_XML1, 'UTF-8'); }
-function inkwall_svg_lines(string $text, int $limit = 52): array {
+function inkwall_svg_lines(string $text, int $limit = 52, int $maxLines = 3): array {
     $words = preg_split('/\s+/u', trim($text)) ?: [];
-    $lines = []; $line = '';
+    $lines = []; $line = ''; $overflow = false;
     foreach ($words as $word) {
+        while (mb_strlen($word) > $limit) {
+            if ($line !== '') { $lines[] = $line; $line = ''; }
+            if (count($lines) >= $maxLines) { $overflow = true; break 2; }
+            $lines[] = mb_substr($word, 0, $limit);
+            $word = mb_substr($word, $limit);
+        }
+        if ($word === '') continue;
         $candidate = $line === '' ? $word : $line . ' ' . $word;
-        if (mb_strlen($candidate) > $limit && $line !== '') { $lines[] = $line; $line = $word; }
-        else $line = $candidate;
+        if (mb_strlen($candidate) > $limit) {
+            $lines[] = $line;
+            $line = $word;
+            if (count($lines) >= $maxLines) { $overflow = true; break; }
+        } else {
+            $line = $candidate;
+        }
     }
-    if ($line !== '') $lines[] = $line;
-    return array_slice($lines, 0, 3);
+    if ($line !== '' && count($lines) < $maxLines) $lines[] = $line;
+    if ($overflow && $lines) {
+        $last = array_key_last($lines);
+        $lines[$last] = rtrim(mb_substr($lines[$last], 0, max(1, $limit - 1))) . '…';
+    }
+    return $lines ?: ['No public ink yet.'];
 }
 $dark = $theme === 'dark';
 $paper = $dark ? '#191916' : '#efefe9'; $ink = $dark ? '#f1f0e8' : '#171714'; $muted = $dark ? '#a9a89e' : '#66665f'; $red = '#d7422f';
-$hasImage = !empty($row['image_data']); $messageX = $hasImage ? 405 : 62; $lineLimit = $hasImage ? 44 : 74;
+$hasImage = !empty($row['image_data']); $messageX = $hasImage ? 405 : 62; $lineLimit = $hasImage ? 34 : 54;
 $lines = inkwall_svg_lines((string)$row['message_text'], $lineLimit);
 $date = (new DateTimeImmutable((string)$row['created_at']))->setTimezone(new DateTimeZone('Europe/Berlin'))->format('d.m.Y · H:i T');
 $image = '';
@@ -30,7 +46,7 @@ if ($hasImage) {
     $image = '<image href="' . $source . '" x="62" y="76" width="300" height="205" preserveAspectRatio="xMidYMid slice"/><rect x="62" y="76" width="300" height="205" fill="none" stroke="' . $ink . '" stroke-width="2"/>';
 }
 header('Content-Type: image/svg+xml; charset=utf-8');
-header('Cache-Control: public, max-age=60, stale-while-revalidate=300');
+header('Cache-Control: no-cache, max-age=0, must-revalidate');
 header('X-Content-Type-Options: nosniff');
 ?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="340" viewBox="0 0 1200 340" role="img" aria-labelledby="title desc">
@@ -43,9 +59,9 @@ header('X-Content-Type-Options: nosniff');
   <circle cx="62" cy="52" r="7" fill="<?= $red ?>"/><text x="82" y="59" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="20" font-weight="700" letter-spacing="2" fill="<?= $ink ?>">LATEST PUBLIC INK</text>
   <?= $image ?>
   <g font-family="ui-monospace, SFMono-Regular, Consolas, monospace" fill="<?= $ink ?>">
-    <?php foreach ($lines as $index => $line): ?><text x="<?= $messageX ?>" y="<?= 125 + ($index * 48) ?>" font-size="34" font-weight="700"><?= inkwall_svg_escape($line) ?></text><?php endforeach ?>
+    <?php foreach ($lines as $index => $line): ?><text x="<?= $messageX ?>" y="<?= 125 + ($index * 46) ?>" font-size="32" font-weight="700"><?= inkwall_svg_escape($line) ?></text><?php endforeach ?>
     <text x="<?= $messageX ?>" y="<?= $hasImage ? 276 : 285 ?>" font-size="21" font-weight="700">— <?= inkwall_svg_escape((string)$row['author_name']) ?></text>
   </g>
   <text x="1138" y="58" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="15" fill="<?= $muted ?>"><?= inkwall_svg_escape($date) ?></text>
-  <text x="1138" y="292" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="16" fill="<?= $muted ?>">angusu.de/inkwall · 60s cache</text>
+  <text x="1138" y="292" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="16" fill="<?= $muted ?>">angusu.de/inkwall · live</text>
 </svg>
