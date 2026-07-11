@@ -561,11 +561,13 @@ inkwall_begin_public_request('view');
     .status[data-tone="warning"] { color: var(--warning); }
     .status[data-tone="danger"] { color: var(--danger); }
     .button {
+      position: relative;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       gap: 8px;
       min-height: 49px;
+      overflow: visible;
       padding: 0 17px;
       border: 1px solid var(--line-strong);
       border-radius: 2px;
@@ -582,6 +584,22 @@ inkwall_begin_public_request('view');
     .button:disabled { color: color-mix(in srgb, var(--muted) 52%, transparent); border-color: color-mix(in srgb, var(--line) 58%, transparent); background: transparent; cursor: not-allowed; }
     .button--update:not(:disabled) { border-color: var(--cta); color: var(--cta-ink); background: var(--cta); box-shadow: 0 12px 30px rgba(37, 41, 36, .13); }
     .button--update:not(:disabled):hover { background: color-mix(in srgb, var(--cta) 88%, var(--ink-soft)); }
+    .button--update::after {
+      position: absolute;
+      inset: -7px;
+      border: 1px solid var(--cta);
+      border-radius: inherit;
+      content: "";
+      opacity: 0;
+      pointer-events: none;
+      transform: scale(.98);
+    }
+    .button--update.is-waving::after { animation: updateWave 1.18s var(--ease) both; }
+    @keyframes updateWave {
+      0% { opacity: .2; transform: scale(.98); }
+      48% { opacity: .13; }
+      100% { opacity: 0; transform: scale(1.16); }
+    }
 
     .preview-column { display: grid; gap: 17px; min-width: 0; }
     .device {
@@ -594,6 +612,10 @@ inkwall_begin_public_request('view');
       transition: background .45s var(--ease), border-color .45s var(--ease), box-shadow .45s var(--ease);
     }
     .device::before { position: absolute; inset: 7px; border: 1px solid color-mix(in srgb, var(--device-edge) 65%, transparent); border-radius: 16px; content: ""; pointer-events: none; }
+    .device.has-image-preview { padding: 0; border-color: transparent; border-radius: 0; background: transparent; box-shadow: none; }
+    .device.has-image-preview::before,
+    .device.has-image-preview .display-label { display: none; }
+    .device.has-image-preview .display { border-color: transparent; border-radius: 0; background: transparent; }
     .display-label { position: relative; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 7px 10px 14px; color: var(--screen-muted); font-size: 8px; font-weight: 730; letter-spacing: .08em; text-transform: uppercase; }
     .display-live { display: inline-flex; align-items: center; gap: 6px; }
     .display-live::before { width: 6px; height: 6px; border-radius: 50%; content: ""; background: var(--positive); box-shadow: 0 0 0 3px color-mix(in srgb, var(--positive) 12%, transparent); }
@@ -965,8 +987,7 @@ inkwall_begin_public_request('view');
       .hero__route { align-items: flex-start; flex-direction: column; gap: 7px; margin-top: 17px; }
       .workflow { gap: 32px; }
       .mobile-stepper {
-        position: sticky;
-        top: 10px;
+        position: static;
         z-index: 80;
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1988,6 +2009,7 @@ inkwall_begin_public_request('view');
       imageZoomValue: document.getElementById("imageZoomValue"),
       imageInvertButton: document.getElementById("imageInvertButton"),
       imageDropPopover: document.getElementById("imageDropPopover"),
+      device: document.querySelector(".device"),
       display: document.getElementById("display"),
       displaySvgPreview: document.getElementById("displaySvgPreview"),
       displayContent: document.getElementById("displayContent"),
@@ -2981,6 +3003,7 @@ inkwall_begin_public_request('view');
         Dom.displayDate.dateTime = payload.date.toISOString();
         Dom.displayDate.textContent = this.formatDate(payload.date);
         const layout = payload.layout || {};
+        Dom.device.classList.toggle("has-image-preview", Boolean(payload.image));
         Dom.display.dataset.layoutTexture = ["dots", "clean"].includes(layout.texture) ? layout.texture : "dots";
         const markup = this.svgMarkup(payload);
         const heightMatch = markup.match(/height="(\d+)"/);
@@ -4277,6 +4300,7 @@ inkwall_begin_public_request('view');
         this.appliedSignature = null;
         this.appliedContentSignature = null;
         this.publishedSignature = null;
+        this.updateWaveSignature = null;
         this.showFavicons = true;
         this.previewMode = "latest";
         this.locale = this.resolveLocale();
@@ -4663,6 +4687,15 @@ inkwall_begin_public_request('view');
           && this.publishedSignature === draft.signature;
 
         Dom.updateButton.disabled = !draftDiffersFromDisplay || processing;
+        Dom.updateButton.classList.toggle("is-change-ready", draftDiffersFromDisplay && !processing);
+        if (draftDiffersFromDisplay && !processing && this.updateWaveSignature !== draft.signature && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          this.updateWaveSignature = draft.signature;
+          Dom.updateButton.classList.remove("is-waving");
+          void Dom.updateButton.offsetWidth;
+          Dom.updateButton.classList.add("is-waving");
+          window.setTimeout(() => Dom.updateButton.classList.remove("is-waving"), 1220);
+        }
+        if (!draftDiffersFromDisplay) this.updateWaveSignature = null;
 
         if (publishedDraftIsVisible) {
           this.setPrimaryAction(PrimaryAction.VIEW_LIVE);
