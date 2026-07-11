@@ -60,16 +60,18 @@ if ($method === 'POST' && $path === 'messages') {
     $values = [$imageMime, $imageName, $imageWidth, $imageHeight, $imageBytes, $imageInverted, $imageSignature, json_encode($cleanBindings, JSON_UNESCAPED_SLASHES), json_encode($layout, JSON_UNESCAPED_SLASHES), !empty($body['showFavicons']) ? 1 : 0, $status, json_encode($flags), $visitor, inkwall_country(), inkwall_referrer_host(), $now, $now];
     foreach ($values as $index => $value) $stmt->bindValue($index + 5, $value);
     $stmt->execute();
-    $ai = inkwall_db()->prepare('UPDATE inkwall_notes SET ai_verdict = ?, ai_model = ?, ai_flags_json = ?, ai_scores_json = ?, ai_error = ?, ai_reviewed_at = ? WHERE id = ?');
+    $ai = inkwall_db()->prepare('UPDATE inkwall_notes SET ai_verdict = ?, ai_model = ?, ai_flags_json = ?, ai_scores_json = ?, ai_review_json = ?, ai_error = ?, ai_reviewed_at = ? WHERE id = ?');
     $ai->execute([
         (string)($moderation['verdict'] ?? 'allow'),
         (string)($moderation['model'] ?? ''),
         json_encode($moderation['flags'] ?? [], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
         json_encode($moderation['scores'] ?? [], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+        json_encode($moderation['review'] ?? [], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
         mb_substr((string)($moderation['error'] ?? ''), 0, 500),
         (string)($moderation['reviewed_at'] ?? $now),
         $id,
     ]);
+    inkwall_ai_telemetry_submit($moderation, $status, $imageBytes > 0);
     if ($status === 'held') {
         $noteStmt = inkwall_db()->prepare('SELECT * FROM inkwall_notes WHERE id = ?');
         $noteStmt->execute([$id]); $note = $noteStmt->fetch();

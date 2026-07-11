@@ -5,6 +5,7 @@ const INKWALL_ROOT = __DIR__;
 const INKWALL_DATA_ROOT = __DIR__ . '/../data/inkwall';
 const INKWALL_VISITOR_COOKIE = 'inkwall_visitor';
 const INKWALL_REFERRER_COOKIE = 'inkwall_referrer';
+const INKWALL_VERSION = '0.2.0';
 
 function inkwall_now(): string {
     return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
@@ -207,6 +208,7 @@ function inkwall_migrate(PDO $pdo): void {
         ai_model TEXT NOT NULL DEFAULT '',
         ai_flags_json TEXT NOT NULL DEFAULT '[]',
         ai_scores_json TEXT NOT NULL DEFAULT '{}',
+        ai_review_json TEXT NOT NULL DEFAULT '{}',
         ai_error TEXT NOT NULL DEFAULT '',
         ai_reviewed_at TEXT NULL,
         visitor_hash TEXT NOT NULL,
@@ -264,6 +266,7 @@ function inkwall_migrate(PDO $pdo): void {
     try { $pdo->exec("ALTER TABLE inkwall_notes ADD COLUMN ai_model TEXT NOT NULL DEFAULT ''"); } catch (Throwable) { /* Already migrated. */ }
     try { $pdo->exec("ALTER TABLE inkwall_notes ADD COLUMN ai_flags_json TEXT NOT NULL DEFAULT '[]'"); } catch (Throwable) { /* Already migrated. */ }
     try { $pdo->exec("ALTER TABLE inkwall_notes ADD COLUMN ai_scores_json TEXT NOT NULL DEFAULT '{}'"); } catch (Throwable) { /* Already migrated. */ }
+    try { $pdo->exec("ALTER TABLE inkwall_notes ADD COLUMN ai_review_json TEXT NOT NULL DEFAULT '{}'"); } catch (Throwable) { /* Already migrated. */ }
     try { $pdo->exec("ALTER TABLE inkwall_notes ADD COLUMN ai_error TEXT NOT NULL DEFAULT ''"); } catch (Throwable) { /* Already migrated. */ }
     try { $pdo->exec("ALTER TABLE inkwall_notes ADD COLUMN ai_reviewed_at TEXT NULL"); } catch (Throwable) { /* Already migrated. */ }
 }
@@ -366,7 +369,7 @@ function inkwall_ai_provider(): string {
 
 function inkwall_ai_normalize_provider(string $provider): string {
     $provider = strtolower(trim($provider));
-    $allowed = ['auto', 'local', 'openai', 'openai_moderation', 'deepseek', 'ollama'];
+    $allowed = ['auto', 'local', 'manual', 'openai', 'openai_moderation', 'deepseek', 'ollama'];
     if (!in_array($provider, $allowed, true)) $provider = 'auto';
     if ($provider !== 'auto') return $provider;
     if (inkwall_env('OPENAI_API_KEY') !== '') return 'openai_moderation';
@@ -376,11 +379,33 @@ function inkwall_ai_normalize_provider(string $provider): string {
 }
 
 function inkwall_ai_channel_provider(string $channel): string {
+    return inkwall_ai_channel_config($channel)['provider'];
+}
+
+function inkwall_ai_channel_config(string $channel): array {
+    $channel = $channel === 'image' ? 'image' : 'text';
     $envKey = $channel === 'image' ? 'INKWALL_AI_IMAGE_PROVIDER' : 'INKWALL_AI_TEXT_PROVIDER';
-    $raw = strtolower(trim(inkwall_env($envKey, '')));
-    if ($channel === 'image' && in_array($raw, ['0', 'false', 'off', 'disabled', 'none'], true)) return 'local';
-    if ($raw !== '') return inkwall_ai_normalize_provider($raw);
-    return inkwall_ai_provider();
+    $modelKey = $channel === 'image' ? 'INKWALL_AI_IMAGE_MODEL' : 'INKWALL_AI_TEXT_MODEL';
+    $json = trim(inkwall_env('INKWALL_AI_CHANNELS_JSON', ''));
+    $settings = [];
+    if ($json !== '') {
+        $decoded = json_decode($json, true);
+        if (is_array($decoded) && is_array($decoded[$channel] ?? null)) $settings = $decoded[$channel];
+    }
+    $rawProvider = strtolower(trim((string)($settings['provider'] ?? inkwall_env($envKey, ''))));
+    if ($channel === 'image' && in_array($rawProvider, ['0', 'false', 'off', 'disabled', 'none'], true)) $rawProvider = 'manual';
+    $provider = $rawProvider !== '' ? inkwall_ai_normalize_provider($rawProvider) : inkwall_ai_provider();
+    $model = trim((string)($settings['model'] ?? inkwall_env($modelKey, '')));
+    if ($model === '') {
+        $model = match ($provider) {
+            'openai', 'openai_moderation' => inkwall_env('INKWALL_AI_MODERATION_MODEL', 'omni-moderation-latest'),
+            'deepseek' => inkwall_env('INKWALL_DEEPSEEK_MODEL', inkwall_env('INKWALL_AI_MODERATION_MODEL', 'deepseek-v4-flash')),
+            'ollama' => inkwall_env('INKWALL_OLLAMA_MODEL', inkwall_env('OLLAMA_MODEL', 'qwen3:latest')),
+            'manual' => 'manual',
+            default => 'local',
+        };
+    }
+    return ['channel' => $channel, 'provider' => $provider, 'model' => $model];
 }
 
 function inkwall_ai_provider_supports_images(string $provider): bool {
@@ -417,54 +442,79 @@ function inkwall_ai_moderation(string $name, string $message, ?string $imageMime
         'model' => 'local',
         'error' => '',
         'reviewed_at' => inkwall_now(),
+        'review' => [
+            'text' => inkwall_ai_review_step('text', 'local', 'local', $localFlags ? 'review' : 'allow', $localFlags, [], 0, ''),
+        ],
     ];
     if (!inkwall_ai_moderation_enabled()) return $result;
 
     $hasImage = $imageData !== null && $imageMime !== null;
-    $textProvider = inkwall_ai_channel_provider('text');
-    $imageProvider = $hasImage ? inkwall_ai_channel_provider('image') : 'local';
-    if ($hasImage && $imageProvider === $textProvider && inkwall_ai_provider_supports_images($textProvider)) {
-        return inkwall_ai_provider_moderation($textProvider, $name, $message, $imageMime, $imageData, $localFlags);
+    $textConfig = inkwall_ai_channel_config('text');
+    $imageConfig = $hasImage ? inkwall_ai_channel_config('image') : ['provider' => 'manual', 'model' => 'manual'];
+    if ($hasImage && $imageConfig['provider'] === $textConfig['provider'] && inkwall_ai_provider_supports_images($textConfig['provider'])) {
+        return inkwall_ai_channel_moderation('text', $textConfig, $name, $message, $imageMime, $imageData, $localFlags);
     }
 
-    $textResult = inkwall_ai_provider_moderation($textProvider, $name, $message, null, null, $localFlags);
+    $textResult = inkwall_ai_channel_moderation('text', $textConfig, $name, $message, null, null, $localFlags);
     if (!$hasImage) return $textResult;
 
-    if ($imageProvider === 'local') {
+    if (in_array($imageConfig['provider'], ['local', 'manual'], true)) {
         $imageFlags = in_array(strtolower(inkwall_env('INKWALL_AI_ALLOW_UNCHECKED_IMAGES', '0')), ['1', 'true', 'yes', 'on'], true) ? [] : ['image_unchecked'];
-        return inkwall_ai_merge_results($textResult, inkwall_ai_result([], $imageFlags, [], 'image:unchecked'));
+        return inkwall_ai_merge_results($textResult, inkwall_ai_channel_manual_result('image', $imageConfig, $imageFlags));
     }
-    if (!inkwall_ai_provider_supports_images($imageProvider)) {
+    if (!inkwall_ai_provider_supports_images($imageConfig['provider'])) {
         $imageFlags = in_array(strtolower(inkwall_env('INKWALL_AI_ALLOW_UNCHECKED_IMAGES', '0')), ['1', 'true', 'yes', 'on'], true) ? [] : ['image_unchecked'];
-        return inkwall_ai_merge_results($textResult, inkwall_ai_result([], $imageFlags, [], $imageProvider . ':no-vision'));
+        return inkwall_ai_merge_results($textResult, inkwall_ai_channel_manual_result('image', $imageConfig, $imageFlags, 'no-vision'));
     }
 
-    $imageResult = inkwall_ai_provider_moderation($imageProvider, $name, $message, $imageMime, $imageData, []);
+    $imageResult = inkwall_ai_channel_moderation('image', $imageConfig, $name, $message, $imageMime, $imageData, []);
     return inkwall_ai_merge_results($textResult, $imageResult);
 }
 
-function inkwall_ai_provider_moderation(string $provider, string $name, string $message, ?string $imageMime, ?string $imageData, array $localFlags): array {
-    if ($provider === 'local') return inkwall_ai_base_result($localFlags);
+function inkwall_ai_channel_moderation(string $channel, array $config, string $name, string $message, ?string $imageMime, ?string $imageData, array $localFlags): array {
+    $start = microtime(true);
+    $provider = (string)($config['provider'] ?? 'local');
+    $model = (string)($config['model'] ?? '');
+    $result = inkwall_ai_provider_moderation($provider, $model, $name, $message, $imageMime, $imageData, $localFlags);
+    $latency = (int)round((microtime(true) - $start) * 1000);
+    $result['review'] = [
+        $channel => inkwall_ai_review_step(
+            $channel,
+            $provider,
+            (string)($result['model'] ?? $model),
+            (string)($result['verdict'] ?? 'review'),
+            $result['flags'] ?? [],
+            is_array($result['scores'] ?? null) ? $result['scores'] : [],
+            $latency,
+            (string)($result['error'] ?? '')
+        ),
+    ];
+    return $result;
+}
+
+function inkwall_ai_provider_moderation(string $provider, string $model, string $name, string $message, ?string $imageMime, ?string $imageData, array $localFlags): array {
+    if (in_array($provider, ['local', 'manual'], true)) return inkwall_ai_base_result($localFlags, $model !== '' ? $model : $provider);
     $quota = inkwall_ai_quota($provider, $imageData !== null && $imageMime !== null);
     if (!$quota['allowed']) {
         return inkwall_ai_result($localFlags, ['ai_rate_limited'], ['quota' => $quota['reason']], $provider, 'AI moderation quota reached');
     }
 
     return match ($provider) {
-        'openai', 'openai_moderation' => inkwall_ai_openai_moderation($name, $message, $imageMime, $imageData, $localFlags),
-        'deepseek' => inkwall_ai_chat_moderation('deepseek', $name, $message, $imageMime, $imageData, $localFlags),
-        'ollama' => inkwall_ai_chat_moderation('ollama', $name, $message, $imageMime, $imageData, $localFlags),
+        'openai', 'openai_moderation' => inkwall_ai_openai_moderation($name, $message, $imageMime, $imageData, $localFlags, $model),
+        'deepseek' => inkwall_ai_chat_moderation('deepseek', $name, $message, $imageMime, $imageData, $localFlags, $model),
+        'ollama' => inkwall_ai_chat_moderation('ollama', $name, $message, $imageMime, $imageData, $localFlags, $model),
         default => inkwall_ai_base_result($localFlags),
     };
 }
 
 function inkwall_ai_merge_results(array ...$results): array {
-    $flags = []; $scores = []; $models = []; $errors = []; $reviewedAt = inkwall_now();
+    $flags = []; $scores = []; $models = []; $errors = []; $reviewedAt = inkwall_now(); $review = [];
     foreach ($results as $index => $result) {
         foreach (($result['flags'] ?? []) as $flag) {
             if ($flag !== '') $flags[] = (string)$flag;
         }
         if (is_array($result['scores'] ?? null)) $scores['part_' . ($index + 1)] = $result['scores'];
+        if (is_array($result['review'] ?? null)) $review = array_merge($review, $result['review']);
         $model = trim((string)($result['model'] ?? ''));
         if ($model !== '' && !in_array($model, $models, true)) $models[] = $model;
         $error = trim((string)($result['error'] ?? ''));
@@ -482,7 +532,46 @@ function inkwall_ai_merge_results(array ...$results): array {
         'model' => implode(' + ', $models),
         'error' => mb_substr(implode(' | ', $errors), 0, 500),
         'reviewed_at' => $reviewedAt,
+        'review' => $review,
     ];
+}
+
+function inkwall_ai_channel_manual_result(string $channel, array $config, array $flags, string $reason = ''): array {
+    $provider = (string)($config['provider'] ?? 'manual');
+    $model = (string)($config['model'] ?? $provider);
+    $result = inkwall_ai_result([], $flags, $reason !== '' ? ['reason' => $reason] : [], $model);
+    $result['review'] = [
+        $channel => inkwall_ai_review_step($channel, $provider, $model, (string)$result['verdict'], $result['flags'], $result['scores'], 0, ''),
+    ];
+    return $result;
+}
+
+function inkwall_ai_confidence(array $scores, array $flags, string $decision): float {
+    if (isset($scores['confidence']) && is_numeric($scores['confidence'])) return max(0.0, min(1.0, (float)$scores['confidence']));
+    $values = [];
+    foreach ($scores as $value) {
+        if (is_numeric($value)) $values[] = (float)$value;
+    }
+    if ($values) {
+        $max = max($values);
+        return max(0.0, min(1.0, $flags ? $max : 1.0 - $max));
+    }
+    return $decision === 'allow' && !$flags ? 1.0 : 0.75;
+}
+
+function inkwall_ai_review_step(string $channel, string $provider, string $model, string $decision, array $flags, array $scores, int $latencyMs, string $error): array {
+    $flags = array_values(array_unique(array_map(static fn($flag): string => inkwall_ai_flag_key((string)$flag), $flags)));
+    $flags = array_values(array_filter($flags, static fn(string $flag): bool => $flag !== ''));
+    $step = [
+        'provider' => $provider,
+        'model' => $model,
+        'decision' => in_array($decision, ['allow', 'review', 'reject'], true) ? $decision : 'review',
+        'flags' => $flags,
+        'confidence' => inkwall_ai_confidence($scores, $flags, $decision),
+        'latency_ms' => max(0, $latencyMs),
+    ];
+    if ($error !== '') $step['error'] = mb_substr($error, 0, 180);
+    return $step;
 }
 
 function inkwall_ai_base_result(array $localFlags, string $model = 'local', string $error = ''): array {
@@ -592,9 +681,9 @@ function inkwall_ai_result(array $localFlags, array $flags, array $scores, strin
     ];
 }
 
-function inkwall_ai_openai_moderation(string $name, string $message, ?string $imageMime, ?string $imageData, array $localFlags): array {
+function inkwall_ai_openai_moderation(string $name, string $message, ?string $imageMime, ?string $imageData, array $localFlags, string $modelOverride = ''): array {
     $apiKey = inkwall_env('OPENAI_API_KEY');
-    $model = inkwall_env('INKWALL_AI_MODERATION_MODEL', 'omni-moderation-latest');
+    $model = $modelOverride !== '' ? $modelOverride : inkwall_env('INKWALL_AI_MODERATION_MODEL', 'omni-moderation-latest');
     if ($apiKey === '') return inkwall_ai_result($localFlags, ['ai_unavailable'], [], $model, 'OpenAI API key missing');
 
     $input = [[
@@ -770,7 +859,7 @@ function inkwall_ai_chat_prompt(string $name, string $message, bool $hasImage, b
     $imageLine = $hasImage
         ? ($canInspectImage ? 'The submission includes an image. Inspect it and include visual safety concerns in flags.' : 'The submission includes an image. If you cannot inspect images, set review for image_unchecked.')
         : 'No image is attached.';
-    return "You are an InkWall moderation reviewer. You must never reject or block. Return only compact JSON with keys verdict and flags. verdict must be allow or review. Use review for harassment, hate, sexual content, violence, self-harm, doxxing/privacy, spam networks, scams, impersonation, intellectual property concerns, or uncertainty. Normal personal self-promotion, social handles, harmless links, and phrases like follow me are allowed unless they are spammy, deceptive, commercial advertising, or unsafe. {$imageLine}\n\nName: {$name}\nMessage: {$message}";
+    return "You are an InkWall moderation reviewer. You must never reject or block. Return only compact JSON with keys verdict, flags, and confidence. verdict must be allow or review. confidence must be a number from 0 to 1. Use review for harassment, hate, sexual content, violence, self-harm, doxxing/privacy, spam networks, scams, impersonation, intellectual property concerns, or uncertainty. Normal personal self-promotion, social handles, harmless links, and phrases like follow me are allowed unless they are spammy, deceptive, commercial advertising, or unsafe. {$imageLine}\n\nName: {$name}\nMessage: {$message}";
 }
 
 function inkwall_ai_parse_chat_json(string $raw): array {
@@ -782,13 +871,15 @@ function inkwall_ai_parse_chat_json(string $raw): array {
     $verdict = strtolower((string)($json['verdict'] ?? 'review'));
     $flags = is_array($json['flags'] ?? null) ? $json['flags'] : [];
     if ($verdict === 'review' && !$flags) $flags[] = 'ai_review';
+    $scores = ['verdict' => $verdict];
+    if (isset($json['confidence']) && is_numeric($json['confidence'])) $scores['confidence'] = max(0.0, min(1.0, (float)$json['confidence']));
     return [
         'flags' => array_values(array_unique(array_map(static fn($value): string => preg_replace('/[^a-z0-9_.-]+/i', '_', strtolower((string)$value)) ?: 'ai_review', $flags))),
-        'scores' => ['verdict' => $verdict],
+        'scores' => $scores,
     ];
 }
 
-function inkwall_ai_chat_moderation(string $provider, string $name, string $message, ?string $imageMime, ?string $imageData, array $localFlags): array {
+function inkwall_ai_chat_moderation(string $provider, string $name, string $message, ?string $imageMime, ?string $imageData, array $localFlags, string $modelOverride = ''): array {
     $hasImage = $imageData !== null && $imageMime !== null;
     $deepSeekVision = $provider === 'deepseek' && in_array(strtolower(inkwall_env('INKWALL_DEEPSEEK_SEND_IMAGES', '0')), ['1', 'true', 'yes', 'on'], true);
     $reviewUncheckedImages = !in_array(strtolower(inkwall_env('INKWALL_AI_ALLOW_UNCHECKED_IMAGES', '0')), ['1', 'true', 'yes', 'on'], true);
@@ -797,7 +888,7 @@ function inkwall_ai_chat_moderation(string $provider, string $name, string $mess
     try {
         if ($provider === 'deepseek') {
             $apiKey = inkwall_env('DEEPSEEK_API_KEY');
-            $model = inkwall_env('INKWALL_DEEPSEEK_MODEL', inkwall_env('INKWALL_AI_MODERATION_MODEL', 'deepseek-v4-flash'));
+            $model = $modelOverride !== '' ? $modelOverride : inkwall_env('INKWALL_DEEPSEEK_MODEL', inkwall_env('INKWALL_AI_MODERATION_MODEL', 'deepseek-v4-flash'));
             if ($apiKey === '') return inkwall_ai_result($localFlags, ['ai_unavailable'], [], $model, 'DeepSeek API key missing');
             $base = rtrim(inkwall_env('DEEPSEEK_BASE_URL', 'https://api.deepseek.com'), '/');
             $userContent = inkwall_ai_chat_prompt($name, $message, $hasImage, $deepSeekVision);
@@ -824,7 +915,7 @@ function inkwall_ai_chat_moderation(string $provider, string $name, string $mess
             return inkwall_ai_result($localFlags, array_merge($parsed['flags'], $imageFlags), $parsed['scores'], $model);
         }
 
-        $model = inkwall_env('INKWALL_OLLAMA_MODEL', inkwall_env('OLLAMA_MODEL', 'qwen3:latest'));
+        $model = $modelOverride !== '' ? $modelOverride : inkwall_env('INKWALL_OLLAMA_MODEL', inkwall_env('OLLAMA_MODEL', 'qwen3:latest'));
         $base = rtrim(inkwall_env('INKWALL_OLLAMA_URL', inkwall_env('OLLAMA_HOST', 'http://127.0.0.1:11434')), '/');
         $payload = [
             'model' => $model,
@@ -853,6 +944,47 @@ function inkwall_deepseek_track_balance_after_call(): void {
     } catch (Throwable $error) {
         error_log('[inkwall_deepseek_balance_after_call] ' . $error->getMessage());
     }
+}
+
+function inkwall_ai_telemetry_submit(array $moderation, string $status, bool $hasImage): void {
+    if (!in_array(strtolower(inkwall_env('INKWALL_SHARE_AI_METADATA', '1')), ['1', 'true', 'yes', 'on'], true)) return;
+    $endpoint = trim(inkwall_env('INKWALL_AI_METADATA_ENDPOINT', 'https://angusu.de/inkwall/telemetry.php'));
+    if ($endpoint === '' || !filter_var($endpoint, FILTER_VALIDATE_URL)) return;
+    $review = is_array($moderation['review'] ?? null) ? $moderation['review'] : [];
+    $channels = [];
+    foreach (['text', 'image'] as $channel) {
+        if (!is_array($review[$channel] ?? null)) continue;
+        $step = $review[$channel];
+        $channels[$channel] = [
+            'provider' => mb_substr((string)($step['provider'] ?? ''), 0, 40),
+            'model' => mb_substr((string)($step['model'] ?? ''), 0, 80),
+            'decision' => mb_substr((string)($step['decision'] ?? ''), 0, 16),
+            'flags' => array_values(array_slice(array_map('strval', is_array($step['flags'] ?? null) ? $step['flags'] : []), 0, 12)),
+            'confidence' => isset($step['confidence']) && is_numeric($step['confidence']) ? max(0.0, min(1.0, (float)$step['confidence'])) : null,
+            'latency_ms' => max(0, min(60000, (int)($step['latency_ms'] ?? 0))),
+        ];
+    }
+    if (!$channels) return;
+    $payload = [
+        'project' => 'inkwall',
+        'version' => INKWALL_VERSION,
+        'status' => in_array($status, ['published', 'held', 'rejected'], true) ? $status : 'other',
+        'has_image' => $hasImage,
+        'channels' => $channels,
+        'created_at' => inkwall_now(),
+    ];
+    $ch = curl_init($endpoint);
+    if ($ch === false) return;
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+        CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_CONNECTTIMEOUT_MS => 300,
+        CURLOPT_TIMEOUT_MS => 700,
+    ]);
+    curl_exec($ch);
+    curl_close($ch);
 }
 
 function inkwall_http_json(string $url, array $payload, array $headers = []): array {

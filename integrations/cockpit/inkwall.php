@@ -43,6 +43,7 @@ $eventBreakdown = $pdo->query('SELECT event_type label, COUNT(*) count FROM inkw
 $countryBreakdown = $pdo->query('SELECT country label, COUNT(*) count FROM inkwall_events GROUP BY country ORDER BY count DESC LIMIT 12')->fetchAll();
 $referrerBreakdown = $pdo->query('SELECT referrer_host label, COUNT(*) count FROM inkwall_events GROUP BY referrer_host ORDER BY count DESC LIMIT 12')->fetchAll();
 $recentReports = $pdo->query('SELECT r.*, n.author_name, n.message_text, n.status FROM inkwall_reports r JOIN inkwall_notes n ON n.id=r.note_id ORDER BY r.created_at DESC LIMIT 30')->fetchAll();
+$aiReviewRows = $pdo->query("SELECT ai_review_json FROM inkwall_notes WHERE ai_review_json IS NOT NULL AND ai_review_json <> '{}' ORDER BY created_at DESC LIMIT 1000")->fetchAll();
 $visitorEvents = [];
 if ($visitorFilter !== '') {
     $ev = $pdo->prepare('SELECT * FROM inkwall_events WHERE visitor_hash LIKE ? ORDER BY created_at DESC LIMIT 100');
@@ -50,6 +51,42 @@ if ($visitorFilter !== '') {
 }
 function iw_e(mixed $value): string { return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8'); }
 function iw_short_hash(string $hash): string { return substr($hash, 0, 12); }
+function iw_json_list(mixed $json): string {
+    $data = json_decode((string)$json, true);
+    if (!is_array($data) || !$data) return 'none';
+    return implode(', ', array_map(static fn($value): string => (string)$value, array_slice($data, 0, 8)));
+}
+function iw_review_chain(mixed $json): array {
+    $data = json_decode((string)$json, true);
+    return is_array($data) ? $data : [];
+}
+function iw_review_summary(mixed $json): string {
+    $chain = iw_review_chain($json);
+    if (!$chain) return 'none';
+    $parts = [];
+    foreach (['text', 'image'] as $channel) {
+        if (!is_array($chain[$channel] ?? null)) continue;
+        $step = $chain[$channel];
+        $flags = is_array($step['flags'] ?? null) && $step['flags'] ? ' flags ' . implode(',', array_slice(array_map('strval', $step['flags']), 0, 4)) : '';
+        $latency = isset($step['latency_ms']) ? ' ' . (int)$step['latency_ms'] . 'ms' : '';
+        $parts[] = $channel . ' ' . ($step['provider'] ?? 'unknown') . '/' . ($step['model'] ?? 'model') . ' ' . ($step['decision'] ?? 'review') . $latency . $flags;
+    }
+    return $parts ? implode(' | ', $parts) : 'none';
+}
+function iw_ai_rows(array $rows): array {
+    $map = [];
+    foreach ($rows as $row) {
+        foreach (iw_review_chain($row['ai_review_json'] ?? '{}') as $channel => $step) {
+            if (!is_array($step)) continue;
+            $key = (string)$channel . ' · ' . (string)($step['provider'] ?? 'unknown') . ' · ' . (string)($step['model'] ?? 'model');
+            $map[$key] = ($map[$key] ?? 0) + 1;
+        }
+    }
+    arsort($map);
+    $out = [];
+    foreach (array_slice($map, 0, 12, true) as $label => $count) $out[] = ['label' => $label, 'count' => $count];
+    return $out;
+}
 function iw_bar_rows(array $rows): string {
     $max = max(1, ...array_map(static fn(array $row): int => (int)$row['count'], $rows));
     $html = '';
@@ -59,6 +96,7 @@ function iw_bar_rows(array $rows): string {
     }
     return $html ?: '<p class="muted">No data yet.</p>';
 }
+$aiBreakdown = iw_ai_rows($aiReviewRows);
 ?>
 <!doctype html>
 <html lang="en">
@@ -75,13 +113,13 @@ function iw_bar_rows(array $rows): string {
 <section class="metrics">
 <?php foreach (['Notes'=>'notes','Published'=>'published','Held'=>'held','Reports'=>'reports','Events'=>'events','Pseudonyms'=>'visitors','With image'=>'image_notes'] as $label=>$key): ?><div class="metric"><span><?= iw_e($label) ?></span><strong><?= (int)($totals[$key]??0) ?></strong></div><?php endforeach ?>
 </section>
-<section class="charts"><div class="panel"><h2>Usage events</h2><?= iw_bar_rows($eventBreakdown) ?></div><div class="panel"><h2>Countries (edge hint)</h2><?= iw_bar_rows($countryBreakdown) ?></div><div class="panel"><h2>Referrer domains</h2><?= iw_bar_rows($referrerBreakdown) ?></div></section>
+<section class="charts"><div class="panel"><h2>Usage events</h2><?= iw_bar_rows($eventBreakdown) ?></div><div class="panel"><h2>AI channels</h2><?= iw_bar_rows($aiBreakdown) ?></div><div class="panel"><h2>Referrer domains</h2><?= iw_bar_rows($referrerBreakdown) ?></div></section>
 
 <div class="section-title"><h2>Messages</h2><span class="muted">No raw IP, browser fingerprint, full referrer URL or identity stored.</span></div>
 <nav class="filters"><?php foreach (['all','published','held','rejected','deleted'] as $status): ?><a class="<?= $statusFilter===$status?'active':'' ?>" href="?status=<?= $status ?>"><?= ucfirst($status) ?></a><?php endforeach ?><?php if ($visitorFilter): ?><a class="active" href="?visitor=<?= iw_e($visitorFilter) ?>">Pseudonym <?= iw_e(substr($visitorFilter,0,12)) ?>… ×</a><?php endif ?></nav>
 <section class="notes">
 <?php if (!$notes): ?><div class="panel muted">No matching messages.</div><?php endif ?>
-<?php foreach ($notes as $note): $layout = inkwall_layout(json_decode((string)($note['layout_json'] ?? '{}'), true)); ?><article class="note"><div><h3><?= iw_e($note['author_name']) ?> <span class="pill <?= iw_e($note['status']) ?>"><?= iw_e($note['status']) ?></span></h3><p><?= nl2br(iw_e($note['message_text'])) ?></p></div><div class="meta">ID <?= iw_e($note['id']) ?><br><?= iw_e($note['created_at']) ?><br><a href="?visitor=<?= iw_e(iw_short_hash($note['visitor_hash'])) ?>">user <?= iw_e(iw_short_hash($note['visitor_hash'])) ?>…</a> · <?= iw_e($note['country']) ?> · <?= iw_e($note['referrer_host']) ?><br>layout <?= iw_e($layout['align']) ?> / <?= iw_e($layout['media']) ?> · <?= count(json_decode((string)$note['bindings_json'], true) ?: []) ?> links<br><?= (int)$note['image_bytes'] ?> image bytes · <?= (int)$note['reaction_count'] ?> reactions · <?= (int)$note['report_count'] ?> reports</div><div class="actions">
+<?php foreach ($notes as $note): $layout = inkwall_layout(json_decode((string)($note['layout_json'] ?? '{}'), true)); ?><article class="note"><div><h3><?= iw_e($note['author_name']) ?> <span class="pill <?= iw_e($note['status']) ?>"><?= iw_e($note['status']) ?></span></h3><p><?= nl2br(iw_e($note['message_text'])) ?></p></div><div class="meta">ID <?= iw_e($note['id']) ?><br><?= iw_e($note['created_at']) ?><br><a href="?visitor=<?= iw_e(iw_short_hash($note['visitor_hash'])) ?>">user <?= iw_e(iw_short_hash($note['visitor_hash'])) ?>…</a> · <?= iw_e($note['country']) ?> · <?= iw_e($note['referrer_host']) ?><br>layout <?= iw_e($layout['align']) ?> / <?= iw_e($layout['media']) ?> · <?= count(json_decode((string)$note['bindings_json'], true) ?: []) ?> links<br>AI <?= iw_e($note['ai_verdict'] ?? 'allow') ?> · <?= iw_e(iw_review_summary($note['ai_review_json'] ?? '{}')) ?><br>flags <?= iw_e(iw_json_list($note['ai_flags_json'] ?? '[]')) ?><?= !empty($note['ai_error']) ? '<br>AI error ' . iw_e($note['ai_error']) : '' ?><br><?= (int)$note['image_bytes'] ?> image bytes · <?= (int)$note['reaction_count'] ?> reactions · <?= (int)$note['report_count'] ?> reports</div><div class="actions">
 <?php foreach (['published'=>'Publish','held'=>'Hold','rejected'=>'Reject','deleted'=>'Delete'] as $state=>$label): if ($note['status']===$state) continue; ?><form method="post"><input type="hidden" name="csrf" value="<?= iw_e(admin_csrf()) ?>"><input type="hidden" name="id" value="<?= iw_e($note['id']) ?>"><input type="hidden" name="status" value="<?= $state ?>"><button class="btn <?= $state==='published'?'btn--green':($state==='held'?'btn--amber':'btn--red') ?>" type="submit"><?= $label ?></button></form><?php endforeach ?>
 </div></article><?php endforeach ?>
 </section>

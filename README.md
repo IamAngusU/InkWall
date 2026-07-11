@@ -147,10 +147,48 @@ You can also split text and image review by provider. Empty channel values keep 
 ```env
 INKWALL_AI_PROVIDER=deepseek
 INKWALL_AI_TEXT_PROVIDER=deepseek
+INKWALL_AI_TEXT_MODEL=deepseek-v4-flash
 INKWALL_AI_IMAGE_PROVIDER=openai_moderation
+INKWALL_AI_IMAGE_MODEL=omni-moderation-latest
+```
+
+For a more future-proof config, use the JSON channel form. `manual` means the channel is not model-reviewed and can be held by policy.
+
+```env
+INKWALL_AI_CHANNELS_JSON={"text":{"provider":"ollama","model":"gemma3:4b"},"image":{"provider":"manual"}}
+```
+
+Each note stores a structured review chain in `ai_review_json`:
+
+```json
+{
+  "text": {
+    "provider": "deepseek",
+    "model": "deepseek-v4-flash",
+    "decision": "allow",
+    "flags": ["advertising"],
+    "confidence": 0.98,
+    "latency_ms": 842
+  },
+  "image": {
+    "provider": "manual",
+    "model": "manual",
+    "decision": "review",
+    "flags": ["image_unchecked"],
+    "confidence": 0.75,
+    "latency_ms": 0
+  }
+}
 ```
 
 DeepSeek image sending is opt-in because the public DeepSeek API docs may differ by model and account. Ollama is text-only in the default InkWall integration. If a user submits an image with a text-only provider, InkWall adds `image_unchecked` by default. Set `INKWALL_AI_REVIEW_UNCHECKED_IMAGES=1` if those images should always wait for human review, or `INKWALL_AI_ALLOW_UNCHECKED_IMAGES=1` if you do not want the audit flag.
+
+InkWall shares anonymous AI metadata with the maintainer by default so future releases can compare provider reliability and speed. It sends version, status, `has_image`, channel, provider, model, decision, flags, confidence, and latency. It does not send names, messages, images, IPs, full referrers, visitor hashes, report details, or secrets.
+
+```env
+INKWALL_SHARE_AI_METADATA=1
+INKWALL_AI_METADATA_ENDPOINT=https://angusu.de/inkwall/telemetry.php
+```
 
 Branding can be changed with one JSON value or individual overrides:
 
