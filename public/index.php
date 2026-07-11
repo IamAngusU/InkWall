@@ -4,6 +4,10 @@ require_once __DIR__ . '/app.php';
 header('Cache-Control: no-cache, max-age=0, must-revalidate');
 header('Pragma: no-cache');
 header('Expires: 0');
+$brand = inkwall_branding();
+$brandJson = json_encode($brand, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT);
+$profileLabel = preg_replace('~^https?://~', '', $brand['profile_url']);
+function inkwall_page_escape(string $value): string { return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }
 function inkwall_asset_version(string $relative): string {
     $modified = @filemtime(__DIR__ . '/' . ltrim($relative, '/'));
     return (string)($modified ?: 1);
@@ -15,7 +19,7 @@ inkwall_begin_public_request('view');
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <meta name="description" content="Publish a moderated E-Ink note to the IamAngusU GitHub profile surface.">
+  <meta name="description" content="Publish a moderated E-Ink note to <?= inkwall_page_escape($profileLabel) ?>.">
   <title>GitHub E-Ink Message Surface</title>
   <style>
     :root {
@@ -612,12 +616,10 @@ inkwall_begin_public_request('view');
     .display-content.has-image .display-message,
     .display-content.has-image[data-density="compact"] .display-message { font-size: 2.3cqw; }
     .display-author { gap: .9cqw; margin-top: .35cqw; font-size: 1.25cqw; }
-    .display-author::before { width: 2.5cqw; }
     .display-media { height: 7.17cqw; }
     .display-content.has-image[data-layout-media="left"] .display-media,
     .display-content.has-image[data-layout-media="right"] .display-media { height: 14.33cqw; min-height: 0; }
-    .display-author { display: flex; align-items: center; gap: 11px; margin-top: 5px; color: var(--screen-muted); font-family: var(--mono); font-size: 9px; font-weight: 760; letter-spacing: .06em; text-transform: uppercase; }
-    .display-author::before { width: 30px; height: 1px; content: ""; background: var(--screen-ink); }
+    .display-author { display: flex; align-items: center; margin-top: 5px; color: var(--screen-muted); font-family: var(--mono); font-size: 9px; font-weight: 760; letter-spacing: .06em; text-transform: uppercase; }
 
     .ink-link {
       display: inline-flex;
@@ -889,7 +891,6 @@ inkwall_begin_public_request('view');
       .display-content.has-image[data-layout-media="right"] .display-media { height: 14.33cqw; }
       .display-meta span, .display-foot span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .display-author { margin-top: 8px; font-size: 7px; }
-      .display-author::before { width: 22px; }
       .publish-stage { grid-template-columns: 1fr; gap: 11px; padding-top: 14px; }
       .publish-stage .button { width: 100%; min-width: 0; }
       .destination { margin-top: 68px; }
@@ -1360,7 +1361,7 @@ inkwall_begin_public_request('view');
       <h1>Put a note on my GitHub.</h1>
       <div class="hero__route">
         <span>The newest published ink is rendered into</span>
-        <a class="hero__destination" id="heroDestinationLink" href="https://github.com/IamAngusU" target="_blank" rel="noopener noreferrer">github.com/IamAngusU<sup aria-hidden="true">↗</sup></a>
+        <a class="hero__destination" id="heroDestinationLink" href="<?= inkwall_page_escape($brand['profile_url']) ?>" target="_blank" rel="noopener noreferrer"><?= inkwall_page_escape($profileLabel) ?><sup aria-hidden="true">↗</sup></a>
       </div>
     </header>
 
@@ -1414,8 +1415,8 @@ inkwall_begin_public_request('view');
             </div>
             <div class="layout-option">Paper texture
               <div class="choice-row" id="layoutTextureChoices" role="radiogroup" aria-label="Paper texture" style="--choice-count: 2">
-                <label><input type="radio" name="layoutTexture" value="dots" checked><span><i class="choice-icon" style="--choice-icon: url('assets/icons/texture-dots.svg')" aria-hidden="true"></i><b>Dots</b></span></label>
-                <label><input type="radio" name="layoutTexture" value="clean"><span><i class="choice-icon" style="--choice-icon: url('assets/icons/texture-clean.svg')" aria-hidden="true"></i><b>Clean</b></span></label>
+                <label><input type="radio" name="layoutTexture" value="dots" <?= $brand['paper_texture'] === 'dots' ? 'checked' : '' ?>><span><i class="choice-icon" style="--choice-icon: url('assets/icons/texture-dots.svg')" aria-hidden="true"></i><b>Dots</b></span></label>
+                <label><input type="radio" name="layoutTexture" value="clean" <?= $brand['paper_texture'] === 'clean' ? 'checked' : '' ?>><span><i class="choice-icon" style="--choice-icon: url('assets/icons/texture-clean.svg')" aria-hidden="true"></i><b>Clean</b></span></label>
               </div>
             </div>
             <div class="layout-sliders">
@@ -1461,7 +1462,7 @@ inkwall_begin_public_request('view');
             <button class="image-remove" id="removeImageButton" type="button" hidden>Remove</button>
           </div>
           <input class="file-input" id="imageInput" type="file" accept="image/jpeg,image/png,image/webp,image/avif">
-          <p class="image-note">Converted locally to a four-tone WebP. Drag the crop, pinch with two fingers, use the zoom slider, or invert the image independently from the page theme.</p>
+          <p class="image-note">Compressed locally before upload. Drag the crop, pinch with two fingers, use the zoom slider, or invert the image independently from the page theme.</p>
 
           <div class="image-progress" id="imageProgress" hidden>
             <div class="image-progress__head">
@@ -1517,7 +1518,7 @@ inkwall_begin_public_request('view');
                 <span class="display-author" id="displayName">Anonymous</span>
               </div>
               <div class="display-foot">
-                <span>github.com/IamAngusU</span>
+                <span><?= inkwall_page_escape($profileLabel) ?></span>
                 <span id="displayScope">Public surface</span>
               </div>
             </div>
@@ -1540,7 +1541,7 @@ inkwall_begin_public_request('view');
 
     <section class="destination" aria-labelledby="destinationTitle">
       <div class="destination__media">
-      <img class="destination__banner" src="assets/github-destination.png?v=<?= inkwall_asset_version("assets/github-destination.png") ?>" alt="Angus Uelsmann GitHub profile banner">
+      <img class="destination__banner" src="assets/github-destination.png?v=<?= inkwall_asset_version("assets/github-destination.png") ?>" alt="<?= inkwall_page_escape($brand['owner_name']) ?> GitHub profile banner">
         <canvas class="destination__pixel-field" id="destinationPixelField" aria-hidden="true"></canvas>
       </div>
       <div class="destination__line">
@@ -1550,8 +1551,8 @@ inkwall_begin_public_request('view');
           <p>Publishing replaces the current E-Ink message in the profile README. Reload the GitHub profile to see the newest public version.</p>
         </div>
         <div class="destination__links">
-          <a id="liveProfileLink" href="https://github.com/IamAngusU" target="_blank" rel="noopener noreferrer">Open live profile <span aria-hidden="true">↗</span></a>
-          <a id="repositoryLink" href="https://github.com/IamAngusU/IamAngusU" target="_blank" rel="noopener noreferrer">Profile repository <span aria-hidden="true">↗</span></a>
+          <a id="liveProfileLink" href="<?= inkwall_page_escape($brand['profile_url']) ?>" target="_blank" rel="noopener noreferrer">Open live profile <span aria-hidden="true">↗</span></a>
+          <a id="repositoryLink" href="<?= inkwall_page_escape($brand['repository_url']) ?>" target="_blank" rel="noopener noreferrer">Project repository <span aria-hidden="true">↗</span></a>
         </div>
       </div>
     </section>
@@ -1581,7 +1582,7 @@ inkwall_begin_public_request('view');
     <footer class="policy">
       <div>
         <span class="policy-kicker">Visitor content and external destinations</span>
-        <p>Notes and linked destinations are submitted by visitors and do not represent Angus Uelsmann. External destinations are not endorsed or verified. Visitor inks can be reported. The prepared ink from Angus is owner managed and excluded from public reports. Priority safety reports place a visitor ink on immediate review hold. Other report categories require two independent signals before the note is hidden for review. Moderation rules, reporting procedures, and security controls are continuously maintained. Usage is correlated with a random browser pseudonym; only country hints and referrer domains are retained. Raw IP addresses, identities, browser fingerprints, and complete referrer URLs are not stored by InkWall.</p>
+        <p>Notes and linked destinations are submitted by visitors and do not represent <?= inkwall_page_escape($brand['owner_name']) ?>. External destinations are not endorsed or verified. Visitor inks can be reported. The prepared ink from <?= inkwall_page_escape($brand['owner_name']) ?> is owner managed and excluded from public reports. Priority safety reports place a visitor ink on immediate review hold. Other report categories require two independent signals before the note is hidden for review. Moderation rules, reporting procedures, and security controls are continuously maintained. Usage is correlated with a random browser pseudonym; only country hints and referrer domains are retained. Raw IP addresses, identities, browser fingerprints, and complete referrer URLs are not stored by InkWall.</p>
       </div>
       <a class="policy__report" href="#recentInks">Report a note</a>
     </footer>
@@ -1589,11 +1590,11 @@ inkwall_begin_public_request('view');
     <footer class="site-footer">
       <div class="site-footer__credit">
         <span>Designed and programmed by</span>
-        <a href="https://angusu.de" target="_blank" rel="noopener noreferrer">angusu.de</a>
+        <a href="<?= inkwall_page_escape($brand['site_url']) ?>" target="_blank" rel="noopener noreferrer"><?= inkwall_page_escape($brand['site_label']) ?></a>
         <span aria-hidden="true">·</span>
-        <span>Angus Uelsmann</span><span aria-hidden="true">·</span><a href="https://db-ip.com" target="_blank" rel="noopener noreferrer">IP Geolocation by DB-IP</a>
+        <span><?= inkwall_page_escape($brand['owner_name']) ?></span><span aria-hidden="true">·</span><a href="https://db-ip.com" target="_blank" rel="noopener noreferrer">IP Geolocation by DB-IP</a>
       </div>
-      <a class="site-footer__repo" id="footerRepositoryLink" href="https://github.com/IamAngusU/IamAngusU" target="_blank" rel="noopener noreferrer">
+      <a class="site-footer__repo" id="footerRepositoryLink" href="<?= inkwall_page_escape($brand['repository_url']) ?>" target="_blank" rel="noopener noreferrer">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8a9.2 9.2 0 0 0-2.9 17.9c.5.1.7-.2.7-.5v-1.8c-2.8.6-3.4-1.2-3.4-1.2-.5-1.2-1.1-1.5-1.1-1.5-.9-.7.1-.7.1-.7 1 .1 1.6 1.1 1.6 1.1.9 1.6 2.4 1.1 2.9.9.1-.7.4-1.1.7-1.4-2.2-.3-4.6-1.1-4.6-5a3.9 3.9 0 0 1 1-2.7 3.6 3.6 0 0 1 .1-2.7s.8-.3 2.8 1a9.5 9.5 0 0 1 5.1 0c2-1.3 2.8-1 2.8-1a3.6 3.6 0 0 1 .1 2.7 3.9 3.9 0 0 1 1 2.7c0 3.9-2.4 4.7-4.6 5 .4.3.7 1 .7 2v3c0 .3.2.6.7.5A9.2 9.2 0 0 0 12 2.8Z"></path></svg>
         <span>View repository</span>
       </a>
@@ -1644,6 +1645,9 @@ inkwall_begin_public_request('view');
         <label class="report-reason report-reason--severe"><input type="radio" name="reportReason" value="hate"><span><strong>Hate or dehumanization</strong><small>Attacks based on protected characteristics</small></span></label>
         <label class="report-reason report-reason--severe"><input type="radio" name="reportReason" value="threat"><span><strong>Threat or immediate danger</strong><small>Violence, self-harm encouragement, or credible threats</small></span></label>
         <label class="report-reason report-reason--severe"><input type="radio" name="reportReason" value="privacy"><span><strong>Personal or private information</strong><small>Exposed contact details, credentials, or identifying data</small></span></label>
+        <label class="report-reason report-reason--severe"><input type="radio" name="reportReason" value="intellectual_property"><span><strong>Intellectual property</strong><small>Copyright, trademark, or ownership concern</small></span></label>
+        <label class="report-reason report-reason--severe"><input type="radio" name="reportReason" value="impersonation"><span><strong>Impersonation</strong><small>Pretending to be another person or brand</small></span></label>
+        <label class="report-reason report-reason--severe"><input type="radio" name="reportReason" value="scam"><span><strong>Scam or fraud</strong><small>Phishing, deception, or financial abuse</small></span></label>
         <label class="report-reason"><input type="radio" name="reportReason" value="other"><span><strong>Something else</strong><small>Explain the concern below</small></span></label>
       </fieldset>
       <label class="report-detail">
@@ -1679,8 +1683,9 @@ inkwall_begin_public_request('view');
       apiBase: `${location.pathname.replace(/\/(?:index\.php)?$/, "")}/api`.replace(/^\/\//, "/"),
       storageKey: "angusu-eink-wall-v11",
       themeKey: "angusu-eink-theme-v4",
-      destinationUrl: "https://github.com/IamAngusU",
-      repositoryUrl: "https://github.com/IamAngusU/InkWall",
+      branding: Object.freeze(<?= $brandJson ?: '{}' ?>),
+      destinationUrl: <?= json_encode($brand['profile_url'], JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+      repositoryUrl: <?= json_encode($brand['repository_url'], JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
       fallbackBackUrl: "https://angusu.de/connect",
       reportStorageKey: "angusu-eink-reports-v2",
       reporterStorageKey: "angusu-eink-reporter-v1",
@@ -1688,12 +1693,12 @@ inkwall_begin_public_request('view');
       reactorStorageKey: "angusu-eink-reactor-v1",
       preparedInk: Object.freeze({
         id: "angusu-prepared-ink",
-        name: "Angus Uelsmann",
+        name: <?= json_encode($brand['owner_name'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
         message: "This surface is yours for a moment. Leave the next ink on my GitHub profile.",
         image: null,
         bindings: Object.freeze({}),
         showFavicons: true,
-        layout: Object.freeze({ align: "left", media: "left", texture: "dots", fontSize: 32, bold: true, radiusMode: "all", radiusAll: 0, radii: Object.freeze({ tl: 0, tr: 0, br: 0, bl: 0 }) }),
+        layout: Object.freeze({ align: "left", media: "left", texture: <?= json_encode($brand['paper_texture']) ?>, fontSize: 32, bold: true, radiusMode: "all", radiusAll: 0, radii: Object.freeze({ tl: 0, tr: 0, br: 0, bl: 0 }) }),
         reportable: false,
         prepared: true,
         createdAt: "2026-07-10T12:00:00.000Z"
@@ -2310,7 +2315,10 @@ inkwall_begin_public_request('view');
           body: JSON.stringify(normalized)
         });
         if (!response.ok) throw new Error("The note could not be published.");
-        return this.normalize(await response.json());
+        const payload = await response.json();
+        if (payload?.status === "review") return { status: "review", id: String(payload.id || normalized.id), message: String(payload.message || "This ink is waiting for manual review.") };
+        if (payload?.status === "rejected") return { status: "rejected", id: String(payload.id || normalized.id), message: String(payload.message || "This ink could not be accepted.") };
+        return this.normalize(payload);
       }
     }
 
@@ -2398,7 +2406,7 @@ inkwall_begin_public_request('view');
         const paper = dark ? "#191916" : "#efefe9";
         const ink = dark ? "#f1f0e8" : "#171714";
         const muted = dark ? "#a9a89e" : "#66665f";
-        const red = "#d7422f";
+        const red = AppConfig.branding.accent || "#d7422f";
         const layout = payload.layout || {};
         const align = ["left", "center", "right"].includes(layout.align) ? layout.align : "left";
         const media = payload.image && ["top", "left", "right"].includes(layout.media) ? layout.media : "left";
@@ -2435,7 +2443,7 @@ inkwall_begin_public_request('view');
         const dots = showDots
           ? `<defs><pattern id="${grainId}" width="23" height="23" patternUnits="userSpaceOnUse"><circle cx="4" cy="7" r=".55" fill="${muted}"/><circle cx="18" cy="19" r=".32" fill="${muted}"/></pattern></defs><rect width="1200" height="${height}" rx="24" fill="url(#${grainId})" opacity=".38"/>`
           : "";
-        return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="${height}" viewBox="0 0 1200 ${height}" role="img"><title>Latest InkWall note by ${this.escapeSvg(payload.name || "Anonymous")}</title><desc>${this.escapeSvg(payload.message || "")}</desc><rect width="1200" height="${height}" rx="24" fill="${paper}"/>${dots}<rect x="24" y="24" width="1152" height="${height - 48}" rx="15" fill="none" stroke="${ink}" stroke-width="2"/><circle cx="62" cy="52" r="7" fill="${red}"/><text x="82" y="59" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="20" font-weight="700" letter-spacing="2" fill="${ink}">LATEST PUBLIC INK</text>${image}<g font-family="ui-monospace, SFMono-Regular, Consolas, monospace" fill="${ink}">${lines.map((line, index) => line ? `<text x="${messageX}" y="${textTop + (index * lineHeight)}" text-anchor="${textAnchor}" font-size="${fontSize}" font-weight="${fontWeight}">${this.escapeSvg(line)}</text>` : "").join("")}<text x="${messageX}" y="${authorY}" text-anchor="${textAnchor}" font-size="21" font-weight="700">— ${this.escapeSvg(payload.name || "Anonymous")}</text></g><text x="1138" y="58" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="15" fill="${muted}">${this.escapeSvg(date)}</text><text x="${entityX}" y="${entityY}" text-anchor="${entityAnchor}" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="15" fill="${muted}">${this.escapeSvg(entityLabel)}</text></svg>`;
+        return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="${height}" viewBox="0 0 1200 ${height}" role="img"><title>Latest InkWall note by ${this.escapeSvg(payload.name || "Anonymous")}</title><desc>${this.escapeSvg(payload.message || "")}</desc><rect width="1200" height="${height}" rx="24" fill="${paper}"/>${dots}<rect x="24" y="24" width="1152" height="${height - 48}" rx="15" fill="none" stroke="${ink}" stroke-width="2"/><circle cx="62" cy="52" r="7" fill="${red}"/><text x="82" y="59" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="20" font-weight="700" letter-spacing="2" fill="${ink}">LATEST PUBLIC INK</text>${image}<g font-family="ui-monospace, SFMono-Regular, Consolas, monospace" fill="${ink}">${lines.map((line, index) => line ? `<text x="${messageX}" y="${textTop + (index * lineHeight)}" text-anchor="${textAnchor}" font-size="${fontSize}" font-weight="${fontWeight}">${this.escapeSvg(line)}</text>` : "").join("")}<text x="${messageX}" y="${authorY}" text-anchor="${textAnchor}" font-size="21" font-weight="700">${this.escapeSvg(payload.name || "Anonymous")}</text></g><text x="1138" y="58" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="15" fill="${muted}">${this.escapeSvg(date)}</text><text x="${entityX}" y="${entityY}" text-anchor="${entityAnchor}" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="15" fill="${muted}">${this.escapeSvg(entityLabel)}</text></svg>`;
       }
 
       set(payload) {
@@ -2595,6 +2603,10 @@ inkwall_begin_public_request('view');
         context.putImageData(frame, 0, 0);
       }
 
+      shouldUseInkImage() {
+        return (AppConfig.branding.image_rendering || "ink") === "ink";
+      }
+
       setLayout(media, scheduleBuild = true) {
         const top = media === "top";
         this.frame = top
@@ -2612,7 +2624,7 @@ inkwall_begin_public_request('view');
       renderPreview() {
         if (!this.source) return;
         this.drawCrop(Dom.cropCanvas, this.source.element);
-        this.dither(Dom.cropCanvas);
+        if (this.shouldUseInkImage()) this.dither(Dom.cropCanvas);
       }
 
       canvasBlob(canvas, quality) {
@@ -2655,13 +2667,13 @@ inkwall_begin_public_request('view');
           const widths = [1120, 960, 800, 640, 520];
           for (const [index, width] of widths.entries()) {
             if (job !== this.job) return;
-            this.setProgress(28 + index * 12, "Mapping four ink tones");
+            this.setProgress(28 + index * 12, this.shouldUseInkImage() ? "Mapping four ink tones" : "Compressing image");
             await new Promise(requestAnimationFrame);
             const canvas = document.createElement("canvas");
             canvas.width = width;
             canvas.height = Math.max(1, Math.round(width / this.frame.ratio));
             this.drawCrop(canvas, this.source.element);
-            this.dither(canvas);
+            if (this.shouldUseInkImage()) this.dither(canvas);
             this.setProgress(70 + index * 5, "Encoding image");
             const blob = await this.canvasBlob(canvas, .78);
             result = { blob, width: canvas.width, height: canvas.height };
@@ -3061,6 +3073,9 @@ inkwall_begin_public_request('view');
       hate: Object.freeze({ label: "Hate or dehumanization", threshold: 1, priority: true }),
       threat: Object.freeze({ label: "Threat or immediate danger", threshold: 1, priority: true }),
       privacy: Object.freeze({ label: "Personal or private information", threshold: 1, priority: true }),
+      intellectual_property: Object.freeze({ label: "Intellectual property", threshold: 1, priority: true }),
+      impersonation: Object.freeze({ label: "Impersonation", threshold: 1, priority: true }),
+      scam: Object.freeze({ label: "Scam or fraud", threshold: 1, priority: true }),
       other: Object.freeze({ label: "Something else", threshold: 2, priority: false })
     });
 
@@ -3971,6 +3986,29 @@ inkwall_begin_public_request('view');
             layout: draft.layout,
             createdAt: new Date().toISOString()
           }, this.messages);
+          if (record?.status === "review") {
+            this.heldSignatures.add(draft.signature);
+            this.previewMode = "latest";
+            this.activeId = this.publicMessages()[0]?.id || null;
+            this.appliedSignature = null;
+            this.appliedContentSignature = null;
+            this.showLatest(true);
+            this.setStatus("Ink is waiting for manual review. I sent Angus an email.", "warning");
+            this.showToast("Queued for review. The latest approved ink stays live.");
+            this.updateState();
+            return;
+          }
+          if (record?.status === "rejected") {
+            this.previewMode = "latest";
+            this.activeId = this.publicMessages()[0]?.id || null;
+            this.appliedSignature = null;
+            this.appliedContentSignature = null;
+            this.showLatest(true);
+            this.setStatus(record.message || "This ink could not be accepted.", "danger");
+            this.showToast("Ink was not accepted.");
+            this.updateState();
+            return;
+          }
           if (draft.image && !record.image) throw new Error("The image was not accepted by the live endpoint. The note was not confirmed as published.");
           this.messages = [record, ...this.messages.filter(item => item.id !== record.id)].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
           if (this.repository.local) this.repository.saveLocal(this.messages);

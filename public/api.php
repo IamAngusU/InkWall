@@ -22,8 +22,6 @@ if ($method === 'POST' && $path === 'messages') {
     $name = inkwall_clean_text($body['name'] ?? '', 28) ?: 'Anonymous';
     $message = inkwall_clean_text($body['message'] ?? '', 120);
     if ($message === '') inkwall_json(['error' => 'Write a message first.'], 422);
-    $flags = inkwall_moderation($name, $message);
-    if (array_intersect($flags, ['threat', 'hate', 'privacy'])) inkwall_json(['error' => 'This note needs review and was not published.'], 422);
 
     $id = preg_match('/^[a-f0-9-]{20,40}$/i', (string)($body['id'] ?? '')) ? (string)$body['id'] : bin2hex(random_bytes(16));
     $imageData = null; $imageMime = null; $imageName = null; $imageWidth = 0; $imageHeight = 0; $imageBytes = 0; $imageInverted = 0; $imageSignature = null;
@@ -38,6 +36,14 @@ if ($method === 'POST' && $path === 'messages') {
         $imageWidth = (int)$info[0]; $imageHeight = (int)$info[1]; $imageBytes = strlen($imageData);
         $imageInverted = !empty($image['inverted']) ? 1 : 0; $imageSignature = inkwall_clean_text($image['signature'] ?? '', 190);
     }
+    $moderation = inkwall_ai_moderation($name, $message, $imageMime, $imageData);
+    $flags = $moderation['flags'];
+    $verdict = (string)($moderation['verdict'] ?? 'allow');
+    $status = match ($verdict) {
+        'reject' => 'rejected',
+        'review' => 'held',
+        default => 'published',
+    };
     $bindings = is_array($body['bindings'] ?? null) ? $body['bindings'] : [];
     $layout = inkwall_layout($body['layout'] ?? []);
     $cleanBindings = [];
@@ -51,10 +57,31 @@ if ($method === 'POST' && $path === 'messages') {
     $stmt = inkwall_db()->prepare('INSERT INTO inkwall_notes (id, author_name, message_text, image_data, image_mime, image_name, image_width, image_height, image_bytes, image_inverted, image_signature, bindings_json, layout_json, show_favicons, status, moderation_flags, visitor_hash, country, referrer_host, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
     $stmt->bindValue(1, $id); $stmt->bindValue(2, $name); $stmt->bindValue(3, $message);
     $stmt->bindValue(4, $imageData, $imageData === null ? PDO::PARAM_NULL : PDO::PARAM_LOB);
-    $values = [$imageMime, $imageName, $imageWidth, $imageHeight, $imageBytes, $imageInverted, $imageSignature, json_encode($cleanBindings, JSON_UNESCAPED_SLASHES), json_encode($layout, JSON_UNESCAPED_SLASHES), !empty($body['showFavicons']) ? 1 : 0, 'published', json_encode($flags), $visitor, inkwall_country(), inkwall_referrer_host(), $now, $now];
+    $values = [$imageMime, $imageName, $imageWidth, $imageHeight, $imageBytes, $imageInverted, $imageSignature, json_encode($cleanBindings, JSON_UNESCAPED_SLASHES), json_encode($layout, JSON_UNESCAPED_SLASHES), !empty($body['showFavicons']) ? 1 : 0, $status, json_encode($flags), $visitor, inkwall_country(), inkwall_referrer_host(), $now, $now];
     foreach ($values as $index => $value) $stmt->bindValue($index + 5, $value);
     $stmt->execute();
-    inkwall_event('publish', $id, ['has_image' => $imageBytes > 0]);
+    $ai = inkwall_db()->prepare('UPDATE inkwall_notes SET ai_verdict = ?, ai_model = ?, ai_flags_json = ?, ai_scores_json = ?, ai_error = ?, ai_reviewed_at = ? WHERE id = ?');
+    $ai->execute([
+        (string)($moderation['verdict'] ?? 'allow'),
+        (string)($moderation['model'] ?? ''),
+        json_encode($moderation['flags'] ?? [], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+        json_encode($moderation['scores'] ?? [], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+        mb_substr((string)($moderation['error'] ?? ''), 0, 500),
+        (string)($moderation['reviewed_at'] ?? $now),
+        $id,
+    ]);
+    if ($status === 'held') {
+        $noteStmt = inkwall_db()->prepare('SELECT * FROM inkwall_notes WHERE id = ?');
+        $noteStmt->execute([$id]); $note = $noteStmt->fetch();
+        if (is_array($note)) inkwall_notify_review($note, $moderation);
+        inkwall_event('review', $id, ['has_image' => $imageBytes > 0, 'flags' => $flags, 'ai_model' => (string)($moderation['model'] ?? '')]);
+        inkwall_json(['status' => 'review', 'id' => $id, 'message' => 'This ink is waiting for manual review.'], 202);
+    }
+    if ($status === 'rejected') {
+        inkwall_event('review', $id, ['has_image' => $imageBytes > 0, 'flags' => $flags, 'ai_model' => (string)($moderation['model'] ?? ''), 'status' => 'rejected']);
+        inkwall_json(['status' => 'rejected', 'id' => $id, 'message' => 'This ink could not be accepted.'], 202);
+    }
+    inkwall_event('publish', $id, ['has_image' => $imageBytes > 0, 'ai_model' => (string)($moderation['model'] ?? '')]);
     if ($imageBytes > 0) inkwall_event('image_publish', $id, ['bytes' => $imageBytes]);
     inkwall_json(inkwall_public_note(inkwall_note_row($id), $visitor), 201);
 }
@@ -64,7 +91,7 @@ if (preg_match('~^messages/([a-f0-9-]{20,40})/reports$~i', $path, $match) && $me
     $noteId = $match[1];
     if (!inkwall_note_row($noteId)) inkwall_json(['error' => 'Note not found.'], 404);
     $body = inkwall_body();
-    $reasons = ['spam' => 2, 'harassment' => 2, 'hate' => 1, 'threat' => 1, 'privacy' => 1, 'other' => 2];
+    $reasons = ['spam' => 2, 'harassment' => 2, 'hate' => 1, 'threat' => 1, 'privacy' => 1, 'intellectual_property' => 1, 'impersonation' => 1, 'scam' => 1, 'other' => 2];
     $reason = (string)($body['reason'] ?? '');
     if (!isset($reasons[$reason])) inkwall_json(['error' => 'Invalid report reason.'], 422);
     $detail = inkwall_clean_text($body['detail'] ?? '', 240);
