@@ -191,6 +191,49 @@ inkwall_begin_public_request('view');
       background: repeating-linear-gradient(0deg, transparent 0 2px, var(--screen-ink) 2px 3px, transparent 3px 5px);
     }
     html[data-theme="dark"] .theme-toggle__track::before { transform: translateX(17px); }
+    .language-toggle {
+      position: fixed;
+      top: 18px;
+      right: 154px;
+      z-index: 100;
+      display: inline-grid;
+      grid-template-columns: 1fr 1fr;
+      min-height: 42px;
+      min-width: 88px;
+      padding: 3px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--ink-soft);
+      background: color-mix(in srgb, var(--page) 92%, transparent);
+      box-shadow: 0 10px 28px rgba(30, 33, 29, .07);
+      backdrop-filter: blur(16px);
+      cursor: pointer;
+      font-family: var(--mono);
+      font-size: 9px;
+      font-weight: 760;
+      letter-spacing: .07em;
+      overflow: hidden;
+    }
+    .language-toggle span { position: relative; z-index: 1; display: grid; place-items: center; border-radius: 999px; transition: color .22s var(--ease); }
+    .language-toggle::before {
+      position: absolute;
+      inset: 3px auto 3px 3px;
+      width: calc(50% - 3px);
+      border-radius: 999px;
+      content: "";
+      background: var(--screen-ink);
+      opacity: .92;
+      transition: transform .34s var(--ease), background .35s var(--ease);
+    }
+    html[lang="de"] .language-toggle::before { transform: translateX(100%); }
+    html[lang="en"] .language-toggle [data-locale-option="en"],
+    html[lang="de"] .language-toggle [data-locale-option="de"] { color: var(--cta-ink); }
+    html.is-language-settling .page { animation: languageSettle .42s var(--ease) both; }
+    @keyframes languageSettle {
+      0% { opacity: 1; filter: none; }
+      45% { opacity: .72; filter: contrast(.88); }
+      100% { opacity: 1; filter: none; }
+    }
 
     .hero { max-width: 980px; margin-bottom: clamp(42px, 5vw, 68px); }
     .eyebrow, .step-label, .field-label, .counter, .status, .display-label, .display-meta, .display-foot,
@@ -915,6 +958,7 @@ inkwall_begin_public_request('view');
       .page-back { top: 12px; left: 12px; min-height: 39px; width: 39px; justify-content: center; padding: 0; }
       .page-back__label { display: none; }
       .theme-toggle { top: 12px; right: 12px; min-height: 39px; }
+      .language-toggle { top: 12px; right: 61px; min-height: 39px; min-width: 80px; }
       .theme-toggle__label { display: none; }
       .hero { margin-bottom: 37px; }
       h1 { font-size: clamp(47px, 14vw, 66px); }
@@ -1477,6 +1521,10 @@ inkwall_begin_public_request('view');
     <span class="theme-toggle__label" id="themeLabel">Dark mode</span>
     <span class="theme-toggle__track" aria-hidden="true"></span>
   </button>
+  <button class="language-toggle" id="languageToggle" type="button" aria-label="Switch language">
+    <span data-locale-option="en">EN</span>
+    <span data-locale-option="de">DE</span>
+  </button>
 
   <main class="page">
     <header class="hero">
@@ -1841,6 +1889,7 @@ inkwall_begin_public_request('view');
       apiBase: `${location.pathname.replace(/\/(?:index\.php)?$/, "")}/api`.replace(/^\/\//, "/"),
       storageKey: "angusu-eink-wall-v11",
       themeKey: "angusu-eink-theme-v4",
+      localeKey: "angusu-eink-locale-v1",
       branding: Object.freeze(<?= $brandJson ?: '{}' ?>),
       destinationUrl: <?= json_encode($brand['profile_url'], JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
       repositoryUrl: <?= json_encode($brand['repository_url'], JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
@@ -1953,6 +2002,7 @@ inkwall_begin_public_request('view');
       deviceState: document.getElementById("deviceState"),
       themeToggle: document.getElementById("themeToggle"),
       themeLabel: document.getElementById("themeLabel"),
+      languageToggle: document.getElementById("languageToggle"),
       topLikedSection: document.getElementById("topLikedSection"),
       topLikedList: document.getElementById("topLikedList"),
       recentList: document.getElementById("recentList"),
@@ -1992,6 +2042,299 @@ inkwall_begin_public_request('view');
     const PrimaryAction = Object.freeze({
       PUBLISH: "publish",
       VIEW_LIVE: "view-live"
+    });
+
+    const LocaleCatalog = Object.freeze({
+      en: Object.freeze({
+        title: "GitHub E-Ink Message Surface",
+        switchLanguage: "Switch language",
+        back: "Back",
+        darkMode: "Dark mode",
+        lightMode: "Light mode",
+        switchDark: "Switch to dark mode",
+        switchLight: "Switch to light mode",
+        eyebrow: "Public E-Ink to GitHub",
+        heroTitle: "Put a note on my GitHub.",
+        heroRoute: "The newest published ink is rendered into",
+        stepWrite: "01 / Write",
+        stepPreview: "02 / Ink preview",
+        stepPublish: "03 / Publish to GitHub",
+        mobileWrite: "01 Write",
+        mobilePreview: "02 Preview",
+        mobilePublish: "03 Publish",
+        name: "Name",
+        namePlaceholder: "Your name",
+        message: "Message",
+        messagePlaceholder: "Leave a short public note",
+        layout: "Layout",
+        preserved: "Preserved in SVG",
+        textAlignment: "Text alignment",
+        imagePosition: "Image position",
+        paperTexture: "Paper texture",
+        fontSize: "Font size",
+        weight: "Weight",
+        imageCorners: "Image corners",
+        imageRadius: "Image radius",
+        topLeft: "Top left",
+        topRight: "Top right",
+        bottomRight: "Bottom right",
+        bottomLeft: "Bottom left",
+        left: "Left",
+        center: "Center",
+        right: "Right",
+        above: "Above",
+        dots: "Dots",
+        clean: "Clean",
+        regular: "Regular",
+        bold: "Bold",
+        all: "All",
+        corners: "Corners",
+        image: "Image",
+        optional: "Optional",
+        addImage: "Add image",
+        noImage: "No image selected",
+        remove: "Remove",
+        imageNote: "Compressed locally before upload. Drag the crop, pinch with two fingers, use the zoom slider, or invert the image independently from the page theme.",
+        readingImage: "Reading image",
+        visibleFrame: "Visible frame",
+        dragReposition: "Drag to reposition",
+        zoom: "Zoom",
+        invertImage: "Invert image",
+        formStart: "Write a name and a message.",
+        paperDisplay: "Paper display / GitHub target",
+        liveSurface: "Live surface",
+        latestPublicNote: "Latest public note",
+        noPublicInk: "No public ink yet.",
+        anonymous: "Anonymous",
+        publicSurface: "Public surface",
+        previewRequired: "Preview required.",
+        previewRequiredHint: "Update the display, review the visible ink, then publish it to the public GitHub surface.",
+        updateInk: "Update ink",
+        publishNote: "Publish note",
+        viewLiveInk: "View live ink",
+        destinationKicker: "Where the ink lands",
+        destinationTitle: "The latest note lives on my profile.",
+        destinationCopy: "Publishing replaces the current E-Ink message in the profile README. Reload the GitHub profile to see the newest public version.",
+        openLiveProfile: "Open live profile",
+        projectRepository: "Project repository",
+        mostLoved: "Most loved",
+        topLiked: "Top liked inks.",
+        publicArchive: "Public archive",
+        recentInks: "Recent inks.",
+        searchInk: "Search every ink",
+        showMore: "Show more",
+        visitorPolicy: "Visitor content and external destinations",
+        policyCopy: "Notes and linked destinations are submitted by visitors and do not represent {owner}. External destinations are not endorsed or verified. Visitor inks can be reported. The prepared ink from {owner} is owner managed and excluded from public reports. Priority safety reports place a visitor ink on immediate review hold. Other report categories require two independent signals before the note is hidden for review. Moderation rules, reporting procedures, and security controls are continuously maintained. Usage is correlated with a random browser pseudonym; only country hints and referrer domains are retained. Raw IP addresses, identities, browser fingerprints, and complete referrer URLs are not stored by InkWall.",
+        reportNote: "Report a note",
+        designedBy: "Designed and programmed by",
+        viewRepository: "View repository",
+        handleDestination: "Handle destination",
+        httpsDestination: "HTTPS destination",
+        save: "Save",
+        dropImage: "Drop the image here",
+        fileTypes: "JPEG, PNG, WebP or AVIF up to 12 MB",
+        reportInk: "Report this ink",
+        contentReview: "Content review",
+        reason: "Reason",
+        optionalContext: "Optional context",
+        reportPlaceholder: "Add details that help with the review",
+        cancel: "Cancel",
+        submitReport: "Submit report",
+        reactToInk: "React to ink",
+        leaveReaction: "Leave a reaction",
+        reactionHint: "Choose more than one. Tap an active reaction again to remove it.",
+        externalLink: "External link",
+        openDestination: "Open destination",
+        externalCopy: "This destination is outside InkWall. Visitor links are not verified, and InkWall is not responsible for external content, services, downloads, or privacy practices.",
+        openLink: "Open link",
+        faviconOn: "Site icons on",
+        faviconOff: "Site icons off",
+        choose: "Choose",
+        noteCount: "{count} note{plural}",
+        searchCount: "{count} of {total} notes",
+        searchResult: "{count} result{plural} for \"{query}\"",
+        noMatches: "No inks match this search.",
+        noPublicInks: "No public inks yet.",
+        nameAttention: "Name needs attention.",
+        messageRejected: "Message cannot be published.",
+        exactReview: "This exact note is under review.",
+        exactReviewHint: "Change the draft before preparing another public ink.",
+        imageAttention: "Image needs attention.",
+        imageAttentionHint: "Remove it or choose another image before publishing.",
+        imagePreparing: "Preparing the image.",
+        imagePreparingHint: "Wait for the image to finish, then update the ink.",
+        displayOutdated: "Display is out of date.",
+        displayOutdatedHint: "Update the ink to review the exact public result.",
+        previewReady: "Preview synchronized.",
+        previewReadyHint: "Publish this exact ink to the GitHub profile surface.",
+        previewNeededHint: "Write a name and a message, then update the display.",
+        liveHeadline: "See it while it is still the latest.",
+        liveHint: "Open the profile now. The next public note will replace it at the top.",
+        statusImageFailed: "The selected image could not be prepared. Remove it or choose another image.",
+        statusImagePreparing: "Preparing the E-Ink image. Publish stays locked until it is ready.",
+        statusPublished: "Published. Open the live profile while this note is still the latest.",
+        statusPreviewReady: "Ink is current. Ready to publish.",
+        statusDraftChanged: "Draft changed. Update the display to continue.",
+        statusReview: "Ink is waiting for manual review. I sent Angus an email.",
+        toastReview: "Queued for review. The latest approved ink stays live.",
+        toastRejected: "Ink was not accepted.",
+        toastPublished: "Published. Open the profile now while this ink is still the latest.",
+        toastNewInk: "New ink by {name}: {preview}",
+        draftPreview: "Draft preview",
+        firstPublicInk: "First public ink",
+        archiveNote: "Archive note",
+        notPublished: "Not published",
+        refreshing: "Refreshing",
+        enterName: "Enter a display name.",
+        neutralName: "Choose a neutral display name.",
+        writeMessageFirst: "Write a message first.",
+        noteNotAccepted: "The note could not be accepted."
+      }),
+      de: Object.freeze({
+        title: "GitHub E-Ink Nachrichtenflaeche",
+        switchLanguage: "Sprache wechseln",
+        back: "Zurueck",
+        darkMode: "Dunkel",
+        lightMode: "Hell",
+        switchDark: "Zu dunklem Modus wechseln",
+        switchLight: "Zu hellem Modus wechseln",
+        eyebrow: "Public E-Ink zu GitHub",
+        heroTitle: "Setz eine Notiz auf mein GitHub.",
+        heroRoute: "Der neueste veroeffentlichte Ink landet in",
+        stepWrite: "01 / Schreiben",
+        stepPreview: "02 / Ink Vorschau",
+        stepPublish: "03 / Auf GitHub veroeffentlichen",
+        mobileWrite: "01 Schreiben",
+        mobilePreview: "02 Vorschau",
+        mobilePublish: "03 Senden",
+        name: "Name",
+        namePlaceholder: "Dein Name",
+        message: "Nachricht",
+        messagePlaceholder: "Kurze oeffentliche Notiz schreiben",
+        layout: "Layout",
+        preserved: "Bleibt im SVG erhalten",
+        textAlignment: "Textausrichtung",
+        imagePosition: "Bildposition",
+        paperTexture: "Papierstruktur",
+        fontSize: "Schriftgroesse",
+        weight: "Gewicht",
+        imageCorners: "Bildecken",
+        imageRadius: "Bildradius",
+        topLeft: "Oben links",
+        topRight: "Oben rechts",
+        bottomRight: "Unten rechts",
+        bottomLeft: "Unten links",
+        left: "Links",
+        center: "Mitte",
+        right: "Rechts",
+        above: "Oben",
+        dots: "Punkte",
+        clean: "Clean",
+        regular: "Regular",
+        bold: "Bold",
+        all: "Alle",
+        corners: "Ecken",
+        image: "Bild",
+        optional: "Optional",
+        addImage: "Bild hinzufuegen",
+        noImage: "Kein Bild ausgewaehlt",
+        remove: "Entfernen",
+        imageNote: "Wird lokal vor dem Upload komprimiert. Zieh den Ausschnitt, zoome mit zwei Fingern, nutze den Zoom-Regler oder invertiere das Bild unabhaengig vom Seitenthema.",
+        readingImage: "Bild wird gelesen",
+        visibleFrame: "Sichtbarer Rahmen",
+        dragReposition: "Zum Verschieben ziehen",
+        zoom: "Zoom",
+        invertImage: "Bild invertieren",
+        formStart: "Schreib einen Namen und eine Nachricht.",
+        paperDisplay: "Paper Display / GitHub Ziel",
+        liveSurface: "Live Flaeche",
+        latestPublicNote: "Neuester oeffentlicher Ink",
+        noPublicInk: "Noch kein oeffentlicher Ink.",
+        anonymous: "Anonym",
+        publicSurface: "Oeffentliche Flaeche",
+        previewRequired: "Vorschau erforderlich.",
+        previewRequiredHint: "Aktualisiere die Anzeige, pruefe den sichtbaren Ink und veroeffentliche ihn dann auf GitHub.",
+        updateInk: "Ink aktualisieren",
+        publishNote: "Ink veroeffentlichen",
+        viewLiveInk: "Live Ink ansehen",
+        destinationKicker: "Wo der Ink landet",
+        destinationTitle: "Die neueste Notiz lebt auf meinem Profil.",
+        destinationCopy: "Veroeffentlichen ersetzt die aktuelle E-Ink Nachricht im Profil README. Lade das GitHub Profil neu, um die neueste oeffentliche Version zu sehen.",
+        openLiveProfile: "Live Profil oeffnen",
+        projectRepository: "Projekt Repository",
+        mostLoved: "Meist geliebt",
+        topLiked: "Top gelikte Inks.",
+        publicArchive: "Oeffentliches Archiv",
+        recentInks: "Neue Inks.",
+        searchInk: "Alle Inks durchsuchen",
+        showMore: "Mehr anzeigen",
+        visitorPolicy: "Besucherinhalt und externe Ziele",
+        policyCopy: "Notizen und verlinkte Ziele werden von Besuchern eingereicht und repraesentieren nicht {owner}. Externe Ziele sind nicht empfohlen oder verifiziert. Besucher-Inks koennen gemeldet werden. Der vorbereitete Ink von {owner} wird vom Owner verwaltet und ist von oeffentlichen Meldungen ausgenommen. Priorisierte Sicherheitsmeldungen setzen einen Besucher-Ink sofort in Review. Andere Meldekategorien brauchen zwei unabhaengige Signale, bevor die Notiz fuer Review verborgen wird. Moderationsregeln, Meldewege und Sicherheitskontrollen werden laufend gepflegt. Nutzung wird mit einem zufaelligen Browser-Pseudonym verbunden; nur Landhinweise und Referrer-Domains werden gespeichert. Rohe IP-Adressen, Identitaeten, Browser-Fingerprints und komplette Referrer-URLs speichert InkWall nicht.",
+        reportNote: "Notiz melden",
+        designedBy: "Designt und programmiert von",
+        viewRepository: "Repository ansehen",
+        handleDestination: "Handle Ziel",
+        httpsDestination: "HTTPS Ziel",
+        save: "Speichern",
+        dropImage: "Bild hier ablegen",
+        fileTypes: "JPEG, PNG, WebP oder AVIF bis 12 MB",
+        reportInk: "Ink melden",
+        contentReview: "Content Review",
+        reason: "Grund",
+        optionalContext: "Optionaler Kontext",
+        reportPlaceholder: "Details hinzufuegen, die beim Review helfen",
+        cancel: "Abbrechen",
+        submitReport: "Meldung senden",
+        reactToInk: "Auf Ink reagieren",
+        leaveReaction: "Reaction setzen",
+        reactionHint: "Mehrere sind moeglich. Tippe eine aktive Reaction erneut, um sie zu entfernen.",
+        externalLink: "Externer Link",
+        openDestination: "Ziel oeffnen",
+        externalCopy: "Dieses Ziel liegt ausserhalb von InkWall. Besucherlinks sind nicht verifiziert, und InkWall ist nicht verantwortlich fuer externe Inhalte, Services, Downloads oder Datenschutzpraktiken.",
+        openLink: "Link oeffnen",
+        faviconOn: "Site Icons an",
+        faviconOff: "Site Icons aus",
+        choose: "Auswaehlen",
+        noteCount: "{count} Notiz{plural}",
+        searchCount: "{count} von {total} Notizen",
+        searchResult: "{count} Ergebnis{plural} fuer \"{query}\"",
+        noMatches: "Keine passenden Inks.",
+        noPublicInks: "Noch keine oeffentlichen Inks.",
+        nameAttention: "Name braucht Aufmerksamkeit.",
+        messageRejected: "Nachricht kann nicht veroeffentlicht werden.",
+        exactReview: "Diese exakte Notiz ist im Review.",
+        exactReviewHint: "Aendere den Entwurf, bevor du einen weiteren oeffentlichen Ink vorbereitest.",
+        imageAttention: "Bild braucht Aufmerksamkeit.",
+        imageAttentionHint: "Entferne es oder waehle ein anderes Bild vor dem Veroeffentlichen.",
+        imagePreparing: "Bild wird vorbereitet.",
+        imagePreparingHint: "Warte, bis das Bild fertig ist, und aktualisiere dann den Ink.",
+        displayOutdated: "Anzeige ist nicht aktuell.",
+        displayOutdatedHint: "Aktualisiere den Ink, um das exakte oeffentliche Ergebnis zu pruefen.",
+        previewReady: "Vorschau synchronisiert.",
+        previewReadyHint: "Veroeffentliche genau diesen Ink auf der GitHub Profilflaeche.",
+        previewNeededHint: "Schreib einen Namen und eine Nachricht, dann aktualisiere die Anzeige.",
+        liveHeadline: "Sieh ihn an, solange er noch der neueste ist.",
+        liveHint: "Oeffne das Profil jetzt. Die naechste oeffentliche Notiz ersetzt ihn oben.",
+        statusImageFailed: "Das ausgewaehlte Bild konnte nicht vorbereitet werden. Entferne es oder waehle ein anderes.",
+        statusImagePreparing: "Das E-Ink Bild wird vorbereitet. Publish bleibt gesperrt, bis es fertig ist.",
+        statusPublished: "Veroeffentlicht. Oeffne das Live Profil, solange diese Notiz noch die neueste ist.",
+        statusPreviewReady: "Ink ist aktuell. Bereit zum Veroeffentlichen.",
+        statusDraftChanged: "Entwurf geaendert. Aktualisiere die Anzeige, um weiterzumachen.",
+        statusReview: "Ink wartet auf manuellen Review. Ich habe Angus eine Mail geschickt.",
+        toastReview: "Im Review. Der letzte zugelassene Ink bleibt live.",
+        toastRejected: "Ink wurde nicht akzeptiert.",
+        toastPublished: "Veroeffentlicht. Oeffne das Profil jetzt, solange dieser Ink noch der neueste ist.",
+        toastNewInk: "Neuer Ink von {name}: {preview}",
+        draftPreview: "Entwurfs-Vorschau",
+        firstPublicInk: "Erster oeffentlicher Ink",
+        archiveNote: "Archivnotiz",
+        notPublished: "Nicht veroeffentlicht",
+        refreshing: "Aktualisiert",
+        enterName: "Gib einen Anzeigenamen ein.",
+        neutralName: "Waehle einen neutralen Anzeigenamen.",
+        writeMessageFirst: "Schreib zuerst eine Nachricht.",
+        noteNotAccepted: "Die Notiz konnte nicht akzeptiert werden."
+      })
     });
 
     function selectedChoice(name, fallback) {
@@ -2630,9 +2973,11 @@ inkwall_begin_public_request('view');
       }
 
       set(payload) {
+        const lang = LocaleCatalog[document.documentElement.lang] ? document.documentElement.lang : "en";
+        const label = key => LocaleCatalog[lang]?.[key] || LocaleCatalog.en[key] || key;
         this.currentPayload = payload;
-        Dom.displayMode.textContent = payload.mode === "draft" ? "Draft preview" : payload.mode === "intro" ? "First public ink" : payload.mode === "archive" ? "Archive note" : "Latest public note";
-        Dom.displayScope.textContent = payload.mode === "draft" ? "Not published" : "Public surface";
+        Dom.displayMode.textContent = payload.mode === "draft" ? label("draftPreview") : payload.mode === "intro" ? label("firstPublicInk") : payload.mode === "archive" ? label("archiveNote") : label("latestPublicNote");
+        Dom.displayScope.textContent = payload.mode === "draft" ? label("notPublished") : label("publicSurface");
         Dom.displayDate.dateTime = payload.date.toISOString();
         Dom.displayDate.textContent = this.formatDate(payload.date);
         const layout = payload.layout || {};
@@ -2648,16 +2993,17 @@ inkwall_begin_public_request('view');
 
       async refresh(payload, { revealOnMobile = false } = {}) {
         if (this.refreshing) return false;
+        const lang = LocaleCatalog[document.documentElement.lang] ? document.documentElement.lang : "en";
         this.refreshing = true;
         this.snapshotGhost();
-        Dom.deviceState.textContent = "Refreshing";
+        Dom.deviceState.textContent = LocaleCatalog[lang]?.refreshing || LocaleCatalog.en.refreshing;
         Dom.display.classList.remove("is-refreshing");
         void Dom.display.offsetWidth;
         Dom.display.classList.add("is-refreshing");
         window.setTimeout(() => this.set(payload), AppConfig.refreshSwapDelay);
         await new Promise(resolve => window.setTimeout(resolve, AppConfig.refreshDuration));
         Dom.display.classList.remove("is-refreshing");
-        Dom.deviceState.textContent = "Live surface";
+        Dom.deviceState.textContent = LocaleCatalog[lang]?.liveSurface || LocaleCatalog.en.liveSurface;
         this.refreshing = false;
         if (revealOnMobile && matchMedia("(max-width: 680px)").matches) {
           Dom.display.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
@@ -3933,6 +4279,7 @@ inkwall_begin_public_request('view');
         this.publishedSignature = null;
         this.showFavicons = true;
         this.previewMode = "latest";
+        this.locale = this.resolveLocale();
         this.toastTimer = null;
         this.autoApplyTimer = null;
         this.livePollTimer = null;
@@ -3973,6 +4320,165 @@ inkwall_begin_public_request('view');
           const searchable = `${message.id} ${message.name} ${message.message} ${destinations}`.toLocaleLowerCase("en");
           return searchable.includes(query);
         });
+      }
+
+      text(key, replacements = {}) {
+        const source = LocaleCatalog[this.locale] || LocaleCatalog.en;
+        const fallback = LocaleCatalog.en[key] || key;
+        return String(source[key] || fallback).replace(/\{(\w+)\}/g, (_, token) => replacements[token] ?? "");
+      }
+
+      reasonText(reason) {
+        const map = {
+          "Enter a display name.": "enterName",
+          "Choose a neutral display name.": "neutralName",
+          "Write a message first.": "writeMessageFirst",
+          "The note could not be accepted.": "noteNotAccepted"
+        };
+        return map[reason] ? this.text(map[reason]) : reason;
+      }
+
+      resolveLocale() {
+        const query = new URLSearchParams(location.search).get("lang");
+        if (query && LocaleCatalog[query]) return query;
+        try {
+          const stored = localStorage.getItem(AppConfig.localeKey);
+          if (stored && LocaleCatalog[stored]) return stored;
+        } catch { /* Browser storage can be unavailable. */ }
+        const cookieMatch = document.cookie.match(/(?:^|;\s*)angusu_de-lang=(de|en)\b/);
+        if (cookieMatch && LocaleCatalog[cookieMatch[1]]) return cookieMatch[1];
+        const documentLang = (document.documentElement.lang || "").slice(0, 2).toLowerCase();
+        if (LocaleCatalog[documentLang]) return documentLang;
+        const browserLang = (navigator.language || navigator.languages?.[0] || "en").slice(0, 2).toLowerCase();
+        return LocaleCatalog[browserLang] ? browserLang : "en";
+      }
+
+      setLocale(locale, { persist = true, animate = true } = {}) {
+        if (!LocaleCatalog[locale]) return;
+        this.locale = locale;
+        document.documentElement.lang = locale;
+        if (persist) {
+          try { localStorage.setItem(AppConfig.localeKey, locale); } catch { /* Keep the language for this page view only. */ }
+          fetch(`/?lang=${locale}`, { credentials: "same-origin" }).catch(() => {});
+        }
+        if (animate && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          document.documentElement.classList.add("is-language-settling");
+          window.setTimeout(() => document.documentElement.classList.remove("is-language-settling"), 460);
+        }
+        this.applyLocale();
+        this.renderEntities();
+        this.renderRecent();
+        this.updateState();
+      }
+
+      toggleLocale() {
+        this.setLocale(this.locale === "de" ? "en" : "de");
+      }
+
+      applyLocale() {
+        const set = (selector, key, replacements = {}) => {
+          const element = document.querySelector(selector);
+          if (element) element.textContent = this.text(key, replacements);
+        };
+        const setAll = (selector, keys) => {
+          document.querySelectorAll(selector).forEach((element, index) => {
+            if (keys[index]) element.textContent = this.text(keys[index]);
+          });
+        };
+        const setLeadingText = (element, key) => {
+          if (!element) return;
+          const first = Array.from(element.childNodes).find(node => node.nodeType === Node.TEXT_NODE);
+          if (first) first.textContent = `${this.text(key)} `;
+        };
+        const owner = AppConfig.branding?.owner_name || "Angus Uelsmann";
+
+        document.title = this.text("title");
+        Dom.languageToggle.setAttribute("aria-label", this.text("switchLanguage"));
+        Dom.languageToggle.querySelectorAll("span").forEach(span => {
+          span.setAttribute("aria-current", String(span.dataset.localeOption === this.locale));
+        });
+        set(".page-back__label", "back");
+        Dom.pageBackButton.setAttribute("aria-label", this.locale === "de" ? "Zurueck zu angusu.de" : "Return to angusu.de");
+        set(".eyebrow", "eyebrow");
+        set(".hero h1", "heroTitle");
+        set(".hero__route > span", "heroRoute");
+        setAll(".mobile-stepper button", ["mobileWrite", "mobilePreview", "mobilePublish"]);
+        setAll(".workflow > .composer > .step-label, .preview-column > .step-label", ["stepWrite", "stepPreview"]);
+        set(".field label", "name");
+        document.querySelectorAll(".field-label").forEach((element, index) => {
+          const keys = ["name", "message", "layout", "image"];
+          if (keys[index]) element.textContent = this.text(keys[index]);
+        });
+        Dom.nameInput.placeholder = this.text("namePlaceholder");
+        Dom.messageInput.placeholder = this.text("messagePlaceholder");
+        Dom.faviconToggleText.textContent = this.showFavicons ? this.text("faviconOn") : this.text("faviconOff");
+        document.querySelector(".layout-field .counter").textContent = this.text("preserved");
+        document.querySelectorAll(".layout-options > .layout-option").forEach((element, index) => {
+          ["textAlignment", "imagePosition", "paperTexture"][index] && setLeadingText(element, ["textAlignment", "imagePosition", "paperTexture"][index]);
+        });
+        setAll("#layoutAlignChoices b", ["left", "center", "right"]);
+        setAll("#layoutMediaChoices b", ["above", "left", "right"]);
+        setAll("#layoutTextureChoices b", ["dots", "clean"]);
+        setLeadingText(document.querySelector("#fontSizeInput")?.closest(".layout-range"), "fontSize");
+        setLeadingText(document.querySelector("#fontWeightChoices")?.closest(".layout-option"), "weight");
+        setAll("#fontWeightChoices b", ["regular", "bold"]);
+        setLeadingText(document.querySelector("#radiusModeChoices")?.closest(".layout-option"), "imageCorners");
+        setAll("#radiusModeChoices b", ["all", "corners"]);
+        setLeadingText(document.querySelector("#radiusAllInput")?.closest(".layout-range"), "imageRadius");
+        document.querySelectorAll("#radiusCornerControls .layout-range").forEach((element, index) => {
+          ["topLeft", "topRight", "bottomRight", "bottomLeft"][index] && setLeadingText(element, ["topLeft", "topRight", "bottomRight", "bottomLeft"][index]);
+        });
+        document.querySelector(".image-field .counter").textContent = this.text("optional");
+        set(".image-picker span:last-child", "addImage");
+        if (!this.imageWorkbench?.output && !this.imageWorkbench?.expectedImage) Dom.imageMeta.textContent = this.text("noImage");
+        Dom.removeImageButton.textContent = this.text("remove");
+        set(".image-note", "imageNote");
+        if (!Dom.imageProgress.hidden) Dom.imageProgressLabel.textContent = this.text("readingImage");
+        set(".image-editor__head span:first-child", "visibleFrame");
+        if (!this.imageWorkbench?.source) Dom.imageEditorState.textContent = this.text("dragReposition");
+        set(".zoom-control span:first-child", "zoom");
+        Dom.imageInvertButton.textContent = this.text("invertImage");
+        set(".display-label span:first-child", "paperDisplay");
+        set(".destination-kicker", "destinationKicker");
+        set("#destinationTitle", "destinationTitle");
+        set(".destination__line p", "destinationCopy");
+        Dom.liveProfileLink.firstChild.textContent = `${this.text("openLiveProfile")} `;
+        Dom.repositoryLink.firstChild.textContent = `${this.text("projectRepository")} `;
+        set("#topLikedSection .recent-kicker", "mostLoved");
+        set("#topLikedTitle", "topLiked");
+        set("#recentInks .recent-kicker", "publicArchive");
+        set("#recentTitle", "recentInks");
+        Dom.recentSearch.placeholder = this.text("searchInk");
+        Dom.recentSearchClear.setAttribute("aria-label", this.locale === "de" ? "Archivsuche leeren" : "Clear archive search");
+        Dom.loadMoreButton.textContent = this.text("showMore");
+        set(".policy-kicker", "visitorPolicy");
+        set(".policy p", "policyCopy", { owner });
+        set(".policy__report", "reportNote");
+        set(".site-footer__credit span:first-child", "designedBy");
+        set(".site-footer__repo span", "viewRepository");
+        set(".entity-picker__kicker", "handleDestination");
+        set(".entity-picker__custom label", "httpsDestination");
+        Dom.entityCustomSave.textContent = this.text("save");
+        set(".image-drop-popover__copy strong", "dropImage");
+        set(".image-drop-popover__copy span", "fileTypes");
+        set(".report-popover__kicker", "contentReview");
+        Dom.reportTitle.textContent = this.text("reportInk");
+        document.querySelector(".report-reasons legend").textContent = this.text("reason");
+        document.querySelector(".report-detail > span").textContent = this.text("optionalContext");
+        Dom.reportDetail.placeholder = this.text("reportPlaceholder");
+        Dom.reportCancelButton.textContent = this.text("cancel");
+        Dom.reportSubmitButton.textContent = this.text("submitReport");
+        set(".reaction-popover__kicker", "reactToInk");
+        Dom.reactionTitle.textContent = this.text("leaveReaction");
+        set(".reaction-popover__hint", "reactionHint");
+        set(".external-popover__kicker", "externalLink");
+        if (!Dom.externalPopover.classList.contains("is-open")) Dom.externalTitle.textContent = this.text("openDestination");
+        set(".external-popover__copy", "externalCopy");
+        Dom.externalCancelButton.textContent = this.text("cancel");
+        Dom.externalOpenButton.textContent = this.text("openLink");
+        this.renderLayoutControls();
+        this.setPrimaryAction(Dom.publishButton.dataset.action || PrimaryAction.PUBLISH);
+        this.updateThemeLabels();
       }
 
       async handleReaction(message, emoji) {
@@ -4028,13 +4534,14 @@ inkwall_begin_public_request('view');
         Dom.faviconToggle.addEventListener("click", () => {
           this.showFavicons = !this.showFavicons;
           Dom.faviconToggle.setAttribute("aria-pressed", String(this.showFavicons));
-          Dom.faviconToggleText.textContent = this.showFavicons ? "Site icons on" : "Site icons off";
+          Dom.faviconToggleText.textContent = this.showFavicons ? this.text("faviconOn") : this.text("faviconOff");
           this.updateState();
         });
         Dom.updateButton.addEventListener("click", () => this.applyDraft({ revealOnMobile: true }));
         Dom.publishButton.addEventListener("click", () => this.handlePrimaryAction());
         Dom.form.addEventListener("submit", event => { event.preventDefault(); this.handlePrimaryAction(); });
         Dom.themeToggle.addEventListener("click", () => this.toggleTheme());
+        Dom.languageToggle.addEventListener("click", () => this.toggleLocale());
         Dom.mobileStepper.addEventListener("click", event => {
           const button = event.target.closest("button[data-step]");
           if (button) this.setMobileStep(button.dataset.step);
@@ -4130,7 +4637,7 @@ inkwall_begin_public_request('view');
       setPrimaryAction(action) {
         const isLiveAction = action === PrimaryAction.VIEW_LIVE;
         Dom.publishButton.dataset.action = action;
-        Dom.publishButton.textContent = isLiveAction ? "View live ink" : "Publish note";
+        Dom.publishButton.textContent = isLiveAction ? this.text("viewLiveInk") : this.text("publishNote");
       }
 
       handlePrimaryAction() {
@@ -4161,54 +4668,54 @@ inkwall_begin_public_request('view');
           this.setPrimaryAction(PrimaryAction.VIEW_LIVE);
           Dom.publishButton.disabled = processing;
           Dom.publishStage.dataset.state = "live";
-          Dom.publishState.textContent = "03 / Live on GitHub";
-          Dom.publishHeadline.textContent = "See it while it is still the latest.";
-          Dom.publishHint.textContent = "Open the profile now. The next public note will replace it at the top.";
+          Dom.publishState.textContent = this.locale === "de" ? "03 / Live auf GitHub" : "03 / Live on GitHub";
+          Dom.publishHeadline.textContent = this.text("liveHeadline");
+          Dom.publishHint.textContent = this.text("liveHint");
         } else {
           this.setPrimaryAction(PrimaryAction.PUBLISH);
           Dom.publishButton.disabled = !previewMatchesDraft || processing;
           Dom.publishStage.dataset.state = Dom.publishButton.disabled ? "blocked" : "ready";
-          Dom.publishState.textContent = "03 / Publish to GitHub";
+          Dom.publishState.textContent = this.text("stepPublish");
 
           if (!draft.nameResult.allowed) {
-            Dom.publishHeadline.textContent = "Name needs attention.";
-            Dom.publishHint.textContent = draft.nameResult.reason;
+            Dom.publishHeadline.textContent = this.text("nameAttention");
+            Dom.publishHint.textContent = this.reasonText(draft.nameResult.reason);
           } else if (!draft.messageResult.allowed) {
-            Dom.publishHeadline.textContent = "Message cannot be published.";
-            Dom.publishHint.textContent = draft.messageResult.reason;
+            Dom.publishHeadline.textContent = this.text("messageRejected");
+            Dom.publishHint.textContent = this.reasonText(draft.messageResult.reason);
           } else if (heldDraft) {
-            Dom.publishHeadline.textContent = "This exact note is under review.";
-            Dom.publishHint.textContent = "Change the draft before preparing another public ink.";
+            Dom.publishHeadline.textContent = this.text("exactReview");
+            Dom.publishHint.textContent = this.text("exactReviewHint");
           } else if (this.imageWorkbench.failed) {
-            Dom.publishHeadline.textContent = "Image needs attention.";
-            Dom.publishHint.textContent = "Remove it or choose another image before publishing.";
+            Dom.publishHeadline.textContent = this.text("imageAttention");
+            Dom.publishHint.textContent = this.text("imageAttentionHint");
           } else if (draft.imagePending || this.imageWorkbench.processing) {
-            Dom.publishHeadline.textContent = "Preparing the image.";
-            Dom.publishHint.textContent = "Wait for the image to finish, then update the ink.";
+            Dom.publishHeadline.textContent = this.text("imagePreparing");
+            Dom.publishHint.textContent = this.text("imagePreparingHint");
           } else if (draftDiffersFromDisplay) {
-            Dom.publishHeadline.textContent = "Display is out of date.";
-            Dom.publishHint.textContent = "Update the ink to review the exact public result.";
+            Dom.publishHeadline.textContent = this.text("displayOutdated");
+            Dom.publishHint.textContent = this.text("displayOutdatedHint");
           } else if (previewMatchesDraft) {
-            Dom.publishHeadline.textContent = "Preview synchronized.";
-            Dom.publishHint.textContent = "Publish this exact ink to the GitHub profile surface.";
+            Dom.publishHeadline.textContent = this.text("previewReady");
+            Dom.publishHint.textContent = this.text("previewReadyHint");
           } else {
-            Dom.publishHeadline.textContent = "Preview required.";
-            Dom.publishHint.textContent = "Write a name and a message, then update the display.";
+            Dom.publishHeadline.textContent = this.text("previewRequired");
+            Dom.publishHint.textContent = this.text("previewNeededHint");
           }
         }
 
         if (message) return this.setStatus(message, tone);
-        if (!draft.nameResult.allowed && Dom.nameInput.value.trim()) return this.setStatus(draft.nameResult.reason, "danger");
-        if (!draft.messageResult.allowed) return this.setStatus(draft.messageResult.reason, "danger");
-        if (!draft.messageResult.clean) return this.setStatus("Write a name and a message.");
-        if (heldDraft) return this.setStatus("This exact note is under review. Change the draft to continue.", "warning");
-        if (this.imageWorkbench.failed) return this.setStatus("The selected image could not be prepared. Remove it or choose another image.", "danger");
-        if (draft.imagePending || this.imageWorkbench.processing) return this.setStatus("Preparing the E-Ink image. Publish stays locked until it is ready.");
-        if (publishedDraftIsVisible) return this.setStatus("Published. Open the live profile while this note is still the latest.", "success");
-        if (previewMatchesDraft && draft.messageResult.count) return this.setStatus(`${draft.messageResult.count} expression${draft.messageResult.count === 1 ? "" : "s"} obscured. Preview ready to publish.`, "warning");
-        if (previewMatchesDraft) return this.setStatus("Ink is current. Ready to publish.", "success");
-        if (draft.messageResult.count) return this.setStatus(`${draft.messageResult.count} expression${draft.messageResult.count === 1 ? "" : "s"} will be obscured on the public surface.`, "warning");
-        return this.setStatus("Draft changed. Update the display to continue.");
+        if (!draft.nameResult.allowed && Dom.nameInput.value.trim()) return this.setStatus(this.reasonText(draft.nameResult.reason), "danger");
+        if (!draft.messageResult.allowed) return this.setStatus(this.reasonText(draft.messageResult.reason), "danger");
+        if (!draft.messageResult.clean) return this.setStatus(this.text("formStart"));
+        if (heldDraft) return this.setStatus(`${this.text("exactReview")} ${this.locale === "de" ? "Aendere den Entwurf, um weiterzumachen." : "Change the draft to continue."}`, "warning");
+        if (this.imageWorkbench.failed) return this.setStatus(this.text("statusImageFailed"), "danger");
+        if (draft.imagePending || this.imageWorkbench.processing) return this.setStatus(this.text("statusImagePreparing"));
+        if (publishedDraftIsVisible) return this.setStatus(this.text("statusPublished"), "success");
+        if (previewMatchesDraft && draft.messageResult.count) return this.setStatus(this.locale === "de" ? `${draft.messageResult.count} Ausdruck${draft.messageResult.count === 1 ? "" : "e"} verborgen. Vorschau bereit zum Veroeffentlichen.` : `${draft.messageResult.count} expression${draft.messageResult.count === 1 ? "" : "s"} obscured. Preview ready to publish.`, "warning");
+        if (previewMatchesDraft) return this.setStatus(this.text("statusPreviewReady"), "success");
+        if (draft.messageResult.count) return this.setStatus(this.locale === "de" ? `${draft.messageResult.count} Ausdruck${draft.messageResult.count === 1 ? "" : "e"} wird auf der oeffentlichen Flaeche verborgen.` : `${draft.messageResult.count} expression${draft.messageResult.count === 1 ? "" : "s"} will be obscured on the public surface.`, "warning");
+        return this.setStatus(this.text("statusDraftChanged"));
       }
 
       renderEntities() {
@@ -4279,9 +4786,9 @@ inkwall_begin_public_request('view');
       async applyDraft({ revealOnMobile = false } = {}) {
         if (this.display.refreshing || this.imageWorkbench.processing) return;
         const draft = this.currentDraft();
-        if (!draft.nameResult.allowed) return this.setStatus(draft.nameResult.reason, "danger");
-        if (!draft.messageResult.allowed) return this.setStatus(draft.messageResult.reason, "danger");
-        if (!draft.messageResult.clean) return this.setStatus("Write a message first.", "danger");
+        if (!draft.nameResult.allowed) return this.setStatus(this.reasonText(draft.nameResult.reason), "danger");
+        if (!draft.messageResult.allowed) return this.setStatus(this.reasonText(draft.messageResult.reason), "danger");
+        if (!draft.messageResult.clean) return this.setStatus(this.text("writeMessageFirst"), "danger");
         if (draft.imagePending) return this.setStatus("Wait for the image to finish before updating the ink.", "warning");
         if (this.heldSignatures.has(draft.signature)) return this.setStatus("Change the draft before preparing another public ink.", "warning");
         this.previewMode = "draft";
@@ -4306,13 +4813,13 @@ inkwall_begin_public_request('view');
 
       async publish() {
         if (Dom.publishButton.disabled || this.display.refreshing || this.imageWorkbench.processing) return;
-        if (Dom.websiteInput.value) return this.setStatus("The note could not be accepted.", "danger");
+        if (Dom.websiteInput.value) return this.setStatus(this.text("noteNotAccepted"), "danger");
         const draft = this.currentDraft();
-        if (draft.imagePending) return this.setStatus("Wait for the image to finish before publishing.", "warning");
+        if (draft.imagePending) return this.setStatus(this.text("imagePreparingHint"), "warning");
         if (!draft.nameResult.allowed || !draft.messageResult.allowed || this.heldSignatures.has(draft.signature) || this.appliedSignature !== draft.signature) return this.updateState();
 
         Dom.publishButton.disabled = true;
-        this.setStatus("Publishing to GitHub surface.");
+        this.setStatus(this.locale === "de" ? "Wird auf GitHub veroeffentlicht." : "Publishing to GitHub surface.");
         try {
           const record = await this.repository.publish({
             id: crypto.randomUUID?.(),
@@ -4331,8 +4838,8 @@ inkwall_begin_public_request('view');
             this.appliedSignature = null;
             this.appliedContentSignature = null;
             this.showLatest(true);
-            this.setStatus("Ink is waiting for manual review. I sent Angus an email.", "warning");
-            this.showToast("Queued for review. The latest approved ink stays live.");
+            this.setStatus(this.text("statusReview"), "warning");
+            this.showToast(this.text("toastReview"));
             this.updateState();
             return;
           }
@@ -4342,8 +4849,8 @@ inkwall_begin_public_request('view');
             this.appliedSignature = null;
             this.appliedContentSignature = null;
             this.showLatest(true);
-            this.setStatus(record.message || "This ink could not be accepted.", "danger");
-            this.showToast("Ink was not accepted.");
+            this.setStatus(record.message || this.text("noteNotAccepted"), "danger");
+            this.showToast(this.text("toastRejected"));
             this.updateState();
             return;
           }
@@ -4359,9 +4866,9 @@ inkwall_begin_public_request('view');
           this.visibleCount = Math.max(this.visibleCount, AppConfig.archivePageSize);
           this.renderRecent();
           this.updateState();
-          this.showToast("Published. Open the profile now while this ink is still the latest.");
+          this.showToast(this.text("toastPublished"));
         } catch (error) {
-          this.setStatus(error?.message || "The note could not be published.", "danger");
+          this.setStatus(error?.message || this.text("noteNotAccepted"), "danger");
           this.updateState();
         }
       }
@@ -4590,16 +5097,16 @@ inkwall_begin_public_request('view');
         const visibleMessages = searchActive ? filteredMessages : filteredMessages.slice(0, this.visibleCount);
 
         Dom.recentCount.textContent = searchActive
-          ? `${filteredMessages.length} of ${allPublicMessages.length} notes`
-          : `${allPublicMessages.length} note${allPublicMessages.length === 1 ? "" : "s"}`;
+          ? this.text("searchCount", { count: filteredMessages.length, total: allPublicMessages.length })
+          : this.text("noteCount", { count: allPublicMessages.length, plural: this.locale === "de" ? (allPublicMessages.length === 1 ? "" : "en") : (allPublicMessages.length === 1 ? "" : "s") });
         Dom.recentSearchState.textContent = searchActive
-          ? `${filteredMessages.length} result${filteredMessages.length === 1 ? "" : "s"} for “${this.searchQuery.trim()}”`
+          ? this.text("searchResult", { count: filteredMessages.length, plural: this.locale === "de" ? (filteredMessages.length === 1 ? "" : "se") : (filteredMessages.length === 1 ? "" : "s"), query: this.searchQuery.trim() })
           : "";
 
         if (!filteredMessages.length) {
           const empty = document.createElement("div");
           empty.className = "recent-empty";
-          empty.textContent = searchActive ? "No inks match this search." : "No public inks yet.";
+          empty.textContent = searchActive ? this.text("noMatches") : this.text("noPublicInks");
           Dom.recentList.append(empty);
           Dom.recentTools.hidden = true;
           this.observeRecentLazyLoad(searchActive, false);
@@ -4698,6 +5205,12 @@ inkwall_begin_public_request('view');
         this.renderRecent();
       }
 
+      updateThemeLabels() {
+        const dark = Dom.html.dataset.theme === "dark";
+        Dom.themeLabel.textContent = dark ? this.text("lightMode") : this.text("darkMode");
+        Dom.themeToggle.setAttribute("aria-label", dark ? this.text("switchLight") : this.text("switchDark"));
+      }
+
       showFirstInk() {
         const messages = this.publicMessages();
         const firstOwnerInk = [...messages].reverse().find(message => /angus/i.test(message.name));
@@ -4715,6 +5228,7 @@ inkwall_begin_public_request('view');
         Dom.themeToggle.disabled = true;
         const next = Dom.html.dataset.theme === "dark" ? "light" : "dark";
         await this.display.refreshTheme(next);
+        this.updateThemeLabels();
         Dom.themeToggle.disabled = false;
       }
 
@@ -4794,7 +5308,7 @@ inkwall_begin_public_request('view');
 
       showNewInkToast(message) {
         const preview = message.message.length > 42 ? `${message.message.slice(0, 42)}...` : message.message;
-        this.showToast(`New ink by ${message.name}: ${preview}`, {
+        this.showToast(this.text("toastNewInk", { name: message.name, preview }), {
           onClick: () => {
             Dom.toast.classList.remove("is-visible");
             this.revealMessageInArchive(message.id);
@@ -4807,8 +5321,9 @@ inkwall_begin_public_request('view');
         try { theme = localStorage.getItem(AppConfig.themeKey) || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"); }
         catch { /* Use light theme when storage is unavailable. */ }
         Dom.html.dataset.theme = theme === "dark" ? "dark" : "light";
-        Dom.themeLabel.textContent = theme === "dark" ? "Light mode" : "Dark mode";
-        Dom.themeToggle.setAttribute("aria-label", theme === "dark" ? "Switch to light mode" : "Switch to dark mode");
+        document.documentElement.lang = this.locale;
+        try { localStorage.setItem(AppConfig.localeKey, this.locale); } catch { /* Keep the detected language for this page view only. */ }
+        this.updateThemeLabels();
 
         try {
           this.messages = (await this.repository.list()).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -4823,6 +5338,7 @@ inkwall_begin_public_request('view');
         Dom.liveProfileLink.href = AppConfig.destinationUrl;
         Dom.repositoryLink.href = AppConfig.repositoryUrl;
         Dom.footerRepositoryLink.href = AppConfig.repositoryUrl;
+        this.applyLocale();
         this.renderLayoutControls();
         this.showFirstInk();
         this.renderEntities();
