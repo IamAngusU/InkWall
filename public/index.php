@@ -237,8 +237,8 @@ inkwall_begin_public_request('view');
 
     .workflow {
       display: grid;
-      grid-template-columns: minmax(300px, .75fr) minmax(520px, 1.25fr);
-      gap: clamp(54px, 7vw, 104px);
+      grid-template-columns: minmax(300px, 390px) minmax(520px, 1fr);
+      gap: clamp(48px, 6vw, 88px);
       align-items: start;
     }
     .composer { position: sticky; top: 82px; display: grid; gap: 18px; min-width: 0; padding: 20px; border: 1px solid color-mix(in srgb, var(--line) 82%, transparent); border-radius: 16px; background: color-mix(in srgb, var(--paper) 36%, transparent); box-shadow: 0 18px 54px rgba(35, 39, 34, .07); }
@@ -684,9 +684,14 @@ inkwall_begin_public_request('view');
     .publish-state { color: var(--muted); font-size: 9px; font-weight: 760; letter-spacing: .075em; text-transform: uppercase; }
     .publish-copy strong { color: var(--ink); font-size: 15px; font-weight: 690; letter-spacing: -.02em; }
     .publish-copy p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
-    .publish-stage .button { min-width: 184px; }
+    .publish-actions { display: grid; grid-template-columns: repeat(2, minmax(150px, 1fr)); gap: 9px; min-width: min(390px, 100%); }
+    .publish-stage .button { min-width: 0; }
+    .publish-stage .button--update { color: var(--ink-soft); background: transparent; }
+    .publish-stage .button--update:not(:disabled):hover { border-color: var(--line-strong); color: var(--ink); background: var(--paper); transform: translateY(-1px); }
     .publish-stage[data-state="ready"] .button:not(:disabled),
     .publish-stage[data-state="live"] .button:not(:disabled) { border-color: var(--cta); color: var(--cta-ink); background: var(--cta); box-shadow: 0 14px 34px rgba(36, 40, 36, .15); }
+    .publish-stage[data-state="ready"] .button--update:not(:disabled),
+    .publish-stage[data-state="live"] .button--update:not(:disabled) { border-color: var(--line-strong); color: var(--ink); background: var(--paper); box-shadow: none; }
     .publish-stage[data-state="ready"] .button:not(:disabled):hover,
     .publish-stage[data-state="live"] .button:not(:disabled):hover { transform: translateY(-2px); }
     .publish-stage[data-state="live"] { border-top-color: var(--line-strong); }
@@ -757,22 +762,25 @@ inkwall_begin_public_request('view');
     .top-liked-meta { color: var(--muted); font-family: var(--mono); font-size: 8px; font-weight: 680; letter-spacing: .02em; text-transform: uppercase; }
     .top-liked-score { display: inline-flex; align-items: center; gap: 5px; color: var(--ink-soft); font-family: var(--mono); font-size: 9px; font-weight: 760; }
     .top-liked-score span { color: var(--accent); font-size: 15px; line-height: 1; }
-    .recent-list { display: grid; }
+    .recent-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr)); gap: 18px; align-items: start; }
     .recent-entry {
       display: grid;
-      grid-template-columns: 38px minmax(0, 1fr) auto;
-      gap: 22px;
+      grid-template-columns: 34px minmax(0, 1fr);
+      gap: 14px;
       align-items: start;
-      padding: 24px 2px;
-      border-bottom: 1px solid var(--line);
+      min-height: 100%;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--paper) 28%, transparent);
       transition: background .18s ease;
     }
     .recent-entry:hover { background: color-mix(in srgb, var(--paper) 38%, transparent); }
     .recent-entry.is-active { background: color-mix(in srgb, var(--paper) 58%, transparent); }
-    .recent-index { padding-top: 5px; color: var(--muted); font-size: 9px; font-weight: 720; }
+    .recent-index { padding-top: 4px; color: var(--muted); font-size: 9px; font-weight: 720; }
     .recent-main { display: grid; gap: 12px; min-width: 0; }
     .recent-svg-preview {
-      width: min(100%, 640px);
+      width: 100%;
       overflow: visible;
       border: 1px solid var(--line);
       border-radius: 6px;
@@ -780,7 +788,7 @@ inkwall_begin_public_request('view');
       box-shadow: 0 12px 34px rgba(35, 39, 34, .06);
     }
     .recent-svg-preview svg { display: block; width: 100%; height: auto; }
-    .recent-message { margin: 0; color: var(--ink); font-family: var(--reader); font-size: clamp(22px, 2.3vw, 34px); font-weight: 600; letter-spacing: -.036em; line-height: 1.08; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .recent-message { margin: 0; color: var(--ink); font-family: var(--reader); font-size: clamp(20px, 1.65vw, 28px); font-weight: 600; letter-spacing: -.036em; line-height: 1.1; white-space: pre-wrap; overflow-wrap: anywhere; }
     .recent-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; color: var(--muted); font-size: 8px; font-weight: 680; letter-spacing: .025em; text-transform: uppercase; }
     .recent-meta strong { color: var(--ink-soft); }
     .recent-links { display: flex; flex-wrap: wrap; gap: 7px; }
@@ -801,7 +809,7 @@ inkwall_begin_public_request('view');
     }
     .recent-link:hover { border-color: var(--line-strong); color: var(--ink); background: var(--paper); }
     .recent-link .entity-token__icon { width: 15px; height: 15px; }
-    .recent-actions { display: grid; gap: 8px; justify-items: end; }
+    .recent-actions { grid-column: 2; display: flex; gap: 8px; justify-content: flex-start; min-height: 24px; }
     .recent-report {
       padding: 0;
       border-bottom: 1px solid var(--line-strong);
@@ -817,8 +825,10 @@ inkwall_begin_public_request('view');
     }
     .recent-report:hover { color: var(--ink); }
     .recent-empty { padding: 30px 2px; color: var(--muted); font-size: 13px; border-bottom: 1px solid var(--line); }
-    .recent-tools { padding-top: 18px; }
-    .load-more { padding: 0; border-bottom: 1px solid var(--line-strong); color: var(--ink-soft); background: transparent; cursor: pointer; font-family: var(--mono); font-size: 9px; font-weight: 720; letter-spacing: .05em; text-transform: uppercase; }
+    .recent-tools { display: flex; justify-content: center; padding-top: 26px; }
+    .recent-tools[hidden] { display: none; }
+    .load-more { min-width: 148px; min-height: 38px; padding: 0 18px; border: 1px solid var(--line-strong); border-radius: 5px; color: var(--ink-soft); background: transparent; cursor: pointer; font-family: var(--mono); font-size: 9px; font-weight: 720; letter-spacing: .05em; text-transform: uppercase; }
+    .load-more:hover { color: var(--ink); background: var(--paper); }
 
     .policy { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 28px; align-items: end; margin-top: 74px; padding-top: 20px; border-top: 1px solid var(--line); }
     .policy-kicker { display: block; margin-bottom: 6px; color: var(--muted); font-size: 8px; font-weight: 760; letter-spacing: .09em; text-transform: uppercase; }
@@ -914,6 +924,7 @@ inkwall_begin_public_request('view');
       .display-meta span, .display-foot span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .display-author { margin-top: 8px; font-size: 7px; }
       .publish-stage { grid-template-columns: 1fr; gap: 11px; padding-top: 14px; }
+      .publish-actions { grid-template-columns: 1fr; min-width: 0; }
       .publish-stage .button { width: 100%; min-width: 0; }
       .destination { margin-top: 68px; }
       .destination__media { border-radius: 22px 22px 8px 8px; }
@@ -922,7 +933,8 @@ inkwall_begin_public_request('view');
       .destination__links a { flex: 1 1 180px; }
       .site-footer { align-items: flex-start; flex-direction: column; }
       .site-footer__repo { width: 100%; justify-content: center; }
-      .recent-entry { grid-template-columns: 28px minmax(0, 1fr); gap: 12px; padding: 20px 0; }
+      .recent-list { grid-template-columns: 1fr; gap: 14px; }
+      .recent-entry { grid-template-columns: 28px minmax(0, 1fr); gap: 12px; padding: 14px; }
       .recent-actions { grid-column: 2; display: flex; gap: 14px; justify-items: start; justify-content: flex-start; }
       .recent-message { font-size: clamp(22px, 7vw, 29px); }
       .policy { grid-template-columns: 1fr; gap: 14px; margin-top: 58px; }
@@ -1542,7 +1554,6 @@ inkwall_begin_public_request('view');
         <input class="honeypot" id="websiteInput" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
 
         <div class="status" id="formStatus" role="status" aria-live="polite">Write a name and a message.</div>
-        <button class="button button--update" id="updateInkButton" type="button" disabled>Update ink</button>
       </form>
 
       <div class="preview-column">
@@ -1582,7 +1593,10 @@ inkwall_begin_public_request('view');
             <strong id="publishHeadline">Preview required.</strong>
             <p id="publishHint">Update the display, review the visible ink, then publish it to the public GitHub surface.</p>
           </div>
-          <button class="button" id="publishButton" type="button" data-action="publish" disabled>Publish note</button>
+          <div class="publish-actions">
+            <button class="button button--update" id="updateInkButton" type="button" disabled>Update ink</button>
+            <button class="button" id="publishButton" type="button" data-action="publish" disabled>Publish note</button>
+          </div>
         </div>
       </div>
     </section>
@@ -3769,6 +3783,7 @@ inkwall_begin_public_request('view');
         this.autoApplyTimer = null;
         this.livePollTimer = null;
         this.livePollInFlight = false;
+        this.recentLoadObserver = null;
         this.countAnimations = new Map();
         this.imageWorkbench = new ImageWorkbench(
           (message, tone) => this.updateState(message, tone),
@@ -3865,7 +3880,7 @@ inkwall_begin_public_request('view');
         Dom.publishButton.addEventListener("click", () => this.handlePrimaryAction());
         Dom.form.addEventListener("submit", event => { event.preventDefault(); this.handlePrimaryAction(); });
         Dom.themeToggle.addEventListener("click", () => this.toggleTheme());
-        Dom.loadMoreButton.addEventListener("click", () => { this.visibleCount += AppConfig.archivePageSize; this.renderRecent(); });
+        Dom.loadMoreButton.addEventListener("click", () => this.loadMoreRecent());
         Dom.recentSearch.addEventListener("input", () => {
           this.searchQuery = Dom.recentSearch.value;
           Dom.recentSearchClear.hidden = !this.searchQuery;
@@ -3922,6 +3937,22 @@ inkwall_begin_public_request('view');
         ].join("\n--\n");
         const signature = [nameResult.clean, contentSignature].join("\n--\n");
         return { nameResult, messageResult, bindings, signature, contentSignature, image: this.imageWorkbench.output, imagePending, layout };
+      }
+
+      loadMoreRecent() {
+        const total = this.filteredMessages().length;
+        if (this.visibleCount >= total) return;
+        this.visibleCount = Math.min(total, this.visibleCount + AppConfig.archivePageSize);
+        this.renderRecent();
+      }
+
+      observeRecentLazyLoad(searchActive, hasMore) {
+        if (this.recentLoadObserver) this.recentLoadObserver.disconnect();
+        if (!hasMore || searchActive || !("IntersectionObserver" in window)) return;
+        this.recentLoadObserver = new IntersectionObserver(entries => {
+          if (entries.some(entry => entry.isIntersecting)) this.loadMoreRecent();
+        }, { rootMargin: "320px 0px 520px" });
+        this.recentLoadObserver.observe(Dom.recentTools);
       }
 
       setStatus(message, tone = "neutral") {
@@ -4395,6 +4426,7 @@ inkwall_begin_public_request('view');
           empty.textContent = searchActive ? "No inks match this search." : "No public inks yet.";
           Dom.recentList.append(empty);
           Dom.recentTools.hidden = true;
+          this.observeRecentLazyLoad(searchActive, false);
           return;
         }
 
@@ -4470,7 +4502,9 @@ inkwall_begin_public_request('view');
           article.append(number, main, actions);
           Dom.recentList.append(article);
         });
-        Dom.recentTools.hidden = searchActive || this.visibleCount >= filteredMessages.length;
+        const hasMore = this.visibleCount < filteredMessages.length;
+        Dom.recentTools.hidden = searchActive || !hasMore;
+        this.observeRecentLazyLoad(searchActive, hasMore);
         this.renderTopLiked();
       }
 
