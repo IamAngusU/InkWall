@@ -1097,7 +1097,25 @@ function inkwall_note_row(string $id): ?array {
 function inkwall_reaction_summary(string $noteId, string $visitorHash): array {
     $stmt = inkwall_db()->prepare('SELECT emoji, COUNT(*) AS count, MAX(CASE WHEN reactor_hash = ? THEN 1 ELSE 0 END) AS reacted FROM inkwall_reactions WHERE note_id = ? GROUP BY emoji ORDER BY count DESC');
     $stmt->execute([$visitorHash, $noteId]);
-    return array_map(static fn(array $row): array => ['emoji' => $row['emoji'], 'count' => (int)$row['count'], 'reacted' => (bool)$row['reacted']], $stmt->fetchAll());
+    $summary = [];
+    foreach ($stmt->fetchAll() as $row) {
+        $emoji = inkwall_reaction_key((string)$row['emoji']);
+        if ($emoji === '') continue;
+        if (!isset($summary[$emoji])) $summary[$emoji] = ['emoji' => $emoji, 'count' => 0, 'reacted' => false];
+        $summary[$emoji]['count'] += (int)$row['count'];
+        $summary[$emoji]['reacted'] = $summary[$emoji]['reacted'] || (bool)$row['reacted'];
+    }
+    usort($summary, static fn(array $a, array $b): int => $b['count'] <=> $a['count']);
+    return array_values($summary);
+}
+
+function inkwall_reaction_key(string $emoji): string {
+    $emoji = trim($emoji);
+    $emoji = preg_replace('/[\x{FE00}-\x{FE0F}\x{E0100}-\x{E01EF}]/u', '', $emoji) ?? '';
+    return match ($emoji) {
+        '♥', '♡' => '❤',
+        default => $emoji,
+    };
 }
 
 function inkwall_public_note(array $row, string $visitorHash): array {

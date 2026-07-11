@@ -731,10 +731,28 @@ inkwall_begin_public_request('view');
     .destination__links a:first-child:hover { color: var(--cta-ink); background: color-mix(in srgb, var(--cta) 88%, var(--page)); }
 
     .recent { margin-top: clamp(70px, 8vw, 112px); }
+    .top-liked { margin-top: clamp(54px, 6vw, 84px); }
     .recent-head { display: flex; align-items: end; justify-content: space-between; gap: 22px; padding-bottom: 17px; border-bottom: 1px solid var(--line); }
     .recent-kicker { display: block; margin-bottom: 7px; color: var(--muted); font-size: 9px; font-weight: 760; letter-spacing: .1em; text-transform: uppercase; }
-    .recent h2 { margin: 0; font-family: var(--reader); font-size: clamp(34px, 4vw, 58px); font-weight: 610; letter-spacing: -.052em; }
+    .recent h2, .top-liked h2 { margin: 0; font-family: var(--reader); font-size: clamp(34px, 4vw, 58px); font-weight: 610; letter-spacing: -.052em; }
     .recent-count { color: var(--muted); font-size: 9px; font-weight: 720; }
+    .top-liked-list { display: grid; gap: 8px; padding-top: 14px; }
+    .top-liked-entry {
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 12px;
+      min-height: 52px;
+      padding: 10px 2px;
+      border-bottom: 1px solid var(--line);
+    }
+    .top-liked-rank { color: var(--muted); font-family: var(--mono); font-size: 9px; font-weight: 760; }
+    .top-liked-main { display: grid; gap: 3px; min-width: 0; }
+    .top-liked-message { overflow: hidden; color: var(--ink); font-family: var(--reader); font-size: clamp(18px, 2vw, 25px); font-weight: 620; letter-spacing: -.035em; text-overflow: ellipsis; white-space: nowrap; }
+    .top-liked-meta { color: var(--muted); font-family: var(--mono); font-size: 8px; font-weight: 680; letter-spacing: .02em; text-transform: uppercase; }
+    .top-liked-score { display: inline-flex; align-items: center; gap: 5px; color: var(--ink-soft); font-family: var(--mono); font-size: 9px; font-weight: 760; }
+    .top-liked-score span { color: var(--accent); font-size: 15px; line-height: 1; }
+    .top-liked-empty { padding-top: 14px; color: var(--muted); font-size: 12px; }
     .recent-list { display: grid; }
     .recent-entry {
       display: grid;
@@ -751,8 +769,7 @@ inkwall_begin_public_request('view');
     .recent-main { display: grid; gap: 12px; min-width: 0; }
     .recent-svg-preview {
       width: min(100%, 640px);
-      max-height: 230px;
-      overflow: hidden;
+      overflow: visible;
       border: 1px solid var(--line);
       border-radius: 6px;
       background: var(--paper);
@@ -902,7 +919,6 @@ inkwall_begin_public_request('view');
       .site-footer__repo { width: 100%; justify-content: center; }
       .recent-entry { grid-template-columns: 28px minmax(0, 1fr); gap: 12px; padding: 20px 0; }
       .recent-actions { grid-column: 2; display: flex; gap: 14px; justify-items: start; justify-content: flex-start; }
-      .recent-svg-preview { max-height: 170px; }
       .recent-message { font-size: clamp(22px, 7vw, 29px); }
       .policy { grid-template-columns: 1fr; gap: 14px; margin-top: 58px; }
       .toast { right: 12px; bottom: 12px; left: 12px; max-width: none; }
@@ -1276,6 +1292,9 @@ inkwall_begin_public_request('view');
     }
     .reaction-pill:hover, .reaction-add:hover { border-color: var(--line-strong); color: var(--ink); background: var(--paper); transform: translateY(-1px); }
     .reaction-pill.is-selected { border-color: var(--ink-soft); color: var(--ink); background: var(--paper); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 12%, transparent); }
+    .reaction-pill--primary { border-color: color-mix(in srgb, var(--accent) 46%, var(--line)); color: var(--ink); background: color-mix(in srgb, var(--accent) 8%, var(--paper)); }
+    .reaction-pill--primary.is-selected { border-color: var(--accent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent); }
+    .reaction-pill--primary .reaction-pill__emoji { color: var(--accent); filter: none; }
     .reaction-pill:disabled { cursor: wait; opacity: .58; transform: none; }
     .reaction-pill__emoji, .reaction-choice__emoji { filter: grayscale(1) contrast(1.2); font-family: "Apple Color Emoji", "Segoe UI Emoji", sans-serif; }
     .reaction-pill__emoji { font-size: 13px; line-height: 1; }
@@ -1557,6 +1576,16 @@ inkwall_begin_public_request('view');
       </div>
     </section>
 
+    <section class="top-liked" aria-labelledby="topLikedTitle">
+      <div class="recent-head">
+        <div>
+          <span class="recent-kicker">Most loved</span>
+          <h2 id="topLikedTitle">Top liked inks.</h2>
+        </div>
+      </div>
+      <div class="top-liked-list" id="topLikedList"></div>
+    </section>
+
     <section class="recent" id="recentInks" aria-labelledby="recentTitle">
       <div class="recent-head">
         <div>
@@ -1791,6 +1820,7 @@ inkwall_begin_public_request('view');
       deviceState: document.getElementById("deviceState"),
       themeToggle: document.getElementById("themeToggle"),
       themeLabel: document.getElementById("themeLabel"),
+      topLikedList: document.getElementById("topLikedList"),
       recentList: document.getElementById("recentList"),
       recentCount: document.getElementById("recentCount"),
       recentTools: document.getElementById("recentTools"),
@@ -2209,7 +2239,10 @@ inkwall_begin_public_request('view');
       normalizeReactions(reactions) {
         if (!Array.isArray(reactions)) return [];
         return reactions
-          .map(item => ({ emoji: String(item?.emoji || ""), count: Math.max(0, Number(item?.count) || 0), reacted: Boolean(item?.reacted) }))
+          .map(item => {
+            const emoji = String(item?.emoji || "").replace(/[\uFE00-\uFE0F]/g, "").trim();
+            return { emoji: emoji === "♥" || emoji === "♡" ? "❤" : emoji, count: Math.max(0, Number(item?.count) || 0), reacted: Boolean(item?.reacted) };
+          })
           .filter(item => item.emoji && item.count > 0);
       }
 
@@ -3278,6 +3311,7 @@ inkwall_begin_public_request('view');
       Object.freeze({ emoji: "👀", label: "Watching" }),
       Object.freeze({ emoji: "🚀", label: "Launch" })
     ]);
+    const PrimaryReaction = "❤";
 
     class ReactionRepository {
       constructor() {
@@ -3312,9 +3346,14 @@ inkwall_begin_public_request('view');
       normalizeSummary(summary) {
         if (!Array.isArray(summary)) return [];
         return summary
-          .map(item => ({ emoji: String(item?.emoji || ""), count: Math.max(0, Number(item?.count) || 0), reacted: Boolean(item?.reacted) }))
+          .map(item => ({ emoji: this.normalizeEmoji(item?.emoji), count: Math.max(0, Number(item?.count) || 0), reacted: Boolean(item?.reacted) }))
           .filter(item => ReactionCatalog.some(option => option.emoji === item.emoji) && item.count > 0)
           .sort((a, b) => b.count - a.count || ReactionCatalog.findIndex(option => option.emoji === a.emoji) - ReactionCatalog.findIndex(option => option.emoji === b.emoji));
+      }
+
+      normalizeEmoji(emoji) {
+        const value = String(emoji || "").replace(/[\uFE00-\uFE0F]/g, "").trim();
+        return value === "♥" || value === "♡" ? "❤" : value;
       }
 
       summary(message) {
@@ -3328,6 +3367,7 @@ inkwall_begin_public_request('view');
       }
 
       async toggle(message, emoji) {
+        emoji = this.normalizeEmoji(emoji);
         if (!ReactionCatalog.some(option => option.emoji === emoji)) throw new Error("Choose a supported reaction.");
         if (!this.local) {
           const response = await fetch(`${AppConfig.apiBase}/messages/${encodeURIComponent(message.id)}/reactions`, {
@@ -4059,7 +4099,29 @@ inkwall_begin_public_request('view');
         const bar = document.createElement("div");
         bar.className = "reaction-bar";
         const summary = this.reactionRepository.summary(message);
-        summary.slice(0, 5).forEach(item => {
+        const byEmoji = new Map(summary.map(item => [item.emoji, item]));
+        const primary = byEmoji.get(PrimaryReaction) || { emoji: PrimaryReaction, count: 0, reacted: false };
+        const like = document.createElement("button");
+        like.type = "button";
+        like.className = `reaction-pill reaction-pill--primary${primary.reacted ? " is-selected" : ""}`;
+        like.setAttribute("aria-pressed", String(primary.reacted));
+        like.setAttribute("aria-label", `${primary.reacted ? "Unlike" : "Like"} note ${message.id}`);
+        const likeEmoji = document.createElement("span");
+        likeEmoji.className = "reaction-pill__emoji";
+        likeEmoji.textContent = PrimaryReaction;
+        const likeCount = document.createElement("span");
+        likeCount.className = "reaction-pill__count";
+        likeCount.textContent = String(primary.count);
+        like.append(likeEmoji, likeCount);
+        like.addEventListener("click", async () => {
+          like.disabled = true;
+          await this.handleReaction(message, PrimaryReaction);
+          this.renderTopLiked();
+          this.renderRecent();
+        });
+        bar.append(like);
+
+        summary.filter(item => item.emoji !== PrimaryReaction).slice(0, 4).forEach(item => {
           const button = document.createElement("button");
           button.type = "button";
           button.className = `reaction-pill${item.reacted ? " is-selected" : ""}`;
@@ -4075,6 +4137,7 @@ inkwall_begin_public_request('view');
           button.addEventListener("click", async () => {
             button.disabled = true;
             await this.handleReaction(message, item.emoji);
+            this.renderTopLiked();
             this.renderRecent();
           });
           bar.append(button);
@@ -4093,9 +4156,68 @@ inkwall_begin_public_request('view');
         return bar;
       }
 
+      reactionCount(message, emoji = PrimaryReaction) {
+        const item = this.reactionRepository.summary(message).find(entry => entry.emoji === emoji);
+        return item ? item.count : 0;
+      }
+
+      totalReactionCount(message) {
+        return this.reactionRepository.summary(message).reduce((sum, item) => sum + item.count, 0);
+      }
+
+      renderTopLiked() {
+        if (!Dom.topLikedList) return;
+        Dom.topLikedList.replaceChildren();
+        const ranked = this.publicMessages()
+          .filter(message => !message.prepared)
+          .map(message => ({ message, hearts: this.reactionCount(message), total: this.totalReactionCount(message) }))
+          .filter(item => item.hearts > 0 || item.total > 0)
+          .sort((a, b) => b.hearts - a.hearts || b.total - a.total || new Date(b.message.createdAt) - new Date(a.message.createdAt))
+          .slice(0, 5);
+
+        if (!ranked.length) {
+          const empty = document.createElement("div");
+          empty.className = "top-liked-empty";
+          empty.textContent = "No liked inks yet.";
+          Dom.topLikedList.append(empty);
+          return;
+        }
+
+        ranked.forEach((item, index) => {
+          const row = document.createElement("article");
+          row.className = "top-liked-entry";
+          const rank = document.createElement("span");
+          rank.className = "top-liked-rank";
+          rank.textContent = String(index + 1).padStart(2, "0");
+          const main = document.createElement("div");
+          main.className = "top-liked-main";
+          const message = document.createElement("div");
+          message.className = "top-liked-message";
+          message.textContent = item.message.message;
+          const meta = document.createElement("div");
+          meta.className = "top-liked-meta";
+          meta.textContent = `${item.message.name} · ${this.display.formatDate(new Date(item.message.createdAt))}`;
+          main.append(message, meta);
+          const score = document.createElement("button");
+          score.type = "button";
+          score.className = "reaction-pill reaction-pill--primary";
+          score.setAttribute("aria-label", `Like note ${item.message.id}`);
+          score.innerHTML = `<span class="reaction-pill__emoji">${PrimaryReaction}</span><span class="reaction-pill__count">${item.hearts}</span>`;
+          score.addEventListener("click", async () => {
+            score.disabled = true;
+            await this.handleReaction(item.message, PrimaryReaction);
+            this.renderTopLiked();
+            this.renderRecent();
+          });
+          row.append(rank, main, score);
+          Dom.topLikedList.append(row);
+        });
+      }
+
       renderRecent() {
         this.reactionPopover.close(true, false);
         this.reportPopover.close();
+        this.renderTopLiked();
         Dom.recentList.replaceChildren();
         const allPublicMessages = this.publicMessages();
         const filteredMessages = this.filteredMessages();

@@ -120,12 +120,24 @@ if (preg_match('~^messages/([a-f0-9-]{20,40})/reactions$~i', $path, $match) && $
     $noteId = $match[1];
     if (!inkwall_note_row($noteId)) inkwall_json(['error' => 'Note not found.'], 404);
     $body = inkwall_body(); $emoji = (string)($body['emoji'] ?? '');
-    $allowed = ['❤️', '🔥', '👏', '💡', '😂', '🤝', '👀', '🚀'];
+    $emoji = inkwall_reaction_key($emoji);
+    $allowed = ['❤', '🔥', '👏', '💡', '😂', '🤝', '👀', '🚀'];
     if (!in_array($emoji, $allowed, true)) inkwall_json(['error' => 'Unsupported reaction.'], 422);
-    $exists = inkwall_db()->prepare('SELECT id FROM inkwall_reactions WHERE note_id = ? AND reactor_hash = ? AND emoji = ?');
-    $exists->execute([$noteId, $visitor, $emoji]); $reactionId = $exists->fetchColumn();
+    if ($emoji === '❤') {
+        $exists = inkwall_db()->prepare("SELECT id FROM inkwall_reactions WHERE note_id = ? AND reactor_hash = ? AND emoji IN ('❤', '❤️', '♥', '♡') LIMIT 1");
+        $exists->execute([$noteId, $visitor]);
+    } else {
+        $exists = inkwall_db()->prepare('SELECT id FROM inkwall_reactions WHERE note_id = ? AND reactor_hash = ? AND emoji = ?');
+        $exists->execute([$noteId, $visitor, $emoji]);
+    }
+    $reactionId = $exists->fetchColumn();
     if ($reactionId) {
-        $delete = inkwall_db()->prepare('DELETE FROM inkwall_reactions WHERE id = ?'); $delete->execute([$reactionId]);
+        if ($emoji === '❤') {
+            $delete = inkwall_db()->prepare("DELETE FROM inkwall_reactions WHERE note_id = ? AND reactor_hash = ? AND emoji IN ('❤', '❤️', '♥', '♡')");
+            $delete->execute([$noteId, $visitor]);
+        } else {
+            $delete = inkwall_db()->prepare('DELETE FROM inkwall_reactions WHERE id = ?'); $delete->execute([$reactionId]);
+        }
     } else {
         $insert = inkwall_db()->prepare('INSERT INTO inkwall_reactions (note_id, reactor_hash, emoji, created_at) VALUES (?, ?, ?, ?)'); $insert->execute([$noteId, $visitor, $emoji, inkwall_now()]);
     }
