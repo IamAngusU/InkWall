@@ -957,8 +957,8 @@ inkwall_begin_public_request('view');
       .page { padding: 68px 18px 62px; }
       .page-back { top: 12px; left: 12px; min-height: 39px; width: 39px; justify-content: center; padding: 0; }
       .page-back__label { display: none; }
-      .theme-toggle { top: 12px; right: 12px; min-height: 39px; }
-      .language-toggle { top: 12px; right: 61px; min-height: 39px; min-width: 80px; }
+      .theme-toggle { top: 12px; right: 12px; width: 43px; min-width: 43px; min-height: 39px; justify-content: center; gap: 0; padding: 0; }
+      .language-toggle { top: 12px; right: 64px; width: 76px; min-width: 76px; min-height: 39px; }
       .theme-toggle__label { display: none; }
       .hero { margin-bottom: 37px; }
       h1 { font-size: clamp(47px, 14vw, 66px); }
