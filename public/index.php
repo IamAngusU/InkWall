@@ -20,6 +20,7 @@ inkwall_begin_public_request('view');
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
   <meta name="description" content="Publish a moderated E-Ink note to <?= inkwall_page_escape($profileLabel) ?>.">
+  <link rel="icon" href="/favicon.ico" sizes="any">
   <title>GitHub E-Ink Message Surface</title>
   <style>
     :root {
@@ -241,6 +242,7 @@ inkwall_begin_public_request('view');
       gap: clamp(48px, 6vw, 88px);
       align-items: start;
     }
+    .mobile-stepper { display: none; }
     .composer { position: sticky; top: 82px; display: grid; gap: 18px; min-width: 0; padding: 20px; border: 1px solid color-mix(in srgb, var(--line) 82%, transparent); border-radius: 16px; background: color-mix(in srgb, var(--paper) 36%, transparent); box-shadow: 0 18px 54px rgba(35, 39, 34, .07); }
     .step-label {
       display: flex;
@@ -753,10 +755,11 @@ inkwall_begin_public_request('view');
       border-bottom: 1px solid var(--line);
       cursor: pointer;
     }
+    .top-liked-entry.has-no-thumb { grid-template-columns: 34px minmax(0, 1fr) auto; }
     .top-liked-entry:hover { background: color-mix(in srgb, var(--paper) 42%, transparent); }
     .top-liked-rank { color: var(--muted); font-family: var(--mono); font-size: 9px; font-weight: 760; }
-    .top-liked-thumb { overflow: hidden; width: 92px; aspect-ratio: 1200 / 360; border: 1px solid var(--line); border-radius: 5px; background: var(--paper); }
-    .top-liked-thumb svg { display: block; width: 100%; height: auto; }
+    .top-liked-thumb { overflow: hidden; width: 92px; aspect-ratio: 1 / 1; border: 1px solid var(--line); border-radius: 5px; background: var(--paper); }
+    .top-liked-thumb img { display: block; width: 100%; height: 100%; object-fit: cover; filter: grayscale(.06) contrast(1.02); }
     .top-liked-main { display: grid; gap: 3px; min-width: 0; }
     .top-liked-message { overflow: hidden; color: var(--ink); font-family: var(--reader); font-size: clamp(18px, 2vw, 25px); font-weight: 620; letter-spacing: -.035em; text-overflow: ellipsis; white-space: nowrap; }
     .top-liked-meta { color: var(--muted); font-family: var(--mono); font-size: 8px; font-weight: 680; letter-spacing: .02em; text-transform: uppercase; }
@@ -873,6 +876,34 @@ inkwall_begin_public_request('view');
     .toast.is-visible { opacity: 1; transform: translate(-50%, 0); }
     .toast.is-actionable { cursor: pointer; pointer-events: auto; }
 
+    .external-popover {
+      position: fixed;
+      z-index: 175;
+      width: min(390px, calc(100vw - 28px));
+      padding: 14px;
+      border: 1px solid var(--line-strong);
+      border-radius: 9px;
+      color: var(--ink);
+      background: color-mix(in srgb, var(--page) 96%, var(--paper));
+      box-shadow: 0 24px 70px rgba(22, 25, 21, .2);
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(6px) scale(.985);
+      transition: opacity .16s ease, transform .16s var(--ease), background .35s var(--ease), border-color .35s var(--ease);
+    }
+    .external-popover.is-open { opacity: 1; pointer-events: auto; transform: none; }
+    .external-popover__head { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding-bottom: 11px; border-bottom: 1px solid var(--line); }
+    .external-popover__icon { width: 24px; height: 24px; border-radius: 5px; object-fit: contain; filter: grayscale(1) contrast(1.1); }
+    .external-popover__kicker { display: block; color: var(--muted); font-family: var(--mono); font-size: 7px; font-weight: 760; letter-spacing: .1em; text-transform: uppercase; }
+    .external-popover__host { display: block; overflow: hidden; color: var(--ink); font-size: 15px; font-weight: 690; letter-spacing: -.02em; text-overflow: ellipsis; white-space: nowrap; }
+    .external-popover__close { display: grid; width: 28px; height: 28px; place-items: center; border: 1px solid var(--line); border-radius: 4px; color: var(--ink-soft); background: transparent; cursor: pointer; font-size: 17px; }
+    .external-popover__copy { margin: 11px 0 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
+    .external-popover__url { overflow: hidden; margin-top: 8px; padding: 8px; border: 1px solid var(--line); border-radius: 5px; color: var(--ink-soft); background: color-mix(in srgb, var(--paper) 64%, transparent); font-family: var(--mono); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+    .external-popover__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+    .external-popover__cancel, .external-popover__open { min-height: 34px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: 5px; cursor: pointer; font-family: var(--mono); font-size: 8px; font-weight: 760; letter-spacing: .05em; text-transform: uppercase; }
+    .external-popover__cancel { color: var(--ink-soft); background: transparent; }
+    .external-popover__open { color: var(--cta-ink); background: var(--cta); }
+
     @media (max-width: 980px) {
       .workflow { grid-template-columns: 1fr; gap: 42px; }
       .composer { position: static; }
@@ -889,6 +920,37 @@ inkwall_begin_public_request('view');
       h1 { font-size: clamp(47px, 14vw, 66px); }
       .hero__route { align-items: flex-start; flex-direction: column; gap: 7px; margin-top: 17px; }
       .workflow { gap: 32px; }
+      .mobile-stepper {
+        position: sticky;
+        top: 10px;
+        z-index: 80;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        margin: -16px 0 24px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: color-mix(in srgb, var(--page) 94%, transparent);
+        box-shadow: 0 12px 34px rgba(35, 39, 34, .08);
+        backdrop-filter: blur(12px);
+      }
+      .mobile-stepper button {
+        min-height: 38px;
+        border-right: 1px solid var(--line);
+        color: var(--muted);
+        background: transparent;
+        cursor: pointer;
+        font-family: var(--mono);
+        font-size: 8px;
+        font-weight: 760;
+        letter-spacing: .04em;
+      }
+      .mobile-stepper button:last-child { border-right: 0; }
+      .mobile-stepper button[aria-selected="true"] { color: var(--ink); background: var(--paper); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 12%, transparent); }
+      .workflow[data-mobile-step="write"] .preview-column { display: none; }
+      .workflow[data-mobile-step="preview"] .composer { display: none; }
+      .workflow[data-mobile-step="publish"] .composer { display: none; }
+      .workflow[data-mobile-step="publish"] .preview-column > .step-label,
+      .workflow[data-mobile-step="publish"] .device { display: none; }
       .composer { gap: 21px; }
       textarea { min-height: 106px; }
       .entity-head { align-items: flex-start; flex-direction: column; gap: 7px; }
@@ -939,6 +1001,7 @@ inkwall_begin_public_request('view');
       .recent-message { font-size: clamp(22px, 7vw, 29px); }
       .policy { grid-template-columns: 1fr; gap: 14px; margin-top: 58px; }
       .toast { right: auto; bottom: 12px; left: 50%; max-width: calc(100vw - 24px); }
+      .external-popover { right: 10px !important; bottom: 10px; left: 10px !important; top: auto !important; width: auto; max-height: calc(100svh - 20px); overflow: auto; border-radius: 12px; }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -1425,7 +1488,13 @@ inkwall_begin_public_request('view');
       </div>
     </header>
 
-    <section class="workflow" aria-label="Compose, preview and publish">
+    <nav class="mobile-stepper" id="mobileStepper" aria-label="InkWall steps">
+      <button type="button" data-step="write" aria-selected="true">01 Write</button>
+      <button type="button" data-step="preview" aria-selected="false">02 Preview</button>
+      <button type="button" data-step="publish" aria-selected="false">03 Publish</button>
+    </nav>
+
+    <section class="workflow" id="workflow" data-mobile-step="write" aria-label="Compose, preview and publish">
       <form class="composer" id="messageForm" novalidate>
         <div class="step-label">01 / Write</div>
 
@@ -1748,6 +1817,23 @@ inkwall_begin_public_request('view');
     <p class="reaction-popover__hint">Choose more than one. Tap an active reaction again to remove it.</p>
   </div>
 
+  <div class="external-popover" id="externalPopover" role="dialog" aria-labelledby="externalTitle" aria-hidden="true">
+    <div class="external-popover__head">
+      <img class="external-popover__icon" src="/favicon.ico" alt="">
+      <div>
+        <span class="external-popover__kicker">External link</span>
+        <strong class="external-popover__host" id="externalTitle">Open destination</strong>
+      </div>
+      <button class="external-popover__close" id="externalCloseButton" type="button" aria-label="Close external link prompt">×</button>
+    </div>
+    <p class="external-popover__copy">This destination is outside InkWall. Visitor links are not verified, and InkWall is not responsible for external content, services, downloads, or privacy practices.</p>
+    <div class="external-popover__url" id="externalUrl"></div>
+    <div class="external-popover__actions">
+      <button class="external-popover__cancel" id="externalCancelButton" type="button">Cancel</button>
+      <button class="external-popover__open" id="externalOpenButton" type="button">Open link</button>
+    </div>
+  </div>
+
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script type="module">
@@ -1788,6 +1874,8 @@ inkwall_begin_public_request('view');
 
     const Dom = Object.freeze({
       html: document.documentElement,
+      workflow: document.getElementById("workflow"),
+      mobileStepper: document.getElementById("mobileStepper"),
       heroDestinationLink: document.getElementById("heroDestinationLink"),
       destinationPixelField: document.getElementById("destinationPixelField"),
       pageBackButton: document.getElementById("pageBackButton"),
@@ -1892,6 +1980,12 @@ inkwall_begin_public_request('view');
       reactionNoteReference: document.getElementById("reactionNoteReference"),
       reactionCloseButton: document.getElementById("reactionCloseButton"),
       reactionGrid: document.getElementById("reactionGrid"),
+      externalPopover: document.getElementById("externalPopover"),
+      externalTitle: document.getElementById("externalTitle"),
+      externalUrl: document.getElementById("externalUrl"),
+      externalCloseButton: document.getElementById("externalCloseButton"),
+      externalCancelButton: document.getElementById("externalCancelButton"),
+      externalOpenButton: document.getElementById("externalOpenButton"),
       toast: document.getElementById("toast")
     });
 
@@ -2161,18 +2255,11 @@ inkwall_begin_public_request('view');
     }
 
     class LinkRenderer {
-      static confirmExternalOpen(href) {
-        if (!/^https?:\/\//i.test(href)) return true;
-        let label = href;
-        try { label = new URL(href).hostname; }
-        catch { /* Keep the full URL when parsing fails. */ }
-        return window.confirm(`Open external link to ${label}?\n\nThis destination is outside InkWall. Visitor links are not verified, and InkWall is not responsible for external content, services, downloads, or privacy practices.`);
-      }
-
       static attachExternalConfirmation(anchor, href) {
         if (!/^https?:\/\//i.test(href)) return anchor;
         anchor.addEventListener("click", event => {
-          if (!this.confirmExternalOpen(href)) event.preventDefault();
+          event.preventDefault();
+          window.dispatchEvent(new CustomEvent("inkwall:external-link", { detail: { href, anchor } }));
         });
         return anchor;
       }
@@ -3162,6 +3249,73 @@ inkwall_begin_public_request('view');
       close() { this.cancelClose(); Dom.entityPicker.classList.remove("is-open"); this.activeHandle = null; this.anchor = null; }
     }
 
+    class ExternalLinkPopoverController {
+      constructor() {
+        this.href = "";
+        this.anchor = null;
+        this.bindEvents();
+      }
+
+      bindEvents() {
+        window.addEventListener("inkwall:external-link", event => this.open(event.detail?.href, event.detail?.anchor));
+        Dom.externalCloseButton.addEventListener("click", () => this.close());
+        Dom.externalCancelButton.addEventListener("click", () => this.close());
+        Dom.externalOpenButton.addEventListener("click", () => this.confirm());
+        document.addEventListener("pointerdown", event => {
+          if (!Dom.externalPopover.classList.contains("is-open")) return;
+          if (Dom.externalPopover.contains(event.target) || this.anchor?.contains(event.target)) return;
+          this.close();
+        });
+        document.addEventListener("keydown", event => {
+          if (event.key === "Escape") this.close();
+        });
+        window.addEventListener("resize", () => this.position(), { passive: true });
+        window.addEventListener("scroll", () => this.position(), { passive: true, capture: true });
+      }
+
+      open(href, anchor) {
+        if (!href || !/^https?:\/\//i.test(href)) return;
+        this.href = href;
+        this.anchor = anchor || null;
+        let host = href;
+        try { host = new URL(href).hostname.replace(/^www\./, ""); }
+        catch { /* Keep the submitted URL when parsing fails. */ }
+        Dom.externalTitle.textContent = host;
+        Dom.externalUrl.textContent = href;
+        Dom.externalPopover.classList.add("is-open");
+        Dom.externalPopover.setAttribute("aria-hidden", "false");
+        this.position();
+        Dom.externalOpenButton.focus({ preventScroll: true });
+      }
+
+      position() {
+        if (!this.anchor || !Dom.externalPopover.classList.contains("is-open") || matchMedia("(max-width: 680px)").matches) return;
+        const viewportGap = 14;
+        const anchorGap = 10;
+        const anchorRect = this.anchor.getBoundingClientRect();
+        const popoverRect = Dom.externalPopover.getBoundingClientRect();
+        const left = Math.max(viewportGap, Math.min(window.innerWidth - popoverRect.width - viewportGap, anchorRect.left));
+        const fitsBelow = anchorRect.bottom + anchorGap + popoverRect.height <= window.innerHeight - viewportGap;
+        const top = fitsBelow ? anchorRect.bottom + anchorGap : Math.max(viewportGap, anchorRect.top - popoverRect.height - anchorGap);
+        Dom.externalPopover.style.left = `${left}px`;
+        Dom.externalPopover.style.top = `${top}px`;
+      }
+
+      confirm() {
+        if (this.href) window.open(this.href, "_blank", "noopener,noreferrer");
+        this.close();
+      }
+
+      close() {
+        Dom.externalPopover.classList.remove("is-open");
+        Dom.externalPopover.setAttribute("aria-hidden", "true");
+        Dom.externalPopover.style.removeProperty("left");
+        Dom.externalPopover.style.removeProperty("top");
+        this.href = "";
+        this.anchor = null;
+      }
+    }
+
 
     const ReportReasonCatalog = Object.freeze({
       spam: Object.freeze({ label: "Spam or manipulation", threshold: 2, priority: false }),
@@ -3791,6 +3945,7 @@ inkwall_begin_public_request('view');
         );
         this.imageDropController = new ImageDropController(file => this.imageWorkbench.selectFile(file));
         this.bannerPixelField = new BannerPixelField(Dom.destinationPixelField);
+        this.externalPopover = new ExternalLinkPopoverController();
         this.reportPopover = new ReportPopoverController(this.reportRepository, (message, result) => this.handleReportResult(message, result));
         this.reactionPopover = new ReactionPopoverController(
           this.reactionRepository,
@@ -3880,6 +4035,10 @@ inkwall_begin_public_request('view');
         Dom.publishButton.addEventListener("click", () => this.handlePrimaryAction());
         Dom.form.addEventListener("submit", event => { event.preventDefault(); this.handlePrimaryAction(); });
         Dom.themeToggle.addEventListener("click", () => this.toggleTheme());
+        Dom.mobileStepper.addEventListener("click", event => {
+          const button = event.target.closest("button[data-step]");
+          if (button) this.setMobileStep(button.dataset.step);
+        });
         Dom.loadMoreButton.addEventListener("click", () => this.loadMoreRecent());
         Dom.recentSearch.addEventListener("input", () => {
           this.searchQuery = Dom.recentSearch.value;
@@ -3905,6 +4064,14 @@ inkwall_begin_public_request('view');
         const custom = selectedChoice("radiusMode", "all") === "custom";
         Dom.radiusAllControl.hidden = custom;
         Dom.radiusCornerControls.hidden = !custom;
+      }
+
+      setMobileStep(step) {
+        const next = ["write", "preview", "publish"].includes(step) ? step : "write";
+        Dom.workflow.dataset.mobileStep = next;
+        Dom.mobileStepper.querySelectorAll("button[data-step]").forEach(button => {
+          button.setAttribute("aria-selected", String(button.dataset.step === next));
+        });
       }
 
       currentDraft() {
@@ -4132,6 +4299,7 @@ inkwall_begin_public_request('view');
           layout: draft.layout,
           date: new Date()
         }, { revealOnMobile });
+        if (matchMedia("(max-width: 680px)").matches) this.setMobileStep("preview");
         this.renderRecent();
         this.updateState();
       }
@@ -4350,7 +4518,7 @@ inkwall_begin_public_request('view');
 
         ranked.forEach((item, index) => {
           const row = document.createElement("article");
-          row.className = "top-liked-entry";
+          row.className = `top-liked-entry${item.message.image?.src ? "" : " has-no-thumb"}`;
           row.tabIndex = 0;
           row.setAttribute("role", "button");
           row.setAttribute("aria-label", `Jump to liked ink by ${item.message.name}`);
@@ -4364,10 +4532,17 @@ inkwall_begin_public_request('view');
           const rank = document.createElement("span");
           rank.className = "top-liked-rank";
           rank.textContent = String(index + 1).padStart(2, "0");
-          const thumb = document.createElement("div");
-          thumb.className = "top-liked-thumb";
-          thumb.setAttribute("aria-hidden", "true");
-          thumb.innerHTML = this.display.svgMarkup({ mode: "archive", ...item.message, date: new Date(item.message.createdAt) });
+          const thumb = item.message.image?.src ? document.createElement("div") : null;
+          if (thumb) {
+            thumb.className = "top-liked-thumb";
+            thumb.setAttribute("aria-hidden", "true");
+            const image = document.createElement("img");
+            image.src = item.message.image.src;
+            image.alt = "";
+            image.loading = "lazy";
+            image.decoding = "async";
+            thumb.append(image);
+          }
           const main = document.createElement("div");
           main.className = "top-liked-main";
           const message = document.createElement("div");
@@ -4399,7 +4574,8 @@ inkwall_begin_public_request('view');
             this.renderTopLiked();
             this.renderRecent();
           });
-          row.append(rank, thumb, main, score);
+          if (thumb) row.append(rank, thumb, main, score);
+          else row.append(rank, main, score);
           Dom.topLikedList.append(row);
         });
       }
