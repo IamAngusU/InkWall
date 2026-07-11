@@ -1720,7 +1720,7 @@ inkwall_begin_public_request('view');
 
     <section class="destination" aria-labelledby="destinationTitle">
       <div class="destination__media">
-      <img class="destination__banner" src="assets/github-destination.png?v=<?= inkwall_asset_version("assets/github-destination.png") ?>" alt="<?= inkwall_page_escape($brand['owner_name']) ?> GitHub profile banner">
+      <img class="destination__banner" src="assets/github-destination.webp?v=<?= inkwall_asset_version("assets/github-destination.webp") ?>" alt="<?= inkwall_page_escape($brand['owner_name']) ?> GitHub profile banner">
         <canvas class="destination__pixel-field" id="destinationPixelField" aria-hidden="true"></canvas>
       </div>
       <div class="destination__line">
@@ -1888,7 +1888,7 @@ inkwall_begin_public_request('view');
     const AppConfig = Object.freeze({
       apiBase: `${location.pathname.replace(/\/(?:index\.php)?$/, "")}/api`.replace(/^\/\//, "/"),
       storageKey: "angusu-eink-wall-v11",
-      themeKey: "angusu-eink-theme-v4",
+      themeKey: "angusu_de-theme",
       localeKey: "angusu-eink-locale-v1",
       branding: Object.freeze(<?= $brandJson ?: '{}' ?>),
       destinationUrl: <?= json_encode($brand['profile_url'], JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
@@ -3019,8 +3019,8 @@ inkwall_begin_public_request('view');
         Dom.display.classList.add("is-theme-refreshing");
         window.setTimeout(() => {
           Dom.html.dataset.theme = theme;
-          Dom.themeLabel.textContent = theme === "dark" ? "Light mode" : "Dark mode";
-          Dom.themeToggle.setAttribute("aria-label", theme === "dark" ? "Switch to light mode" : "Switch to dark mode");
+          Dom.themeLabel.textContent = theme === "dark" ? this.text("lightMode") : this.text("darkMode");
+          Dom.themeToggle.setAttribute("aria-label", theme === "dark" ? this.text("switchLight") : this.text("switchDark"));
           try { localStorage.setItem(AppConfig.themeKey, theme); } catch { /* Ignore unavailable storage. */ }
         }, AppConfig.themeSwapDelay);
         await new Promise(resolve => window.setTimeout(resolve, AppConfig.themeDuration));
