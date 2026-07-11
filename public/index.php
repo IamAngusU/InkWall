@@ -736,23 +736,27 @@ inkwall_begin_public_request('view');
     .recent-kicker { display: block; margin-bottom: 7px; color: var(--muted); font-size: 9px; font-weight: 760; letter-spacing: .1em; text-transform: uppercase; }
     .recent h2, .top-liked h2 { margin: 0; font-family: var(--reader); font-size: clamp(34px, 4vw, 58px); font-weight: 610; letter-spacing: -.052em; }
     .recent-count { color: var(--muted); font-size: 9px; font-weight: 720; }
+    .top-liked[hidden] { display: none; }
     .top-liked-list { display: grid; gap: 8px; padding-top: 14px; }
     .top-liked-entry {
       display: grid;
-      grid-template-columns: 34px minmax(0, 1fr) auto;
+      grid-template-columns: 34px 92px minmax(0, 1fr) auto;
       align-items: center;
       gap: 12px;
       min-height: 52px;
       padding: 10px 2px;
       border-bottom: 1px solid var(--line);
+      cursor: pointer;
     }
+    .top-liked-entry:hover { background: color-mix(in srgb, var(--paper) 42%, transparent); }
     .top-liked-rank { color: var(--muted); font-family: var(--mono); font-size: 9px; font-weight: 760; }
+    .top-liked-thumb { overflow: hidden; width: 92px; aspect-ratio: 1200 / 360; border: 1px solid var(--line); border-radius: 5px; background: var(--paper); }
+    .top-liked-thumb svg { display: block; width: 100%; height: auto; }
     .top-liked-main { display: grid; gap: 3px; min-width: 0; }
     .top-liked-message { overflow: hidden; color: var(--ink); font-family: var(--reader); font-size: clamp(18px, 2vw, 25px); font-weight: 620; letter-spacing: -.035em; text-overflow: ellipsis; white-space: nowrap; }
     .top-liked-meta { color: var(--muted); font-family: var(--mono); font-size: 8px; font-weight: 680; letter-spacing: .02em; text-transform: uppercase; }
     .top-liked-score { display: inline-flex; align-items: center; gap: 5px; color: var(--ink-soft); font-family: var(--mono); font-size: 9px; font-weight: 760; }
     .top-liked-score span { color: var(--accent); font-size: 15px; line-height: 1; }
-    .top-liked-empty { padding-top: 14px; color: var(--muted); font-size: 12px; }
     .recent-list { display: grid; }
     .recent-entry {
       display: grid;
@@ -855,8 +859,9 @@ inkwall_begin_public_request('view');
     .site-footer__repo:hover { border-color: var(--line-strong); color: var(--ink); background: var(--paper); }
     .site-footer__repo svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
-    .toast { position: fixed; right: 22px; bottom: 22px; z-index: 160; max-width: min(390px, calc(100vw - 32px)); padding: 12px 14px; border: 1px solid var(--line); border-radius: 4px; color: var(--ink); background: color-mix(in srgb, var(--page) 93%, transparent); box-shadow: 0 18px 50px rgba(20, 23, 20, .16); font-family: var(--mono); font-size: 9px; font-weight: 650; line-height: 1.5; opacity: 0; pointer-events: none; transform: translateY(10px); backdrop-filter: blur(12px); transition: opacity .18s ease, transform .18s var(--ease), background .35s var(--ease), border-color .35s var(--ease); }
-    .toast.is-visible { opacity: 1; transform: none; }
+    .toast { position: fixed; left: 50%; bottom: 22px; z-index: 160; max-width: min(430px, calc(100vw - 32px)); padding: 12px 14px; border: 1px solid var(--line); border-radius: 7px; color: var(--ink); background: color-mix(in srgb, var(--page) 93%, transparent); box-shadow: 0 18px 50px rgba(20, 23, 20, .16); font-family: var(--mono); font-size: 9px; font-weight: 650; line-height: 1.5; opacity: 0; pointer-events: none; transform: translate(-50%, 18px); backdrop-filter: blur(12px); transition: opacity .18s ease, transform .18s var(--ease), background .35s var(--ease), border-color .35s var(--ease); }
+    .toast.is-visible { opacity: 1; transform: translate(-50%, 0); }
+    .toast.is-actionable { cursor: pointer; pointer-events: auto; }
 
     @media (max-width: 980px) {
       .workflow { grid-template-columns: 1fr; gap: 42px; }
@@ -921,7 +926,7 @@ inkwall_begin_public_request('view');
       .recent-actions { grid-column: 2; display: flex; gap: 14px; justify-items: start; justify-content: flex-start; }
       .recent-message { font-size: clamp(22px, 7vw, 29px); }
       .policy { grid-template-columns: 1fr; gap: 14px; margin-top: 58px; }
-      .toast { right: 12px; bottom: 12px; left: 12px; max-width: none; }
+      .toast { right: auto; bottom: 12px; left: 50%; max-width: calc(100vw - 24px); }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -1294,11 +1299,18 @@ inkwall_begin_public_request('view');
     .reaction-pill.is-selected { border-color: var(--ink-soft); color: var(--ink); background: var(--paper); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 12%, transparent); }
     .reaction-pill--primary { border-color: color-mix(in srgb, var(--accent) 46%, var(--line)); color: var(--ink); background: color-mix(in srgb, var(--accent) 8%, var(--paper)); }
     .reaction-pill--primary.is-selected { border-color: var(--accent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent); }
-    .reaction-pill--primary .reaction-pill__emoji { color: var(--accent); filter: none; }
+    .reaction-pill--primary .reaction-pill__emoji { color: var(--accent); filter: none; animation: heartbeat 2s ease-in-out infinite; }
+    .reaction-pill--primary.is-bursting .reaction-pill__emoji { animation: heartbeat .42s ease-in-out 1; }
     .reaction-pill:disabled { cursor: wait; opacity: .58; transform: none; }
     .reaction-pill__emoji, .reaction-choice__emoji { filter: grayscale(1) contrast(1.2); font-family: "Apple Color Emoji", "Segoe UI Emoji", sans-serif; }
     .reaction-pill__emoji { font-size: 13px; line-height: 1; }
-    .reaction-pill__count { font-family: var(--mono); font-size: 8px; font-weight: 760; }
+    .reaction-pill__count { position: relative; display: inline-grid; min-width: 1.15em; height: 1.15em; overflow: hidden; place-items: center; font-family: var(--mono); font-size: 8px; font-weight: 760; }
+    .reaction-pill__count span { grid-area: 1 / 1; }
+    .reaction-pill__count .count-old, .reaction-pill__count .count-new { animation-duration: .34s; animation-timing-function: cubic-bezier(.16, 1, .3, 1); animation-fill-mode: both; }
+    .reaction-pill__count[data-direction="up"] .count-old { animation-name: count-old-up; }
+    .reaction-pill__count[data-direction="up"] .count-new { animation-name: count-new-up; }
+    .reaction-pill__count[data-direction="down"] .count-old { animation-name: count-old-down; }
+    .reaction-pill__count[data-direction="down"] .count-new { animation-name: count-new-down; }
     .reaction-add { padding-inline: 10px; font-family: var(--mono); font-size: 8px; font-weight: 760; letter-spacing: .035em; text-transform: uppercase; }
     .reaction-add > span:first-child { font-size: 14px; line-height: 1; transform: translateY(-.5px); }
 
@@ -1359,6 +1371,23 @@ inkwall_begin_public_request('view');
     @media (prefers-reduced-motion: reduce) {
       .destination__media::after { animation: none !important; }
       .reaction-pill, .reaction-add { transform: none !important; }
+      .reaction-pill--primary .reaction-pill__emoji, .reaction-pill__count span, .flying-heart { animation: none !important; }
+    }
+    @keyframes heartbeat {
+      0%, 100% { transform: scale(1); }
+      14% { transform: scale(1.15); }
+      28% { transform: scale(1); }
+      42% { transform: scale(1.1); }
+      56% { transform: scale(1); }
+    }
+    @keyframes count-old-up { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-115%); } }
+    @keyframes count-new-up { from { opacity: 0; transform: translateY(115%); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes count-old-down { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(115%); } }
+    @keyframes count-new-down { from { opacity: 0; transform: translateY(-115%); } to { opacity: 1; transform: translateY(0); } }
+    .flying-heart { position: fixed; z-index: 9999; pointer-events: none; font-size: 1.2rem; animation: flyHeart var(--dur) ease-out forwards; }
+    @keyframes flyHeart {
+      0% { opacity: 1; transform: translate(0, 0) scale(1) rotate(0); }
+      100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(var(--sc)) rotate(var(--rot)); }
     }
   </style>
 
@@ -1576,7 +1605,7 @@ inkwall_begin_public_request('view');
       </div>
     </section>
 
-    <section class="top-liked" aria-labelledby="topLikedTitle">
+    <section class="top-liked" id="topLikedSection" aria-labelledby="topLikedTitle" hidden>
       <div class="recent-head">
         <div>
           <span class="recent-kicker">Most loved</span>
@@ -1735,6 +1764,8 @@ inkwall_begin_public_request('view');
       limits: Object.freeze({ name: 28, message: 120, imageInputBytes: 12 * 1024 * 1024, imageOutputBytes: 480 * 1024 }),
       archivePageSize: 3,
       archiveLocalLimit: 250,
+      livePollMs: 2400,
+      hiddenLivePollMs: 15000,
       refreshDuration: 1350,
       refreshSwapDelay: 575,
       themeDuration: 880,
@@ -1820,6 +1851,7 @@ inkwall_begin_public_request('view');
       deviceState: document.getElementById("deviceState"),
       themeToggle: document.getElementById("themeToggle"),
       themeLabel: document.getElementById("themeLabel"),
+      topLikedSection: document.getElementById("topLikedSection"),
       topLikedList: document.getElementById("topLikedList"),
       recentList: document.getElementById("recentList"),
       recentCount: document.getElementById("recentCount"),
@@ -3312,6 +3344,53 @@ inkwall_begin_public_request('view');
       Object.freeze({ emoji: "🚀", label: "Launch" })
     ]);
     const PrimaryReaction = "❤";
+    const FlyingHeartSymbols = Object.freeze(["❤", "♥", "💖", "💗", "💕"]);
+
+    function spawnFlyingHeart(x, y) {
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      const heart = document.createElement("span");
+      heart.className = "flying-heart";
+      heart.textContent = FlyingHeartSymbols[Math.random() * FlyingHeartSymbols.length | 0];
+      const dx = (Math.random() - .5) * 260;
+      const dy = -(80 + Math.random() * 200);
+      const rot = (Math.random() - .5) * 360;
+      const sc = .6 + Math.random() * 1.2;
+      const dur = .8 + Math.random() * .8;
+      heart.style.left = `${x}px`;
+      heart.style.top = `${y}px`;
+      heart.style.setProperty("--dx", `${dx}px`);
+      heart.style.setProperty("--dy", `${dy}px`);
+      heart.style.setProperty("--rot", `${rot}deg`);
+      heart.style.setProperty("--sc", sc);
+      heart.style.setProperty("--dur", `${dur}s`);
+      document.body.append(heart);
+      window.setTimeout(() => heart.remove(), dur * 1000 + 50);
+    }
+
+    function renderCountSlot(container, nextValue, previousValue = null) {
+      const next = Math.max(0, Number(nextValue) || 0);
+      const previous = previousValue === null ? next : Math.max(0, Number(previousValue) || 0);
+      container.replaceChildren();
+      if (previous === next) {
+        const current = document.createElement("span");
+        current.textContent = String(next);
+        container.append(current);
+        container.removeAttribute("data-direction");
+        return;
+      }
+      container.dataset.direction = next > previous ? "up" : "down";
+      const oldValue = document.createElement("span");
+      oldValue.className = "count-old";
+      oldValue.textContent = String(previous);
+      const newValue = document.createElement("span");
+      newValue.className = "count-new";
+      newValue.textContent = String(next);
+      container.append(oldValue, newValue);
+      newValue.addEventListener("animationend", () => {
+        container.replaceChildren(Object.assign(document.createElement("span"), { textContent: String(next) }));
+        container.removeAttribute("data-direction");
+      }, { once: true });
+    }
 
     class ReactionRepository {
       constructor() {
@@ -3671,6 +3750,9 @@ inkwall_begin_public_request('view');
         this.previewMode = "latest";
         this.toastTimer = null;
         this.autoApplyTimer = null;
+        this.livePollTimer = null;
+        this.livePollInFlight = false;
+        this.countAnimations = new Map();
         this.imageWorkbench = new ImageWorkbench(
           (message, tone) => this.updateState(message, tone),
           () => this.updateState()
@@ -4111,12 +4193,18 @@ inkwall_begin_public_request('view');
         likeEmoji.textContent = PrimaryReaction;
         const likeCount = document.createElement("span");
         likeCount.className = "reaction-pill__count";
-        likeCount.textContent = String(primary.count);
+        renderCountSlot(likeCount, primary.count, this.countAnimationFor(message, PrimaryReaction, primary.count));
         like.append(likeEmoji, likeCount);
-        like.addEventListener("click", async () => {
+        like.addEventListener("click", async event => {
+          const previous = this.reactionCount(message, PrimaryReaction);
           like.disabled = true;
           await this.handleReaction(message, PrimaryReaction);
-          this.renderTopLiked();
+          const next = this.reactionCount(message, PrimaryReaction);
+          this.queueCountAnimation(message, PrimaryReaction, previous, next);
+          if (next > previous) {
+            like.classList.add("is-bursting");
+            spawnFlyingHeart(event.clientX, event.clientY);
+          }
           this.renderRecent();
         });
         bar.append(like);
@@ -4132,12 +4220,14 @@ inkwall_begin_public_request('view');
           emoji.textContent = item.emoji;
           const count = document.createElement("span");
           count.className = "reaction-pill__count";
-          count.textContent = String(item.count);
+          renderCountSlot(count, item.count, this.countAnimationFor(message, item.emoji, item.count));
           button.append(emoji, count);
           button.addEventListener("click", async () => {
+            const previous = this.reactionCount(message, item.emoji);
             button.disabled = true;
             await this.handleReaction(message, item.emoji);
-            this.renderTopLiked();
+            const next = this.reactionCount(message, item.emoji);
+            this.queueCountAnimation(message, item.emoji, previous, next);
             this.renderRecent();
           });
           bar.append(button);
@@ -4161,8 +4251,36 @@ inkwall_begin_public_request('view');
         return item ? item.count : 0;
       }
 
+      countAnimationFor(message, emoji, nextValue) {
+        const key = `${message.id}:${emoji}`;
+        const previous = this.countAnimations.get(key);
+        this.countAnimations.delete(key);
+        return previous === undefined ? Number(nextValue) || 0 : previous;
+      }
+
+      queueCountAnimation(message, emoji, previousValue, nextValue) {
+        if (previousValue === nextValue) return;
+        this.countAnimations.set(`${message.id}:${emoji}`, previousValue);
+      }
+
       totalReactionCount(message) {
         return this.reactionRepository.summary(message).reduce((sum, item) => sum + item.count, 0);
+      }
+
+      revealMessageInArchive(messageId) {
+        const allPublicMessages = this.publicMessages();
+        const index = allPublicMessages.findIndex(message => message.id === messageId);
+        if (index >= 0 && index + 1 > this.visibleCount) {
+          this.visibleCount = Math.ceil((index + 1) / AppConfig.archivePageSize) * AppConfig.archivePageSize;
+          this.renderRecent();
+        }
+        const target = Dom.recentList.querySelector(`[data-note-id="${CSS.escape(messageId)}"]`);
+        if (target) {
+          this.activeId = messageId;
+          Dom.recentList.querySelectorAll(".recent-entry.is-active").forEach(entry => entry.classList.remove("is-active"));
+          target.scrollIntoView({ behavior: "smooth", block: "center" });
+          target.classList.add("is-active");
+        }
       }
 
       renderTopLiked() {
@@ -4171,24 +4289,36 @@ inkwall_begin_public_request('view');
         const ranked = this.publicMessages()
           .filter(message => !message.prepared)
           .map(message => ({ message, hearts: this.reactionCount(message), total: this.totalReactionCount(message) }))
-          .filter(item => item.hearts > 0 || item.total > 0)
+          .filter(item => item.hearts > 0)
           .sort((a, b) => b.hearts - a.hearts || b.total - a.total || new Date(b.message.createdAt) - new Date(a.message.createdAt))
           .slice(0, 5);
 
         if (!ranked.length) {
-          const empty = document.createElement("div");
-          empty.className = "top-liked-empty";
-          empty.textContent = "No liked inks yet.";
-          Dom.topLikedList.append(empty);
+          if (Dom.topLikedSection) Dom.topLikedSection.hidden = true;
           return;
         }
+        if (Dom.topLikedSection) Dom.topLikedSection.hidden = false;
 
         ranked.forEach((item, index) => {
           const row = document.createElement("article");
           row.className = "top-liked-entry";
+          row.tabIndex = 0;
+          row.setAttribute("role", "button");
+          row.setAttribute("aria-label", `Jump to liked ink by ${item.message.name}`);
+          row.addEventListener("click", () => this.revealMessageInArchive(item.message.id));
+          row.addEventListener("keydown", event => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              this.revealMessageInArchive(item.message.id);
+            }
+          });
           const rank = document.createElement("span");
           rank.className = "top-liked-rank";
           rank.textContent = String(index + 1).padStart(2, "0");
+          const thumb = document.createElement("div");
+          thumb.className = "top-liked-thumb";
+          thumb.setAttribute("aria-hidden", "true");
+          thumb.innerHTML = this.display.svgMarkup({ mode: "archive", ...item.message, date: new Date(item.message.createdAt) });
           const main = document.createElement("div");
           main.className = "top-liked-main";
           const message = document.createElement("div");
@@ -4202,14 +4332,25 @@ inkwall_begin_public_request('view');
           score.type = "button";
           score.className = "reaction-pill reaction-pill--primary";
           score.setAttribute("aria-label", `Like note ${item.message.id}`);
-          score.innerHTML = `<span class="reaction-pill__emoji">${PrimaryReaction}</span><span class="reaction-pill__count">${item.hearts}</span>`;
-          score.addEventListener("click", async () => {
+          const scoreEmoji = document.createElement("span");
+          scoreEmoji.className = "reaction-pill__emoji";
+          scoreEmoji.textContent = PrimaryReaction;
+          const scoreCount = document.createElement("span");
+          scoreCount.className = "reaction-pill__count";
+          renderCountSlot(scoreCount, item.hearts, this.countAnimationFor(item.message, PrimaryReaction, item.hearts));
+          score.append(scoreEmoji, scoreCount);
+          score.addEventListener("click", async event => {
+            event.stopPropagation();
+            const previous = this.reactionCount(item.message, PrimaryReaction);
             score.disabled = true;
             await this.handleReaction(item.message, PrimaryReaction);
+            const next = this.reactionCount(item.message, PrimaryReaction);
+            this.queueCountAnimation(item.message, PrimaryReaction, previous, next);
+            if (next > previous) spawnFlyingHeart(event.clientX, event.clientY);
             this.renderTopLiked();
             this.renderRecent();
           });
-          row.append(rank, main, score);
+          row.append(rank, thumb, main, score);
           Dom.topLikedList.append(row);
         });
       }
@@ -4217,7 +4358,6 @@ inkwall_begin_public_request('view');
       renderRecent() {
         this.reactionPopover.close(true, false);
         this.reportPopover.close();
-        this.renderTopLiked();
         Dom.recentList.replaceChildren();
         const allPublicMessages = this.publicMessages();
         const filteredMessages = this.filteredMessages();
@@ -4327,6 +4467,7 @@ inkwall_begin_public_request('view');
           Dom.recentList.append(article);
         });
         Dom.recentTools.hidden = searchActive || this.visibleCount >= filteredMessages.length;
+        this.renderTopLiked();
       }
 
       showLatest(animate = false) {
@@ -4363,11 +4504,88 @@ inkwall_begin_public_request('view');
         Dom.themeToggle.disabled = false;
       }
 
-      showToast(message) {
+      messageSignature(message) {
+        return JSON.stringify({
+          id: message.id,
+          createdAt: message.createdAt,
+          name: message.name,
+          message: message.message,
+          image: message.image?.src || "",
+          reactions: this.reactionRepository.summary(message).map(item => [item.emoji, item.count, item.reacted])
+        });
+      }
+
+      mergeLiveMessages(nextMessages, { notifyNew = false } = {}) {
+        const previousById = new Map(this.messages.map(message => [message.id, message]));
+        const previousIds = new Set(this.messages.filter(message => !message.prepared).map(message => message.id));
+        let changed = false;
+        const merged = nextMessages.map(next => {
+          const previous = previousById.get(next.id);
+          if (!previous) {
+            changed = true;
+            return next;
+          }
+          const before = this.messageSignature(previous);
+          Object.assign(previous, next);
+          if (before !== this.messageSignature(previous)) changed = true;
+          return previous;
+        });
+        const prepared = this.messages.find(message => message.prepared);
+        this.messages = (prepared ? [...merged, prepared] : merged).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        if (changed) this.renderRecent();
+        if (!notifyNew) return;
+        const fresh = merged
+          .filter(message => !previousIds.has(message.id))
+          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
+        if (fresh) this.showNewInkToast(fresh);
+      }
+
+      async refreshLiveMessages({ notifyNew = true } = {}) {
+        if (this.livePollInFlight || this.repository.local) return;
+        this.livePollInFlight = true;
+        try {
+          const next = await this.repository.list();
+          this.mergeLiveMessages(next, { notifyNew });
+        } catch {
+          /* Keep the current archive visible when a background refresh fails. */
+        } finally {
+          this.livePollInFlight = false;
+        }
+      }
+
+      startLiveUpdates() {
+        if (this.repository.local || this.livePollTimer) return;
+        const tick = async () => {
+          await this.refreshLiveMessages({ notifyNew: true });
+          this.livePollTimer = window.setTimeout(tick, document.hidden ? AppConfig.hiddenLivePollMs : AppConfig.livePollMs);
+        };
+        this.livePollTimer = window.setTimeout(tick, AppConfig.livePollMs);
+        document.addEventListener("visibilitychange", () => {
+          if (!document.hidden) this.refreshLiveMessages({ notifyNew: true });
+        });
+      }
+
+      showToast(message, options = {}) {
         clearTimeout(this.toastTimer);
         Dom.toast.textContent = message;
+        Dom.toast.classList.toggle("is-actionable", typeof options.onClick === "function");
+        Dom.toast.onclick = typeof options.onClick === "function" ? options.onClick : null;
         Dom.toast.classList.add("is-visible");
-        this.toastTimer = window.setTimeout(() => Dom.toast.classList.remove("is-visible"), 3400);
+        this.toastTimer = window.setTimeout(() => {
+          Dom.toast.classList.remove("is-visible");
+          Dom.toast.classList.remove("is-actionable");
+          Dom.toast.onclick = null;
+        }, 5200);
+      }
+
+      showNewInkToast(message) {
+        const preview = message.message.length > 42 ? `${message.message.slice(0, 42)}...` : message.message;
+        this.showToast(`New ink by ${message.name}: ${preview}`, {
+          onClick: () => {
+            Dom.toast.classList.remove("is-visible");
+            this.revealMessageInArchive(message.id);
+          }
+        });
       }
 
       async init() {
@@ -4378,7 +4596,9 @@ inkwall_begin_public_request('view');
         Dom.themeLabel.textContent = theme === "dark" ? "Light mode" : "Dark mode";
         Dom.themeToggle.setAttribute("aria-label", theme === "dark" ? "Switch to light mode" : "Switch to dark mode");
 
-        try { this.messages = (await this.repository.list()).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)); }
+        try {
+          this.messages = (await this.repository.list()).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        }
         catch {
           this.messages = this.repository.loadLocal();
           this.showToast("The live endpoint is unavailable. The local archive is active.");
@@ -4393,6 +4613,7 @@ inkwall_begin_public_request('view');
         this.showFirstInk();
         this.renderEntities();
         this.updateState();
+        this.startLiveUpdates();
       }
     }
 
