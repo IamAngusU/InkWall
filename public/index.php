@@ -22,6 +22,17 @@ inkwall_begin_public_request('view');
   <meta name="description" content="Publish a moderated E-Ink note to <?= inkwall_page_escape($profileLabel) ?>.">
   <link rel="icon" href="/favicon.ico" sizes="any">
   <title>GitHub E-Ink Message Surface</title>
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('angusu_de-theme');
+        var system = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        var theme = stored === 'dark' || stored === 'light' ? stored : system;
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.style.colorScheme = theme === 'dark' ? 'dark' : 'light';
+      } catch (error) {}
+    })();
+  </script>
   <style>
     :root {
       --page: #f3f2ec;
@@ -752,6 +763,13 @@ inkwall_begin_public_request('view');
     .publish-copy strong { color: var(--ink); font-size: 15px; font-weight: 690; letter-spacing: -.02em; }
     .publish-copy p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
     .publish-actions { display: grid; grid-template-columns: repeat(2, minmax(150px, 1fr)); gap: 9px; min-width: min(390px, 100%); }
+    .publish-progress { grid-column: 1 / -1; display: grid; gap: 7px; margin-top: -4px; }
+    .publish-progress[hidden] { display: none; }
+    .publish-progress__track { position: relative; height: 9px; overflow: hidden; border: 1px solid var(--line-strong); background: var(--paper); }
+    .publish-progress__track::after { position: absolute; inset: 0; content: ""; opacity: .2; background: repeating-linear-gradient(90deg, transparent 0 7px, var(--screen-ink) 7px 8px); }
+    .publish-progress__fill { position: relative; z-index: 1; display: block; width: 0; height: 100%; background: var(--cta); transition: width .38s var(--ease), background .3s var(--ease); }
+    .publish-progress__text { color: var(--muted); font-family: var(--mono); font-size: 8px; font-weight: 730; letter-spacing: .06em; text-transform: uppercase; }
+    .publish-stage[data-state="publishing"] .publish-progress__fill { background: repeating-linear-gradient(135deg, var(--cta) 0 7px, color-mix(in srgb, var(--cta) 72%, var(--page)) 7px 12px); }
     .publish-stage .button { min-width: 0; }
     .publish-stage .button--update { color: var(--ink-soft); background: transparent; }
     .publish-stage .button--update:not(:disabled):hover { border-color: var(--line-strong); color: var(--ink); background: var(--paper); transform: translateY(-1px); }
@@ -990,7 +1008,7 @@ inkwall_begin_public_request('view');
         position: static;
         z-index: 80;
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         margin: -16px 0 24px;
         border: 1px solid var(--line);
         border-radius: 8px;
@@ -1013,9 +1031,6 @@ inkwall_begin_public_request('view');
       .mobile-stepper button[aria-selected="true"] { color: var(--ink); background: var(--paper); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 12%, transparent); }
       .workflow[data-mobile-step="write"] .preview-column { display: none; }
       .workflow[data-mobile-step="preview"] .composer { display: none; }
-      .workflow[data-mobile-step="publish"] .composer { display: none; }
-      .workflow[data-mobile-step="publish"] .preview-column > .step-label,
-      .workflow[data-mobile-step="publish"] .device { display: none; }
       .composer { gap: 21px; }
       textarea { min-height: 106px; }
       .entity-head { align-items: flex-start; flex-direction: column; gap: 7px; }
@@ -1559,8 +1574,7 @@ inkwall_begin_public_request('view');
 
     <nav class="mobile-stepper" id="mobileStepper" aria-label="InkWall steps">
       <button type="button" data-step="write" aria-selected="true">01 Write</button>
-      <button type="button" data-step="preview" aria-selected="false">02 Preview</button>
-      <button type="button" data-step="publish" aria-selected="false">03 Publish</button>
+      <button type="button" data-step="preview" aria-selected="false">02 Preview + Publish</button>
     </nav>
 
     <section class="workflow" id="workflow" data-mobile-step="write" aria-label="Compose, preview and publish">
@@ -1734,6 +1748,10 @@ inkwall_begin_public_request('view');
           <div class="publish-actions">
             <button class="button button--update" id="updateInkButton" type="button" disabled>Update ink</button>
             <button class="button" id="publishButton" type="button" data-action="publish" disabled>Publish note</button>
+          </div>
+          <div class="publish-progress" id="publishProgress" hidden aria-live="polite">
+            <div class="publish-progress__track" aria-hidden="true"><span class="publish-progress__fill" id="publishProgressFill"></span></div>
+            <span class="publish-progress__text" id="publishProgressText">Preparing ink.</span>
           </div>
         </div>
       </div>
@@ -1959,6 +1977,9 @@ inkwall_begin_public_request('view');
       updateButton: document.getElementById("updateInkButton"),
       publishButton: document.getElementById("publishButton"),
       publishStage: document.getElementById("publishStage"),
+      publishProgress: document.getElementById("publishProgress"),
+      publishProgressFill: document.getElementById("publishProgressFill"),
+      publishProgressText: document.getElementById("publishProgressText"),
       publishState: document.getElementById("publishState"),
       publishHeadline: document.getElementById("publishHeadline"),
       publishHint: document.getElementById("publishHint"),
@@ -2083,6 +2104,7 @@ inkwall_begin_public_request('view');
         stepPublish: "03 / Publish to GitHub",
         mobileWrite: "01 Write",
         mobilePreview: "02 Preview",
+        mobilePreviewPublish: "02 Preview + Publish",
         mobilePublish: "03 Publish",
         name: "Name",
         namePlaceholder: "Your name",
@@ -2198,6 +2220,15 @@ inkwall_begin_public_request('view');
         statusPreviewReady: "Ink is current. Ready to publish.",
         statusDraftChanged: "Draft changed. Update the display to continue.",
         statusReview: "Ink is waiting for manual review. I sent Angus an email.",
+        publishProgressPreparing: "Preparing ink.",
+        publishProgressChecking: "Checking moderation.",
+        publishProgressSending: "Sending to InkWall.",
+        publishProgressGithub: "Updating GitHub surface.",
+        publishProgressConfirming: "Confirming the live SVG.",
+        publishProgressVisible: "Ink should be visible on GitHub now.",
+        publishProgressReview: "Queued for review. The previous approved ink stays live.",
+        publishProgressRejected: "Ink was not accepted.",
+        publishProgressFailed: "Publish stopped before GitHub changed.",
         toastReview: "Queued for review. The latest approved ink stays live.",
         toastRejected: "Ink was not accepted.",
         toastPublished: "Published. Open the profile now while this ink is still the latest.",
@@ -2228,6 +2259,7 @@ inkwall_begin_public_request('view');
         stepPublish: "03 / Auf GitHub veroeffentlichen",
         mobileWrite: "01 Schreiben",
         mobilePreview: "02 Vorschau",
+        mobilePreviewPublish: "02 Vorschau + Senden",
         mobilePublish: "03 Senden",
         name: "Name",
         namePlaceholder: "Dein Name",
@@ -2343,6 +2375,15 @@ inkwall_begin_public_request('view');
         statusPreviewReady: "Ink ist aktuell. Bereit zum Veroeffentlichen.",
         statusDraftChanged: "Entwurf geaendert. Aktualisiere die Anzeige, um weiterzumachen.",
         statusReview: "Ink wartet auf manuellen Review. Ich habe Angus eine Mail geschickt.",
+        publishProgressPreparing: "Ink wird vorbereitet.",
+        publishProgressChecking: "Moderation wird geprueft.",
+        publishProgressSending: "Wird an InkWall gesendet.",
+        publishProgressGithub: "GitHub Flaeche wird aktualisiert.",
+        publishProgressConfirming: "Live SVG wird bestaetigt.",
+        publishProgressVisible: "Ink sollte jetzt auf GitHub sichtbar sein.",
+        publishProgressReview: "Im Review. Der vorige zugelassene Ink bleibt live.",
+        publishProgressRejected: "Ink wurde nicht akzeptiert.",
+        publishProgressFailed: "Publish gestoppt, bevor GitHub geaendert wurde.",
         toastReview: "Im Review. Der letzte zugelassene Ink bleibt live.",
         toastRejected: "Ink wurde nicht akzeptiert.",
         toastPublished: "Veroeffentlicht. Oeffne das Profil jetzt, solange dieser Ink noch der neueste ist.",
@@ -4301,6 +4342,8 @@ inkwall_begin_public_request('view');
         this.appliedContentSignature = null;
         this.publishedSignature = null;
         this.updateWaveSignature = null;
+        this.isPublishing = false;
+        this.publishProgressKey = "";
         this.showFavicons = true;
         this.previewMode = "latest";
         this.locale = this.resolveLocale();
@@ -4426,7 +4469,7 @@ inkwall_begin_public_request('view');
         set(".eyebrow", "eyebrow");
         set(".hero h1", "heroTitle");
         set(".hero__route > span", "heroRoute");
-        setAll(".mobile-stepper button", ["mobileWrite", "mobilePreview", "mobilePublish"]);
+        setAll(".mobile-stepper button", ["mobileWrite", "mobilePreviewPublish"]);
         setAll(".workflow > .composer > .step-label, .preview-column > .step-label", ["stepWrite", "stepPreview"]);
         set(".field label", "name");
         document.querySelectorAll(".field-label").forEach((element, index) => {
@@ -4500,6 +4543,7 @@ inkwall_begin_public_request('view');
         set(".external-popover__copy", "externalCopy");
         Dom.externalCancelButton.textContent = this.text("cancel");
         Dom.externalOpenButton.textContent = this.text("openLink");
+        if (!Dom.publishProgress.hidden && this.publishProgressKey) Dom.publishProgressText.textContent = this.text(this.publishProgressKey);
         this.renderLayoutControls();
         this.setPrimaryAction(Dom.publishButton.dataset.action || PrimaryAction.PUBLISH);
         this.updateThemeLabels();
@@ -4566,6 +4610,15 @@ inkwall_begin_public_request('view');
         Dom.form.addEventListener("submit", event => { event.preventDefault(); this.handlePrimaryAction(); });
         Dom.themeToggle.addEventListener("click", () => this.toggleTheme());
         Dom.languageToggle.addEventListener("click", () => this.toggleLocale());
+        window.addEventListener("storage", event => {
+          if (event.key === AppConfig.themeKey) this.applyThemeState(this.resolveTheme(), { persist: false });
+        });
+        matchMedia("(prefers-color-scheme: dark)").addEventListener("change", event => {
+          try {
+            if (localStorage.getItem(AppConfig.themeKey)) return;
+          } catch { /* Follow system when storage cannot be read. */ }
+          this.applyThemeState(event.matches ? "dark" : "light", { persist: false });
+        });
         Dom.mobileStepper.addEventListener("click", event => {
           const button = event.target.closest("button[data-step]");
           if (button) this.setMobileStep(button.dataset.step);
@@ -4598,7 +4651,7 @@ inkwall_begin_public_request('view');
       }
 
       setMobileStep(step) {
-        const next = ["write", "preview", "publish"].includes(step) ? step : "write";
+        const next = ["write", "preview"].includes(step) ? step : "write";
         Dom.workflow.dataset.mobileStep = next;
         Dom.mobileStepper.querySelectorAll("button[data-step]").forEach(button => {
           button.setAttribute("aria-selected", String(button.dataset.step === next));
@@ -4658,6 +4711,24 @@ inkwall_begin_public_request('view');
         Dom.formStatus.dataset.tone = tone;
       }
 
+      setPublishProgress(percent, key) {
+        this.publishProgressKey = key;
+        Dom.publishProgress.hidden = false;
+        Dom.publishProgressFill.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+        Dom.publishProgressText.textContent = this.text(key);
+      }
+
+      hidePublishProgress() {
+        this.publishProgressKey = "";
+        Dom.publishProgress.hidden = true;
+        Dom.publishProgressFill.style.width = "0";
+      }
+
+      publishStep(percent, key, delay = 0) {
+        this.setPublishProgress(percent, key);
+        return delay > 0 ? new Promise(resolve => window.setTimeout(resolve, delay)) : Promise.resolve();
+      }
+
       setPrimaryAction(action) {
         const isLiveAction = action === PrimaryAction.VIEW_LIVE;
         Dom.publishButton.dataset.action = action;
@@ -4687,6 +4758,7 @@ inkwall_begin_public_request('view');
           && this.publishedSignature === draft.signature;
 
         Dom.updateButton.disabled = !draftDiffersFromDisplay || processing;
+        if (!this.isPublishing && draftDiffersFromDisplay) this.hidePublishProgress();
         Dom.updateButton.classList.toggle("is-change-ready", draftDiffersFromDisplay && !processing);
         if (draftDiffersFromDisplay && !processing && this.updateWaveSignature !== draft.signature && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
           this.updateWaveSignature = draft.signature;
@@ -4845,16 +4917,20 @@ inkwall_begin_public_request('view');
       }
 
       async publish() {
-        if (Dom.publishButton.disabled || this.display.refreshing || this.imageWorkbench.processing) return;
+        if (Dom.publishButton.disabled || this.display.refreshing || this.imageWorkbench.processing || this.isPublishing) return;
         if (Dom.websiteInput.value) return this.setStatus(this.text("noteNotAccepted"), "danger");
         const draft = this.currentDraft();
         if (draft.imagePending) return this.setStatus(this.text("imagePreparingHint"), "warning");
         if (!draft.nameResult.allowed || !draft.messageResult.allowed || this.heldSignatures.has(draft.signature) || this.appliedSignature !== draft.signature) return this.updateState();
 
+        this.isPublishing = true;
         Dom.publishButton.disabled = true;
+        Dom.updateButton.disabled = true;
+        Dom.publishStage.dataset.state = "publishing";
         this.setStatus(this.locale === "de" ? "Wird auf GitHub veroeffentlicht." : "Publishing to GitHub surface.");
+        await this.publishStep(10, "publishProgressPreparing", 120);
         try {
-          const record = await this.repository.publish({
+          const publishRequest = this.repository.publish({
             id: crypto.randomUUID?.(),
             name: draft.nameResult.clean,
             message: draft.messageResult.moderated,
@@ -4864,7 +4940,12 @@ inkwall_begin_public_request('view');
             layout: draft.layout,
             createdAt: new Date().toISOString()
           }, this.messages);
+          await this.publishStep(28, "publishProgressChecking", 220);
+          await this.publishStep(52, "publishProgressSending", 260);
+          this.setPublishProgress(74, "publishProgressGithub");
+          const record = await publishRequest;
           if (record?.status === "review") {
+            await this.publishStep(100, "publishProgressReview", 120);
             this.heldSignatures.add(draft.signature);
             this.previewMode = "latest";
             this.activeId = this.publicMessages()[0]?.id || null;
@@ -4877,6 +4958,7 @@ inkwall_begin_public_request('view');
             return;
           }
           if (record?.status === "rejected") {
+            await this.publishStep(100, "publishProgressRejected", 120);
             this.previewMode = "latest";
             this.activeId = this.publicMessages()[0]?.id || null;
             this.appliedSignature = null;
@@ -4887,6 +4969,7 @@ inkwall_begin_public_request('view');
             this.updateState();
             return;
           }
+          await this.publishStep(88, "publishProgressConfirming", 120);
           if (draft.image && !record.image) throw new Error("The image was not accepted by the live endpoint. The note was not confirmed as published.");
           this.messages = [record, ...this.messages.filter(item => item.id !== record.id)].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
           if (this.repository.local) this.repository.saveLocal(this.messages);
@@ -4896,12 +4979,17 @@ inkwall_begin_public_request('view');
           this.appliedSignature = draft.signature;
           this.appliedContentSignature = draft.contentSignature;
           await this.display.refresh({ mode: "latest", ...record, date: new Date(record.createdAt) });
+          this.setPublishProgress(100, "publishProgressVisible");
           this.visibleCount = Math.max(this.visibleCount, AppConfig.archivePageSize);
           this.renderRecent();
           this.updateState();
           this.showToast(this.text("toastPublished"));
         } catch (error) {
+          this.setPublishProgress(100, "publishProgressFailed");
           this.setStatus(error?.message || this.text("noteNotAccepted"), "danger");
+          this.updateState();
+        } finally {
+          this.isPublishing = false;
           this.updateState();
         }
       }
@@ -5265,6 +5353,24 @@ inkwall_begin_public_request('view');
         Dom.themeToggle.disabled = false;
       }
 
+      resolveTheme() {
+        try {
+          const stored = localStorage.getItem(AppConfig.themeKey);
+          if (stored === "dark" || stored === "light") return stored;
+        } catch { /* Use system preference when storage is unavailable. */ }
+        return matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+
+      applyThemeState(theme, { persist = true } = {}) {
+        const next = theme === "dark" ? "dark" : "light";
+        Dom.html.dataset.theme = next;
+        Dom.html.style.colorScheme = next === "dark" ? "dark" : "light";
+        if (persist) {
+          try { localStorage.setItem(AppConfig.themeKey, next); } catch { /* Ignore unavailable storage. */ }
+        }
+        this.updateThemeLabels();
+      }
+
       messageSignature(message) {
         return JSON.stringify({
           id: message.id,
@@ -5350,13 +5456,9 @@ inkwall_begin_public_request('view');
       }
 
       async init() {
-        let theme = "light";
-        try { theme = localStorage.getItem(AppConfig.themeKey) || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"); }
-        catch { /* Use light theme when storage is unavailable. */ }
-        Dom.html.dataset.theme = theme === "dark" ? "dark" : "light";
+        this.applyThemeState(this.resolveTheme(), { persist: false });
         document.documentElement.lang = this.locale;
         try { localStorage.setItem(AppConfig.localeKey, this.locale); } catch { /* Keep the detected language for this page view only. */ }
-        this.updateThemeLabels();
 
         try {
           this.messages = (await this.repository.list()).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
