@@ -142,12 +142,20 @@ INKWALL_OLLAMA_URL=http://127.0.0.1:11434
 INKWALL_OLLAMA_MODEL=qwen3:latest
 ```
 
+You can also split text and image review by provider. Empty channel values keep using `INKWALL_AI_PROVIDER`.
+
+```env
+INKWALL_AI_PROVIDER=deepseek
+INKWALL_AI_TEXT_PROVIDER=deepseek
+INKWALL_AI_IMAGE_PROVIDER=openai_moderation
+```
+
 DeepSeek image sending is opt-in because the public DeepSeek API docs may differ by model and account. Ollama is text-only in the default InkWall integration. If a user submits an image with a text-only provider, InkWall adds `image_unchecked` by default. Set `INKWALL_AI_REVIEW_UNCHECKED_IMAGES=1` if those images should always wait for human review, or `INKWALL_AI_ALLOW_UNCHECKED_IMAGES=1` if you do not want the audit flag.
 
 Branding can be changed with one JSON value or individual overrides:
 
 ```env
-INKWALL_BRANDING_JSON={"accent":"#2ec4b6","paper_texture":"dots","theme":"light","ad_badge":true,"ad_badge_text":"AD","owner_name":"Angus Uelsmann","profile_url":"https://github.com/IamAngusU","image_rendering":"ink"}
+INKWALL_BRANDING_JSON={"accent":"#2ec4b6","paper_texture":"dots","theme":"light","ad_badge":true,"ad_badge_text":"AD","review_badge":true,"review_badge_mode":"model","review_badge_text":"Reviewed automatically","review_badge_model_prefix":"Approved by","owner_name":"Angus Uelsmann","profile_url":"https://github.com/IamAngusU","image_rendering":"ink"}
 # INKWALL_BRAND_ACCENT=#2ec4b6
 ```
 
@@ -158,6 +166,7 @@ INKWALL_SVG_EMOJI_STYLE=native
 INKWALL_SVG_FOOTER_LINKS=1
 INKWALL_SVG_CLICKABLE_LINKS=1
 INKWALL_SVG_AD_BADGE=1
+INKWALL_SVG_REVIEW_BADGE=1
 ```
 
 AI categories are policy-driven. Flags stay stored for audit, but each deployment decides what they do:

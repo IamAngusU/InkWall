@@ -118,12 +118,43 @@ function inkwall_svg_entities(string $message, array $bindings): array {
     }
     return array_slice($items, 0, 2);
 }
+function inkwall_svg_ai_model_label(string $model): string {
+    $parts = array_filter(array_map('trim', explode('+', $model)), static fn(string $part): bool => $part !== '' && $part !== 'local' && $part !== 'image:unchecked');
+    $labels = [];
+    foreach ($parts as $part) {
+        $lower = strtolower($part);
+        $label = match (true) {
+            str_contains($lower, 'deepseek') => 'DeepSeek',
+            str_contains($lower, 'openai') || str_contains($lower, 'omni') || str_contains($lower, 'gpt') => 'OpenAI',
+            str_contains($lower, 'ollama') || str_contains($lower, 'qwen') || str_contains($lower, 'llama') => 'Ollama',
+            str_contains($lower, 'no-vision') => '',
+            default => preg_replace('/[^a-z0-9_.:-]+/i', ' ', $part) ?: '',
+        };
+        $label = trim($label);
+        if ($label !== '' && !in_array($label, $labels, true)) $labels[] = $label;
+    }
+    return implode(' + ', array_slice($labels, 0, 2));
+}
+function inkwall_svg_badge_width(string $label): int {
+    return max(46, min(230, 22 + (mb_strlen($label) * 7)));
+}
 $dark = $theme === 'dark';
 $paper = $dark ? '#191916' : '#efefe9'; $ink = $dark ? '#f1f0e8' : '#171714'; $muted = $dark ? '#a9a89e' : '#66665f'; $accent = $brand['accent'];
 $flags = array_map('strval', json_decode((string)($row['moderation_flags'] ?? '[]'), true) ?: []);
 $showAdBadge = in_array('advertising', array_map('inkwall_ai_flag_key', $flags), true)
     && $brand['ad_badge']
     && in_array(strtolower(inkwall_env('INKWALL_SVG_AD_BADGE', '1')), ['1', 'true', 'yes', 'on'], true);
+$aiModel = trim((string)($row['ai_model'] ?? ''));
+$aiModelLabel = inkwall_svg_ai_model_label($aiModel);
+$showReviewBadge = $brand['review_badge']
+    && in_array(strtolower(inkwall_env('INKWALL_SVG_REVIEW_BADGE', '1')), ['1', 'true', 'yes', 'on'], true)
+    && $aiModelLabel !== '';
+$reviewBadgeLabel = '';
+if ($showReviewBadge) {
+    $reviewBadgeLabel = $brand['review_badge_mode'] === 'model'
+        ? trim($brand['review_badge_model_prefix'] . ' ' . $aiModelLabel)
+        : $brand['review_badge_text'];
+}
 $bindings = json_decode((string)($row['bindings_json'] ?? '{}'), true) ?: [];
 $layout = inkwall_layout(json_decode((string)($row['layout_json'] ?? '{}'), true));
 $showDots = $layout['texture'] === 'dots';
@@ -161,6 +192,9 @@ if ($hasImage) {
 $entityLabel = $entities ? implode('  ·  ', array_map(static fn(array $item): string => $item['label'], $entities)) . ' ↗' : $brand['site_label'] . ' · live';
 $entityHref = ($entities && !empty($entities[0]['url']) && in_array(strtolower(inkwall_env('INKWALL_SVG_CLICKABLE_LINKS', '1')), ['1', 'true', 'yes', 'on'], true)) ? (string)$entities[0]['url'] : '';
 $inkNumberText = str_pad((string)$inkNumber, 3, '0', STR_PAD_LEFT);
+$badgeX = 292;
+$adBadgeWidth = $showAdBadge ? inkwall_svg_badge_width(strtoupper($brand['ad_badge_text'])) : 0;
+$reviewBadgeWidth = $showReviewBadge ? inkwall_svg_badge_width($reviewBadgeLabel) : 0;
 $entityX = 1138;
 $entityAnchor = 'end';
 header('Content-Type: image/svg+xml; charset=utf-8');
@@ -184,6 +218,7 @@ header('X-Content-Type-Options: nosniff');
   </g>
   <text x="1138" y="58" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="15" fill="<?= $muted ?>"><?= inkwall_svg_escape($date) ?></text>
   <text x="62" y="<?= $entityY ?>" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="15" fill="<?= $muted ?>">Currently showing Ink <tspan font-weight="800">#</tspan><tspan fill="<?= $accent ?>" font-weight="800"><?= inkwall_svg_escape($inkNumberText) ?></tspan></text>
-  <?php if ($showAdBadge): ?><g opacity=".82"><rect x="292" y="<?= $entityY - 17 ?>" width="46" height="22" rx="7" fill="<?= $paper ?>" stroke="<?= $accent ?>" stroke-width="1.3"/><text x="315" y="<?= $entityY - 2 ?>" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="10" font-weight="800" fill="<?= $accent ?>"><?= inkwall_svg_escape(strtoupper($brand['ad_badge_text'])) ?></text></g><?php endif ?>
+  <?php if ($showAdBadge): ?><g opacity=".82"><rect x="<?= $badgeX ?>" y="<?= $entityY - 17 ?>" width="<?= $adBadgeWidth ?>" height="22" rx="7" fill="<?= $paper ?>" stroke="<?= $accent ?>" stroke-width="1.3"/><text x="<?= $badgeX + ($adBadgeWidth / 2) ?>" y="<?= $entityY - 2 ?>" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="10" font-weight="800" fill="<?= $accent ?>"><?= inkwall_svg_escape(strtoupper($brand['ad_badge_text'])) ?></text></g><?php endif ?>
+  <?php if ($showReviewBadge): $reviewBadgeX = $badgeX + ($showAdBadge ? $adBadgeWidth + 10 : 0); ?><g opacity=".82"><rect x="<?= $reviewBadgeX ?>" y="<?= $entityY - 17 ?>" width="<?= $reviewBadgeWidth ?>" height="22" rx="7" fill="<?= $paper ?>" stroke="<?= $muted ?>" stroke-width="1"/><text x="<?= $reviewBadgeX + ($reviewBadgeWidth / 2) ?>" y="<?= $entityY - 2 ?>" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="10" font-weight="800" fill="<?= $muted ?>"><?= inkwall_svg_escape($reviewBadgeLabel) ?></text></g><?php endif ?>
   <?php if ($entityHref !== ''): ?><a href="<?= inkwall_svg_escape($entityHref) ?>" target="_blank" rel="noopener noreferrer"><?php endif ?><text x="<?= $entityX ?>" y="<?= $entityY ?>" text-anchor="<?= $entityAnchor ?>" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="15" fill="<?= $muted ?>"><?= inkwall_svg_escape($entityLabel) ?></text><?php if ($entityHref !== ''): ?></a><?php endif ?>
 </svg>

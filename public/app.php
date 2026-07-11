@@ -50,6 +50,10 @@ function inkwall_branding(): array {
         'theme' => 'light',
         'ad_badge' => true,
         'ad_badge_text' => 'ADS',
+        'review_badge' => true,
+        'review_badge_mode' => 'auto',
+        'review_badge_text' => 'Reviewed automatically',
+        'review_badge_model_prefix' => 'Approved by',
         'owner_name' => 'Angus Uelsmann',
         'profile_url' => 'https://github.com/IamAngusU',
         'repository_url' => 'https://github.com/IamAngusU/InkWall',
@@ -71,6 +75,9 @@ function inkwall_branding(): array {
         'paper_texture' => 'INKWALL_BRAND_PAPER_TEXTURE',
         'theme' => 'INKWALL_BRAND_THEME',
         'ad_badge_text' => 'INKWALL_BRAND_AD_BADGE_TEXT',
+        'review_badge_mode' => 'INKWALL_BRAND_REVIEW_BADGE_MODE',
+        'review_badge_text' => 'INKWALL_BRAND_REVIEW_BADGE_TEXT',
+        'review_badge_model_prefix' => 'INKWALL_BRAND_REVIEW_BADGE_MODEL_PREFIX',
         'owner_name' => 'INKWALL_BRAND_OWNER_NAME',
         'profile_url' => 'INKWALL_BRAND_PROFILE_URL',
         'repository_url' => 'INKWALL_BRAND_REPOSITORY_URL',
@@ -83,12 +90,20 @@ function inkwall_branding(): array {
         if ($value !== '') $brand[$key] = $value;
     }
     if (inkwall_env('INKWALL_BRAND_AD_BADGE', '') !== '') $brand['ad_badge'] = inkwall_env_bool('INKWALL_BRAND_AD_BADGE', true);
+    if (inkwall_env('INKWALL_BRAND_REVIEW_BADGE', '') !== '') $brand['review_badge'] = inkwall_env_bool('INKWALL_BRAND_REVIEW_BADGE', true);
     if (!is_string($brand['accent']) || !preg_match('/^#[0-9a-f]{6}$/i', $brand['accent'])) $brand['accent'] = '#d7422f';
     $brand['paper_texture'] = in_array($brand['paper_texture'], ['dots', 'clean'], true) ? $brand['paper_texture'] : 'dots';
     $brand['theme'] = in_array($brand['theme'], ['light', 'dark'], true) ? $brand['theme'] : 'light';
     $brand['image_rendering'] = in_array($brand['image_rendering'], ['ink', 'natural'], true) ? $brand['image_rendering'] : 'ink';
     $brand['ad_badge'] = (bool)$brand['ad_badge'];
+    $brand['review_badge'] = (bool)$brand['review_badge'];
+    $brand['review_badge_mode'] = in_array($brand['review_badge_mode'], ['auto', 'model'], true) ? $brand['review_badge_mode'] : 'auto';
     $brand['ad_badge_text'] = mb_substr(preg_replace('/[^a-z0-9 ]/i', '', (string)$brand['ad_badge_text']) ?? 'ADS', 0, 10) ?: 'ADS';
+    foreach (['review_badge_text', 'review_badge_model_prefix'] as $key) {
+        $brand[$key] = mb_substr(trim(preg_replace('/\s+/u', ' ', (string)$brand[$key]) ?? ''), 0, 42);
+    }
+    if ($brand['review_badge_text'] === '') $brand['review_badge_text'] = 'Reviewed automatically';
+    if ($brand['review_badge_model_prefix'] === '') $brand['review_badge_model_prefix'] = 'Approved by';
     foreach (['owner_name', 'profile_url', 'repository_url', 'site_url', 'site_label', 'image_rendering'] as $key) $brand[$key] = trim((string)$brand[$key]);
     return $brand;
 }
@@ -346,6 +361,11 @@ function inkwall_ai_moderation_enabled(): bool {
 
 function inkwall_ai_provider(): string {
     $provider = strtolower(inkwall_env('INKWALL_AI_PROVIDER', 'auto'));
+    return inkwall_ai_normalize_provider($provider);
+}
+
+function inkwall_ai_normalize_provider(string $provider): string {
+    $provider = strtolower(trim($provider));
     $allowed = ['auto', 'local', 'openai', 'openai_moderation', 'deepseek', 'ollama'];
     if (!in_array($provider, $allowed, true)) $provider = 'auto';
     if ($provider !== 'auto') return $provider;
@@ -353,6 +373,20 @@ function inkwall_ai_provider(): string {
     if (inkwall_env('DEEPSEEK_API_KEY') !== '') return 'deepseek';
     if (inkwall_env('INKWALL_OLLAMA_MODEL') !== '' || inkwall_env('OLLAMA_MODEL') !== '') return 'ollama';
     return 'local';
+}
+
+function inkwall_ai_channel_provider(string $channel): string {
+    $envKey = $channel === 'image' ? 'INKWALL_AI_IMAGE_PROVIDER' : 'INKWALL_AI_TEXT_PROVIDER';
+    $raw = strtolower(trim(inkwall_env($envKey, '')));
+    if ($channel === 'image' && in_array($raw, ['0', 'false', 'off', 'disabled', 'none'], true)) return 'local';
+    if ($raw !== '') return inkwall_ai_normalize_provider($raw);
+    return inkwall_ai_provider();
+}
+
+function inkwall_ai_provider_supports_images(string $provider): bool {
+    if (in_array($provider, ['openai', 'openai_moderation'], true)) return true;
+    if ($provider === 'deepseek') return in_array(strtolower(inkwall_env('INKWALL_DEEPSEEK_SEND_IMAGES', '0')), ['1', 'true', 'yes', 'on'], true);
+    return false;
 }
 
 function inkwall_ai_review_url(): string {
@@ -386,7 +420,31 @@ function inkwall_ai_moderation(string $name, string $message, ?string $imageMime
     ];
     if (!inkwall_ai_moderation_enabled()) return $result;
 
-    $provider = inkwall_ai_provider();
+    $hasImage = $imageData !== null && $imageMime !== null;
+    $textProvider = inkwall_ai_channel_provider('text');
+    $imageProvider = $hasImage ? inkwall_ai_channel_provider('image') : 'local';
+    if ($hasImage && $imageProvider === $textProvider && inkwall_ai_provider_supports_images($textProvider)) {
+        return inkwall_ai_provider_moderation($textProvider, $name, $message, $imageMime, $imageData, $localFlags);
+    }
+
+    $textResult = inkwall_ai_provider_moderation($textProvider, $name, $message, null, null, $localFlags);
+    if (!$hasImage) return $textResult;
+
+    if ($imageProvider === 'local') {
+        $imageFlags = in_array(strtolower(inkwall_env('INKWALL_AI_ALLOW_UNCHECKED_IMAGES', '0')), ['1', 'true', 'yes', 'on'], true) ? [] : ['image_unchecked'];
+        return inkwall_ai_merge_results($textResult, inkwall_ai_result([], $imageFlags, [], 'image:unchecked'));
+    }
+    if (!inkwall_ai_provider_supports_images($imageProvider)) {
+        $imageFlags = in_array(strtolower(inkwall_env('INKWALL_AI_ALLOW_UNCHECKED_IMAGES', '0')), ['1', 'true', 'yes', 'on'], true) ? [] : ['image_unchecked'];
+        return inkwall_ai_merge_results($textResult, inkwall_ai_result([], $imageFlags, [], $imageProvider . ':no-vision'));
+    }
+
+    $imageResult = inkwall_ai_provider_moderation($imageProvider, $name, $message, $imageMime, $imageData, []);
+    return inkwall_ai_merge_results($textResult, $imageResult);
+}
+
+function inkwall_ai_provider_moderation(string $provider, string $name, string $message, ?string $imageMime, ?string $imageData, array $localFlags): array {
+    if ($provider === 'local') return inkwall_ai_base_result($localFlags);
     $quota = inkwall_ai_quota($provider, $imageData !== null && $imageMime !== null);
     if (!$quota['allowed']) {
         return inkwall_ai_result($localFlags, ['ai_rate_limited'], ['quota' => $quota['reason']], $provider, 'AI moderation quota reached');
@@ -396,8 +454,35 @@ function inkwall_ai_moderation(string $name, string $message, ?string $imageMime
         'openai', 'openai_moderation' => inkwall_ai_openai_moderation($name, $message, $imageMime, $imageData, $localFlags),
         'deepseek' => inkwall_ai_chat_moderation('deepseek', $name, $message, $imageMime, $imageData, $localFlags),
         'ollama' => inkwall_ai_chat_moderation('ollama', $name, $message, $imageMime, $imageData, $localFlags),
-        default => $result,
+        default => inkwall_ai_base_result($localFlags),
     };
+}
+
+function inkwall_ai_merge_results(array ...$results): array {
+    $flags = []; $scores = []; $models = []; $errors = []; $reviewedAt = inkwall_now();
+    foreach ($results as $index => $result) {
+        foreach (($result['flags'] ?? []) as $flag) {
+            if ($flag !== '') $flags[] = (string)$flag;
+        }
+        if (is_array($result['scores'] ?? null)) $scores['part_' . ($index + 1)] = $result['scores'];
+        $model = trim((string)($result['model'] ?? ''));
+        if ($model !== '' && !in_array($model, $models, true)) $models[] = $model;
+        $error = trim((string)($result['error'] ?? ''));
+        if ($error !== '') $errors[] = $error;
+        if (!empty($result['reviewed_at'])) $reviewedAt = (string)$result['reviewed_at'];
+    }
+    $flags = array_values(array_unique($flags));
+    $actions = [];
+    foreach ($flags as $flag) $actions[inkwall_ai_flag_key((string)$flag)] = inkwall_ai_flag_action((string)$flag);
+    $scores['actions'] = $actions;
+    return [
+        'verdict' => inkwall_ai_verdict_from_flags($flags),
+        'flags' => $flags,
+        'scores' => $scores,
+        'model' => implode(' + ', $models),
+        'error' => mb_substr(implode(' | ', $errors), 0, 500),
+        'reviewed_at' => $reviewedAt,
+    ];
 }
 
 function inkwall_ai_base_result(array $localFlags, string $model = 'local', string $error = ''): array {
