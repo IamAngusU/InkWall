@@ -802,7 +802,7 @@ inkwall_begin_public_request('view');
     .recent-link:hover { border-color: var(--line-strong); color: var(--ink); background: var(--paper); }
     .recent-link .entity-token__icon { width: 15px; height: 15px; }
     .recent-actions { display: grid; gap: 8px; justify-items: end; }
-    .recent-view, .recent-report {
+    .recent-report {
       padding: 0;
       border-bottom: 1px solid var(--line-strong);
       color: var(--ink-soft);
@@ -815,7 +815,7 @@ inkwall_begin_public_request('view');
       text-decoration: none;
       text-transform: uppercase;
     }
-    .recent-view:hover, .recent-report:hover { color: var(--ink); }
+    .recent-report:hover { color: var(--ink); }
     .recent-empty { padding: 30px 2px; color: var(--muted); font-size: 13px; border-bottom: 1px solid var(--line); }
     .recent-tools { padding-top: 18px; }
     .load-more { padding: 0; border-bottom: 1px solid var(--line-strong); color: var(--ink-soft); background: transparent; cursor: pointer; font-family: var(--mono); font-size: 9px; font-weight: 720; letter-spacing: .05em; text-transform: uppercase; }
@@ -1015,7 +1015,7 @@ inkwall_begin_public_request('view');
 
     .recent-entry { position: relative; }
     .recent-actions { min-width: 72px; }
-    .recent-view, .recent-report {
+    .recent-report {
       display: inline-flex;
       align-items: center;
       gap: 5px;
@@ -2147,6 +2147,22 @@ inkwall_begin_public_request('view');
     }
 
     class LinkRenderer {
+      static confirmExternalOpen(href) {
+        if (!/^https?:\/\//i.test(href)) return true;
+        let label = href;
+        try { label = new URL(href).hostname; }
+        catch { /* Keep the full URL when parsing fails. */ }
+        return window.confirm(`Open external link to ${label}?\n\nThis destination is outside InkWall. Visitor links are not verified, and InkWall is not responsible for external content, services, downloads, or privacy practices.`);
+      }
+
+      static attachExternalConfirmation(anchor, href) {
+        if (!/^https?:\/\//i.test(href)) return anchor;
+        anchor.addEventListener("click", event => {
+          if (!this.confirmExternalOpen(href)) event.preventDefault();
+        });
+        return anchor;
+      }
+
       static mentionHref(handle, binding) {
         if (!binding) return null;
         if (binding.platform === "custom") return binding.url || null;
@@ -2187,6 +2203,7 @@ inkwall_begin_public_request('view');
         anchor.rel = "ugc nofollow noopener noreferrer";
         anchor.referrerPolicy = "no-referrer";
         if (/^https?:\/\//i.test(href)) anchor.target = "_blank";
+        this.attachExternalConfirmation(anchor, href);
 
         const display = entity.type === "url"
           ? entity.raw.replace(/^https?:\/\/(?:www\.)?/i, "").replace(/\/$/, "")
@@ -4158,6 +4175,7 @@ inkwall_begin_public_request('view');
         anchor.rel = "ugc nofollow noopener noreferrer";
         anchor.referrerPolicy = "no-referrer";
         if (/^https?:\/\//i.test(item.href)) anchor.target = "_blank";
+        LinkRenderer.attachExternalConfirmation(anchor, item.href);
         const label = document.createElement("span");
         label.textContent = item.entity.type === "url"
           ? item.entity.raw.replace(/^https?:\/\/(?:www\.)?/i, "").replace(/\/$/, "")
@@ -4426,20 +4444,6 @@ inkwall_begin_public_request('view');
 
           const actions = document.createElement("div");
           actions.className = "recent-actions";
-          const view = document.createElement("button");
-          view.type = "button";
-          view.className = "recent-view";
-          view.textContent = "View ink";
-          view.addEventListener("click", async () => {
-            this.activeId = message.id;
-            this.previewMode = "archive";
-            this.appliedSignature = null;
-            this.appliedContentSignature = null;
-            await this.display.refresh({ mode: "archive", ...message, date: new Date(message.createdAt) }, { revealOnMobile: true });
-            this.renderRecent();
-            this.updateState();
-          });
-          actions.append(view);
 
           if (message.reportable !== false && !message.prepared) {
             const report = document.createElement("button");
