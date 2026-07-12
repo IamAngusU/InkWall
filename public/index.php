@@ -291,7 +291,7 @@ inkwall_begin_public_request('view');
     }
     .page[data-mode="create"] .hero { margin-bottom: 22px; }
     .page[data-mode="create"] h1 { font-size: clamp(36px, 5vw, 62px); letter-spacing: -.06em; }
-    .public-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; max-width: 980px; margin: -10px 0 34px auto; transition: margin .42s var(--ease); }
+    .public-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; max-width: 980px; margin: -10px auto 34px; transition: margin .42s var(--ease); }
     .page[data-mode="create"] .public-actions { margin-bottom: 18px; }
     .workspace-bar {
       display: none;
@@ -329,11 +329,11 @@ inkwall_begin_public_request('view');
       align-items: start;
       transition: grid-template-columns .48s var(--ease), gap .48s var(--ease);
     }
-    .page[data-mode="public"] .workflow { grid-template-columns: 0 minmax(0, 980px); justify-content: center; gap: 0; }
+    .page[data-mode="public"] .workflow { grid-template-columns: 0 minmax(0, 820px); justify-content: center; gap: 0; }
     .page[data-mode="public"] .mobile-stepper,
     .page[data-mode="public"] .publish-stage,
     .page[data-mode="public"] .preview-column > .step-label { display: none; }
-    .page[data-mode="public"] .preview-column { max-width: 980px; width: 100%; }
+    .page[data-mode="public"] .preview-column { max-width: 820px; width: 100%; }
     .mobile-stepper { display: none; }
     .composer { position: sticky; top: 82px; display: grid; gap: 18px; min-width: 0; max-height: 1400px; overflow: hidden; padding: 20px; border: 1px solid color-mix(in srgb, var(--line) 82%, transparent); border-radius: 16px; background: color-mix(in srgb, var(--paper) 36%, transparent); box-shadow: 0 18px 54px rgba(35, 39, 34, .07); opacity: 1; transform: translateX(0); transition: max-height .5s var(--ease), opacity .32s var(--ease), transform .42s var(--ease), padding .42s var(--ease), border-color .42s var(--ease), background .42s var(--ease), box-shadow .42s var(--ease); }
     .page[data-mode="public"] .composer { visibility: hidden; max-height: 0; padding: 0; border-color: transparent; background: transparent; box-shadow: none; opacity: 0; pointer-events: none; transform: translateX(-18px); }
@@ -913,10 +913,18 @@ inkwall_begin_public_request('view');
       border: 1px solid var(--line);
       border-radius: 8px;
       background: color-mix(in srgb, var(--paper) 28%, transparent);
-      transition: background .18s ease;
+      cursor: zoom-in;
+      transition: background .18s ease, box-shadow .28s var(--ease), transform .28s var(--ease);
     }
     .recent-entry:hover { background: color-mix(in srgb, var(--paper) 38%, transparent); }
     .recent-entry.is-active { background: color-mix(in srgb, var(--paper) 58%, transparent); }
+    .recent-entry.is-expanded {
+      grid-column: 1 / -1;
+      cursor: zoom-out;
+      background: color-mix(in srgb, var(--paper) 68%, transparent);
+      box-shadow: 0 24px 70px rgba(35, 39, 34, .12);
+      transform: translateY(-2px);
+    }
     .recent-index { padding-top: 4px; color: var(--muted); font-size: 9px; font-weight: 720; }
     .recent-main { display: grid; gap: 12px; min-width: 0; }
     .recent-svg-preview {
@@ -928,6 +936,7 @@ inkwall_begin_public_request('view');
       box-shadow: 0 12px 34px rgba(35, 39, 34, .06);
     }
     .recent-svg-preview svg { display: block; width: 100%; height: auto; }
+    .recent-entry.is-expanded .recent-svg-preview { max-width: min(100%, 960px); justify-self: center; }
     .recent-message { margin: 0; color: var(--ink); font-family: var(--reader); font-size: clamp(20px, 1.65vw, 28px); font-weight: 600; letter-spacing: -.036em; line-height: 1.1; white-space: pre-wrap; overflow-wrap: anywhere; }
     .recent-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; color: var(--muted); font-size: 8px; font-weight: 680; letter-spacing: .025em; text-transform: uppercase; }
     .recent-meta strong { color: var(--ink-soft); }
@@ -4006,6 +4015,7 @@ inkwall_begin_public_request('view');
       Object.freeze({ emoji: "❤", label: "Love" }),
       Object.freeze({ emoji: "🔥", label: "Fire" }),
       Object.freeze({ emoji: "👏", label: "Applause" }),
+      Object.freeze({ emoji: "👋", label: "Hello" }),
       Object.freeze({ emoji: "💡", label: "Insightful" }),
       Object.freeze({ emoji: "😂", label: "Funny" }),
       Object.freeze({ emoji: "🤝", label: "Support" }),
@@ -4412,6 +4422,7 @@ inkwall_begin_public_request('view');
         this.visibleCount = AppConfig.archivePageSize;
         this.searchQuery = "";
         this.activeId = null;
+        this.expandedRecentId = null;
         this.appliedSignature = null;
         this.appliedContentSignature = null;
         this.publishedSignature = null;
@@ -4702,6 +4713,12 @@ inkwall_begin_public_request('view');
         Dom.mobileStepper.addEventListener("click", event => {
           const button = event.target.closest("button[data-step]");
           if (button) this.setMobileStep(button.dataset.step);
+        });
+        document.addEventListener("click", event => {
+          if (!this.expandedRecentId) return;
+          if (Dom.recentList.contains(event.target)) return;
+          this.expandedRecentId = null;
+          Dom.recentList.querySelectorAll(".recent-entry.is-expanded").forEach(entry => entry.classList.remove("is-expanded"));
         });
         Dom.loadMoreButton.addEventListener("click", () => this.loadMoreRecent());
         Dom.recentSearch.addEventListener("input", () => {
@@ -5343,8 +5360,23 @@ inkwall_begin_public_request('view');
 
         visibleMessages.forEach((message, index) => {
           const article = document.createElement("article");
-          article.className = `recent-entry${this.activeId === message.id ? " is-active" : ""}${message.prepared ? " is-prepared" : ""}`;
+          article.className = `recent-entry${this.activeId === message.id ? " is-active" : ""}${this.expandedRecentId === message.id ? " is-expanded" : ""}${message.prepared ? " is-prepared" : ""}`;
           article.dataset.noteId = message.id;
+          article.tabIndex = 0;
+          article.setAttribute("role", "button");
+          article.setAttribute("aria-expanded", String(this.expandedRecentId === message.id));
+          article.setAttribute("aria-label", `${this.expandedRecentId === message.id ? "Shrink" : "Enlarge"} ink preview by ${message.name}`);
+          const toggleExpanded = event => {
+            if (event.target.closest("a, button, input, textarea, select, label")) return;
+            this.expandedRecentId = this.expandedRecentId === message.id ? null : message.id;
+            this.renderRecent();
+          };
+          article.addEventListener("click", toggleExpanded);
+          article.addEventListener("keydown", event => {
+            if (event.key !== "Enter" && event.key !== " ") return;
+            event.preventDefault();
+            toggleExpanded(event);
+          });
 
           const number = document.createElement("span");
           number.className = "recent-index";

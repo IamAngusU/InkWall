@@ -121,7 +121,7 @@ if (preg_match('~^messages/([a-f0-9-]{20,40})/reactions$~i', $path, $match) && $
     if (!inkwall_note_row($noteId)) inkwall_json(['error' => 'Note not found.'], 404);
     $body = inkwall_body(); $emoji = (string)($body['emoji'] ?? '');
     $emoji = inkwall_reaction_key($emoji);
-    $allowed = ['❤', '🔥', '👏', '💡', '😂', '🤝', '👀', '🚀'];
+    $allowed = ['❤', '🔥', '👏', '👋', '💡', '😂', '🤝', '👀', '🚀'];
     if (!in_array($emoji, $allowed, true)) inkwall_json(['error' => 'Unsupported reaction.'], 422);
     if ($emoji === '❤') {
         $exists = inkwall_db()->prepare("SELECT id FROM inkwall_reactions WHERE note_id = ? AND reactor_hash = ? AND emoji IN ('❤', '❤️', '♥', '♡') LIMIT 1");
