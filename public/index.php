@@ -20,7 +20,7 @@ inkwall_begin_public_request('view');
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
   <meta name="description" content="Publish a moderated E-Ink note to <?= inkwall_page_escape($profileLabel) ?>.">
-  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" href="/assets/brand/logo.png" type="image/png">
   <title>GitHub E-Ink Message Surface</title>
   <script>
     (function () {
@@ -289,6 +289,37 @@ inkwall_begin_public_request('view');
       font-weight: 700;
       letter-spacing: .01em;
     }
+    .page[data-mode="create"] .hero { margin-bottom: 22px; }
+    .page[data-mode="create"] h1 { font-size: clamp(36px, 5vw, 62px); letter-spacing: -.06em; }
+    .public-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; max-width: 980px; margin: -10px 0 34px auto; }
+    .workspace-bar {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin: -7px 0 24px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--line);
+    }
+    .page[data-mode="create"] .workspace-bar { display: flex; }
+    .workspace-cancel {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 34px;
+      padding: 0;
+      border: 0;
+      color: var(--ink-soft);
+      background: transparent;
+      cursor: pointer;
+      font-family: var(--mono);
+      font-size: 9px;
+      font-weight: 760;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .workspace-cancel:hover { color: var(--ink); }
+    .workspace-state { color: var(--muted); font-family: var(--mono); font-size: 9px; font-weight: 760; letter-spacing: .1em; text-transform: uppercase; }
 
     .workflow {
       display: grid;
@@ -296,6 +327,13 @@ inkwall_begin_public_request('view');
       gap: clamp(48px, 6vw, 88px);
       align-items: start;
     }
+    .page[data-mode="public"] .workflow { grid-template-columns: minmax(0, 980px); justify-content: center; }
+    .page[data-mode="public"] .composer,
+    .page[data-mode="public"] .mobile-stepper,
+    .page[data-mode="public"] .publish-stage,
+    .page[data-mode="public"] .preview-column > .step-label { display: none; }
+    .page[data-mode="public"] .preview-column { max-width: 980px; width: 100%; }
+    .page[data-mode="create"] .public-actions { display: none; }
     .mobile-stepper { display: none; }
     .composer { position: sticky; top: 82px; display: grid; gap: 18px; min-width: 0; padding: 20px; border: 1px solid color-mix(in srgb, var(--line) 82%, transparent); border-radius: 16px; background: color-mix(in srgb, var(--paper) 36%, transparent); box-shadow: 0 18px 54px rgba(35, 39, 34, .07); }
     .step-label {
@@ -1031,6 +1069,7 @@ inkwall_begin_public_request('view');
       .mobile-stepper button[aria-selected="true"] { color: var(--ink); background: var(--paper); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 12%, transparent); }
       .workflow[data-mobile-step="write"] .preview-column { display: none; }
       .workflow[data-mobile-step="preview"] .composer { display: none; }
+      .page[data-mode="public"] .workflow[data-mobile-step="write"] .preview-column { display: grid; }
       .composer { gap: 21px; }
       textarea { min-height: 106px; }
       .entity-head { align-items: flex-start; flex-direction: column; gap: 7px; }
@@ -1562,7 +1601,7 @@ inkwall_begin_public_request('view');
     <span data-locale-option="de">DE</span>
   </button>
 
-  <main class="page">
+  <main class="page" id="appPage" data-mode="public">
     <header class="hero">
       <span class="eyebrow">Public E-Ink to GitHub</span>
       <h1>Put a note on my GitHub.</h1>
@@ -1571,6 +1610,15 @@ inkwall_begin_public_request('view');
         <a class="hero__destination" id="heroDestinationLink" href="<?= inkwall_page_escape($brand['profile_url']) ?>" target="_blank" rel="noopener noreferrer"><?= inkwall_page_escape($profileLabel) ?><sup aria-hidden="true">↗</sup></a>
       </div>
     </header>
+
+    <div class="public-actions" id="publicActions">
+      <button class="button button--update" id="createInkButton" type="button">Create a new ink</button>
+    </div>
+
+    <div class="workspace-bar" id="workspaceBar">
+      <button class="workspace-cancel" id="cancelCreationButton" type="button">Back to public ink</button>
+      <span class="workspace-state">Draft workspace</span>
+    </div>
 
     <nav class="mobile-stepper" id="mobileStepper" aria-label="InkWall steps">
       <button type="button" data-step="write" aria-selected="true">01 Write</button>
@@ -1618,7 +1666,7 @@ inkwall_begin_public_request('view');
                 <label><input type="radio" name="layoutAlign" value="right"><span><i class="choice-icon" style="--choice-icon: url('assets/icons/align-right.svg')" aria-hidden="true"></i><b>Right</b></span></label>
               </div>
             </div>
-            <div class="layout-option">Image position
+            <div class="layout-option image-layout-control" hidden>Image position
               <div class="choice-row" id="layoutMediaChoices" role="radiogroup" aria-label="Image position">
                 <label><input type="radio" name="layoutMedia" value="top" checked><span><i class="choice-icon" style="--choice-icon: url('assets/icons/image-top.svg')" aria-hidden="true"></i><b>Above</b></span></label>
                 <label><input type="radio" name="layoutMedia" value="left"><span><i class="choice-icon" style="--choice-icon: url('assets/icons/image-left.svg')" aria-hidden="true"></i><b>Left</b></span></label>
@@ -1641,16 +1689,16 @@ inkwall_begin_public_request('view');
                   <label><input type="radio" name="fontWeight" value="bold" checked><span><b>Bold</b></span></label>
                 </div>
               </div>
-              <div class="layout-option">Image corners
+              <div class="layout-option image-layout-control" hidden>Image corners
                 <div class="choice-row" id="radiusModeChoices" role="radiogroup" aria-label="Image corner radius mode" style="--choice-count: 2">
                   <label><input type="radio" name="radiusMode" value="all" checked><span><b>All</b></span></label>
                   <label><input type="radio" name="radiusMode" value="custom"><span><b>Corners</b></span></label>
                 </div>
               </div>
-              <label class="layout-range" id="radiusAllControl">Image radius <output id="radiusAllValue">0</output>
+              <label class="layout-range image-layout-control" id="radiusAllControl" hidden>Image radius <output id="radiusAllValue">0</output>
                 <input id="radiusAllInput" type="range" min="0" max="42" step="1" value="0">
               </label>
-              <div class="radius-grid" id="radiusCornerControls" hidden>
+              <div class="radius-grid image-layout-control" id="radiusCornerControls" hidden>
                 <label class="layout-range">Top left <output id="radiusTlValue">0</output><input id="radiusTlInput" type="range" min="0" max="42" step="1" value="0"></label>
                 <label class="layout-range">Top right <output id="radiusTrValue">0</output><input id="radiusTrInput" type="range" min="0" max="42" step="1" value="0"></label>
                 <label class="layout-range">Bottom right <output id="radiusBrValue">0</output><input id="radiusBrInput" type="range" min="0" max="42" step="1" value="0"></label>
@@ -1906,7 +1954,7 @@ inkwall_begin_public_request('view');
 
   <div class="external-popover" id="externalPopover" role="dialog" aria-labelledby="externalTitle" aria-hidden="true">
     <div class="external-popover__head">
-      <img class="external-popover__icon" src="/favicon.ico" alt="">
+      <img class="external-popover__icon" src="/assets/brand/logo.png" alt="">
       <div>
         <span class="external-popover__kicker">External link</span>
         <strong class="external-popover__host" id="externalTitle">Open destination</strong>
@@ -1962,8 +2010,11 @@ inkwall_begin_public_request('view');
 
     const Dom = Object.freeze({
       html: document.documentElement,
+      appPage: document.getElementById("appPage"),
       workflow: document.getElementById("workflow"),
       mobileStepper: document.getElementById("mobileStepper"),
+      createInkButton: document.getElementById("createInkButton"),
+      cancelCreationButton: document.getElementById("cancelCreationButton"),
       heroDestinationLink: document.getElementById("heroDestinationLink"),
       destinationPixelField: document.getElementById("destinationPixelField"),
       pageBackButton: document.getElementById("pageBackButton"),
@@ -1991,6 +2042,7 @@ inkwall_begin_public_request('view');
       layoutAlignChoices: document.getElementById("layoutAlignChoices"),
       layoutMediaChoices: document.getElementById("layoutMediaChoices"),
       layoutTextureChoices: document.getElementById("layoutTextureChoices"),
+      imageLayoutControls: document.querySelectorAll(".image-layout-control"),
       fontSizeInput: document.getElementById("fontSizeInput"),
       fontSizeValue: document.getElementById("fontSizeValue"),
       fontWeightChoices: document.getElementById("fontWeightChoices"),
@@ -2156,6 +2208,9 @@ inkwall_begin_public_request('view');
         updateInk: "Update ink",
         publishNote: "Publish note",
         viewLiveInk: "View live ink",
+        createInk: "Create a new ink",
+        backToPublicInk: "Back to public ink",
+        draftWorkspace: "Draft workspace",
         destinationKicker: "Where the ink lands",
         destinationTitle: "The latest note lives on my profile.",
         destinationCopy: "Publishing replaces the current E-Ink message in the profile README. Reload the GitHub profile to see the newest public version.",
@@ -2311,6 +2366,9 @@ inkwall_begin_public_request('view');
         updateInk: "Ink aktualisieren",
         publishNote: "Ink veroeffentlichen",
         viewLiveInk: "Live Ink ansehen",
+        createInk: "Neuen Ink erstellen",
+        backToPublicInk: "Zurueck zum oeffentlichen Ink",
+        draftWorkspace: "Entwurfsbereich",
         destinationKicker: "Wo der Ink landet",
         destinationTitle: "Die neueste Notiz lebt auf meinem Profil.",
         destinationCopy: "Veroeffentlichen ersetzt die aktuelle E-Ink Nachricht im Profil README. Lade das GitHub Profil neu, um die neueste oeffentliche Version zu sehen.",
@@ -4346,6 +4404,7 @@ inkwall_begin_public_request('view');
         this.publishProgressKey = "";
         this.showFavicons = true;
         this.previewMode = "latest";
+        this.creationMode = "public";
         this.locale = this.resolveLocale();
         this.toastTimer = null;
         this.autoApplyTimer = null;
@@ -4469,6 +4528,9 @@ inkwall_begin_public_request('view');
         set(".eyebrow", "eyebrow");
         set(".hero h1", "heroTitle");
         set(".hero__route > span", "heroRoute");
+        Dom.createInkButton.textContent = this.text("createInk");
+        Dom.cancelCreationButton.textContent = this.text("backToPublicInk");
+        set(".workspace-state", "draftWorkspace");
         setAll(".mobile-stepper button", ["mobileWrite", "mobilePreviewPublish"]);
         setAll(".workflow > .composer > .step-label, .preview-column > .step-label", ["stepWrite", "stepPreview"]);
         set(".field label", "name");
@@ -4587,6 +4649,8 @@ inkwall_begin_public_request('view');
 
       bindEvents() {
         Dom.pageBackButton.addEventListener("click", () => NavigationController.returnToPreviousSurface());
+        Dom.createInkButton.addEventListener("click", () => this.enterCreationMode());
+        Dom.cancelCreationButton.addEventListener("click", () => this.exitCreationMode());
         Dom.nameInput.addEventListener("input", () => { this.updateState(); this.queueAutomaticApply(220); });
         Dom.nameInput.addEventListener("blur", () => this.queueAutomaticApply(30));
         Dom.messageInput.addEventListener("input", () => { this.renderEntities(); this.updateState(); });
@@ -4646,8 +4710,12 @@ inkwall_begin_public_request('view');
         Dom.radiusBrValue.textContent = Dom.radiusBrInput.value;
         Dom.radiusBlValue.textContent = Dom.radiusBlInput.value;
         const custom = selectedChoice("radiusMode", "all") === "custom";
-        Dom.radiusAllControl.hidden = custom;
-        Dom.radiusCornerControls.hidden = !custom;
+        const hasImage = Boolean(this.imageWorkbench?.source || this.imageWorkbench?.expectedImage || this.imageWorkbench?.output);
+        Dom.imageLayoutControls.forEach(control => { control.hidden = !hasImage; });
+        if (hasImage) {
+          Dom.radiusAllControl.hidden = custom;
+          Dom.radiusCornerControls.hidden = !custom;
+        }
       }
 
       setMobileStep(step) {
@@ -4656,6 +4724,25 @@ inkwall_begin_public_request('view');
         Dom.mobileStepper.querySelectorAll("button[data-step]").forEach(button => {
           button.setAttribute("aria-selected", String(button.dataset.step === next));
         });
+      }
+
+      setCreationMode(mode) {
+        const next = mode === "create" ? "create" : "public";
+        this.creationMode = next;
+        Dom.appPage.dataset.mode = next;
+        if (next === "public") this.setMobileStep("write");
+      }
+
+      enterCreationMode() {
+        this.setCreationMode("create");
+        if (matchMedia("(max-width: 680px)").matches) {
+          Dom.workflow.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+        }
+      }
+
+      exitCreationMode() {
+        this.setCreationMode("public");
+        Dom.appPage.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
       }
 
       currentDraft() {
@@ -4746,6 +4833,7 @@ inkwall_begin_public_request('view');
 
       updateState(message = null, tone = "neutral") {
         const draft = this.currentDraft();
+        this.renderLayoutControls();
         Dom.nameCounter.textContent = `${Array.from(Dom.nameInput.value).length} / ${AppConfig.limits.name}`;
         Dom.messageCounter.textContent = `${Array.from(Dom.messageInput.value).length} / ${AppConfig.limits.message}`;
 
