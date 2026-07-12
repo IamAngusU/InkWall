@@ -16,7 +16,7 @@ $shareLocale = ($_GET['lang'] ?? '') === 'de' ? 'de' : 'en';
 $shareInkId = preg_match('/^[a-f0-9-]{20,40}$/i', (string)($_GET['ink'] ?? '')) ? (string)$_GET['ink'] : '';
 $shareInk = $shareInkId !== '' ? inkwall_note_row($shareInkId) : null;
 $shareUrl = $shareInk ? inkwall_public_url('?ink=' . rawurlencode($shareInkId) . '&lang=' . $shareLocale) : inkwall_public_url('?lang=' . $shareLocale);
-$shareImage = $shareInk ? inkwall_public_url('latest.svg.php?id=' . rawurlencode($shareInkId) . '&theme=light') : inkwall_public_url('latest.svg.php?theme=light');
+$shareImage = $shareInk ? inkwall_public_url('share.png.php?id=' . rawurlencode($shareInkId) . '&theme=light') : inkwall_public_url('share.png.php?theme=light');
 $shareAuthor = $shareInk ? (string)$shareInk['author_name'] : $brand['owner_name'];
 $shareTitle = $shareLocale === 'de'
     ? 'Ink von ' . $shareAuthor . ' auf Angus GitHub'
@@ -37,7 +37,9 @@ inkwall_begin_public_request('view');
   <meta property="og:description" content="<?= inkwall_page_escape($shareDescription) ?>">
   <meta property="og:url" content="<?= inkwall_page_escape($shareUrl) ?>">
   <meta property="og:image" content="<?= inkwall_page_escape($shareImage) ?>">
-  <meta property="og:image:type" content="image/svg+xml">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="<?= inkwall_page_escape($shareTitle) ?>">
   <meta name="twitter:description" content="<?= inkwall_page_escape($shareDescription) ?>">
