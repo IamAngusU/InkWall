@@ -990,14 +990,30 @@ inkwall_begin_public_request('view');
     }
     .top-liked-entry.has-no-thumb { grid-template-columns: 34px minmax(0, 1fr) auto; }
     .top-liked-entry:hover { background: color-mix(in srgb, var(--paper) 42%, transparent); }
+    .top-liked-entry.is-expanded {
+      grid-template-columns: 34px minmax(0, 1fr) auto;
+      align-items: start;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--paper) 64%, transparent);
+      box-shadow: 0 22px 62px rgba(35, 39, 34, .11);
+    }
+    .top-liked-entry.is-expanded.has-no-thumb { grid-template-columns: 34px minmax(0, 1fr) auto; }
     .top-liked-rank { color: var(--muted); font-family: var(--mono); font-size: 9px; font-weight: 760; }
     .top-liked-thumb { overflow: hidden; width: 92px; aspect-ratio: 1 / 1; border: 1px solid var(--line); border-radius: 5px; background: var(--paper); }
     .top-liked-thumb img { display: block; width: 100%; height: 100%; object-fit: cover; filter: grayscale(.06) contrast(1.02); }
     .top-liked-main { display: grid; gap: 3px; min-width: 0; }
     .top-liked-message { overflow: hidden; color: var(--ink); font-family: var(--reader); font-size: clamp(18px, 2vw, 25px); font-weight: 620; letter-spacing: -.035em; text-overflow: ellipsis; white-space: nowrap; }
+    .top-liked-entry.is-expanded .top-liked-message { white-space: normal; }
     .top-liked-meta { color: var(--muted); font-family: var(--mono); font-size: 8px; font-weight: 680; letter-spacing: .02em; text-transform: uppercase; }
     .top-liked-score { display: inline-flex; align-items: center; gap: 5px; color: var(--ink-soft); font-family: var(--mono); font-size: 9px; font-weight: 760; }
     .top-liked-score span { color: var(--accent); font-size: 15px; line-height: 1; }
+    .top-liked-detail { grid-column: 1 / -1; display: grid; gap: 12px; padding-top: 4px; }
+    .top-liked-detail .recent-svg-preview { max-width: min(100%, 920px); }
+    .top-liked-detail .recent-actions { grid-column: auto; }
+    .top-liked-detail .recent-action,
+    .top-liked-detail .recent-report { opacity: 1; transform: none; }
     .recent-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr)); gap: 18px; align-items: start; }
     .recent-entry {
       display: grid;
@@ -4579,6 +4595,7 @@ inkwall_begin_public_request('view');
         this.searchQuery = "";
         this.activeId = null;
         this.expandedRecentId = null;
+        this.expandedTopLikedId = null;
         this.appliedSignature = null;
         this.appliedContentSignature = null;
         this.publishedSignature = null;
@@ -5307,7 +5324,7 @@ inkwall_begin_public_request('view');
         return anchor;
       }
 
-      renderReactionBar(message) {
+      renderReactionBar(message, { afterChange = () => this.renderRecent() } = {}) {
         const bar = document.createElement("div");
         bar.className = "reaction-bar";
         const summary = this.reactionRepository.summary(message);
@@ -5335,7 +5352,7 @@ inkwall_begin_public_request('view');
             like.classList.add("is-bursting");
             spawnFlyingHeart(event.clientX, event.clientY);
           }
-          this.renderRecent();
+          afterChange();
         });
         bar.append(like);
 
@@ -5358,7 +5375,7 @@ inkwall_begin_public_request('view');
             await this.handleReaction(message, item.emoji);
             const next = this.reactionCount(message, item.emoji);
             this.queueCountAnimation(message, item.emoji, previous, next);
-            this.renderRecent();
+            afterChange();
           });
           bar.append(button);
         });
@@ -5459,6 +5476,66 @@ inkwall_begin_public_request('view');
         this.showToast(this.text("shareFailed"));
       }
 
+      renderInkActions(message, { includeReport = true } = {}) {
+        const actions = document.createElement("div");
+        actions.className = "recent-actions";
+
+        const download = document.createElement("button");
+        download.type = "button";
+        download.className = "recent-action recent-action--download";
+        download.setAttribute("aria-label", `${this.text("downloadSvg")} ${message.name}`);
+        download.append(IconRegistry.create("download", "recent-action__icon"));
+        const downloadLabel = document.createElement("span");
+        downloadLabel.textContent = this.text("downloadSvg");
+        download.append(downloadLabel);
+        download.addEventListener("click", event => {
+          event.stopPropagation();
+          this.downloadInkSvg(message);
+        });
+        actions.append(download);
+
+        const share = document.createElement("button");
+        share.type = "button";
+        share.className = "recent-action recent-action--share";
+        share.setAttribute("aria-label", `${this.text("shareInk")} ${message.name}`);
+        share.append(IconRegistry.create("share", "recent-action__icon"));
+        const shareLabel = document.createElement("span");
+        shareLabel.textContent = this.text("shareInk");
+        share.append(shareLabel);
+        share.addEventListener("click", event => {
+          event.stopPropagation();
+          this.shareInk(message);
+        });
+        actions.append(share);
+
+        if (includeReport && message.reportable !== false && !message.prepared) {
+          const report = document.createElement("button");
+          report.type = "button";
+          report.className = "recent-report";
+          report.dataset.noteId = message.id;
+          report.setAttribute("aria-expanded", "false");
+          report.setAttribute("aria-haspopup", "dialog");
+          report.setAttribute("aria-controls", "reportPopover");
+          report.setAttribute("aria-label", `Report note ${message.id}`);
+          report.append(IconRegistry.create("flag", "recent-report__icon"));
+          const reportLabel = document.createElement("span");
+          reportLabel.textContent = "Report";
+          report.append(reportLabel);
+          report.addEventListener("click", event => {
+            event.stopPropagation();
+            this.reportPopover.open(message, report);
+          });
+          actions.append(report);
+        } else if (includeReport) {
+          const managed = document.createElement("span");
+          managed.className = "owner-managed";
+          managed.textContent = "Owner managed";
+          actions.append(managed);
+        }
+
+        return actions;
+      }
+
       revealMessageInArchive(messageId) {
         const allPublicMessages = this.publicMessages();
         const index = allPublicMessages.findIndex(message => message.id === messageId);
@@ -5492,16 +5569,23 @@ inkwall_begin_public_request('view');
         if (Dom.topLikedSection) Dom.topLikedSection.hidden = false;
 
         ranked.forEach((item, index) => {
+          const isExpanded = this.expandedTopLikedId === item.message.id;
           const row = document.createElement("article");
-          row.className = `top-liked-entry${item.message.image?.src ? "" : " has-no-thumb"}`;
+          row.className = `top-liked-entry${item.message.image?.src ? "" : " has-no-thumb"}${isExpanded ? " is-expanded" : ""}`;
           row.tabIndex = 0;
           row.setAttribute("role", "button");
-          row.setAttribute("aria-label", `Jump to liked ink by ${item.message.name}`);
-          row.addEventListener("click", () => this.revealMessageInArchive(item.message.id));
+          row.setAttribute("aria-expanded", String(isExpanded));
+          row.setAttribute("aria-label", `${isExpanded ? "Collapse" : "Open"} liked ink by ${item.message.name}`);
+          const toggleTopLiked = event => {
+            if (event.target.closest("a, button, input, textarea, select, label")) return;
+            this.expandedTopLikedId = this.expandedTopLikedId === item.message.id ? null : item.message.id;
+            this.renderTopLiked();
+          };
+          row.addEventListener("click", toggleTopLiked);
           row.addEventListener("keydown", event => {
             if (event.key === "Enter" || event.key === " ") {
               event.preventDefault();
-              this.revealMessageInArchive(item.message.id);
+              toggleTopLiked(event);
             }
           });
           const rank = document.createElement("span");
@@ -5546,11 +5630,23 @@ inkwall_begin_public_request('view');
             const next = this.reactionCount(item.message, PrimaryReaction);
             this.queueCountAnimation(item.message, PrimaryReaction, previous, next);
             if (next > previous) spawnFlyingHeart(event.clientX, event.clientY);
-            this.renderTopLiked();
             this.renderRecent();
           });
-          if (thumb) row.append(rank, thumb, main, score);
-          else row.append(rank, main, score);
+          const detail = document.createElement("div");
+          detail.className = "top-liked-detail";
+          detail.hidden = !isExpanded;
+          if (isExpanded) {
+            const svgPreview = document.createElement("div");
+            svgPreview.className = "recent-svg-preview";
+            svgPreview.setAttribute("aria-hidden", "true");
+            svgPreview.innerHTML = this.display.svgMarkup({ mode: "archive", ...item.message, date: new Date(item.message.createdAt) });
+            const copy = document.createElement("p");
+            copy.className = "recent-message";
+            LinkRenderer.render(copy, item.message.message, { bindings: item.message.bindings, showFavicons: item.message.showFavicons });
+            detail.append(svgPreview, copy, this.renderReactionBar(item.message, { afterChange: () => this.renderRecent() }), this.renderInkActions(item.message, { includeReport: false }));
+          }
+          if (thumb) row.append(rank, thumb, main, score, detail);
+          else row.append(rank, main, score, detail);
           Dom.topLikedList.append(row);
         });
       }
@@ -5660,58 +5756,7 @@ inkwall_begin_public_request('view');
           }
           main.append(this.renderReactionBar(message));
 
-          const actions = document.createElement("div");
-          actions.className = "recent-actions";
-
-          const download = document.createElement("button");
-          download.type = "button";
-          download.className = "recent-action recent-action--download";
-          download.setAttribute("aria-label", `${this.text("downloadSvg")} ${message.name}`);
-          download.append(IconRegistry.create("download", "recent-action__icon"));
-          const downloadLabel = document.createElement("span");
-          downloadLabel.textContent = this.text("downloadSvg");
-          download.append(downloadLabel);
-          download.addEventListener("click", event => {
-            event.stopPropagation();
-            this.downloadInkSvg(message);
-          });
-          actions.append(download);
-
-          const share = document.createElement("button");
-          share.type = "button";
-          share.className = "recent-action recent-action--share";
-          share.setAttribute("aria-label", `${this.text("shareInk")} ${message.name}`);
-          share.append(IconRegistry.create("share", "recent-action__icon"));
-          const shareLabel = document.createElement("span");
-          shareLabel.textContent = this.text("shareInk");
-          share.append(shareLabel);
-          share.addEventListener("click", event => {
-            event.stopPropagation();
-            this.shareInk(message);
-          });
-          actions.append(share);
-
-          if (message.reportable !== false && !message.prepared) {
-            const report = document.createElement("button");
-            report.type = "button";
-            report.className = "recent-report";
-            report.dataset.noteId = message.id;
-            report.setAttribute("aria-expanded", "false");
-            report.setAttribute("aria-haspopup", "dialog");
-            report.setAttribute("aria-controls", "reportPopover");
-            report.setAttribute("aria-label", `Report note ${message.id}`);
-            report.append(IconRegistry.create("flag", "recent-report__icon"));
-            const reportLabel = document.createElement("span");
-            reportLabel.textContent = "Report";
-            report.append(reportLabel);
-            report.addEventListener("click", () => this.reportPopover.open(message, report));
-            actions.append(report);
-          } else {
-            const managed = document.createElement("span");
-            managed.className = "owner-managed";
-            managed.textContent = "Owner managed";
-            actions.append(managed);
-          }
+          const actions = this.renderInkActions(message);
 
           article.append(number, main, actions);
           Dom.recentList.append(article);
