@@ -12,14 +12,36 @@ function inkwall_asset_version(string $relative): string {
     $modified = @filemtime(__DIR__ . '/' . ltrim($relative, '/'));
     return (string)($modified ?: 1);
 }
+$shareLocale = ($_GET['lang'] ?? '') === 'de' ? 'de' : 'en';
+$shareInkId = preg_match('/^[a-f0-9-]{20,40}$/i', (string)($_GET['ink'] ?? '')) ? (string)$_GET['ink'] : '';
+$shareInk = $shareInkId !== '' ? inkwall_note_row($shareInkId) : null;
+$shareUrl = $shareInk ? inkwall_public_url('?ink=' . rawurlencode($shareInkId) . '&lang=' . $shareLocale) : inkwall_public_url('?lang=' . $shareLocale);
+$shareImage = $shareInk ? inkwall_public_url('latest.svg.php?id=' . rawurlencode($shareInkId) . '&theme=light') : inkwall_public_url('latest.svg.php?theme=light');
+$shareAuthor = $shareInk ? (string)$shareInk['author_name'] : $brand['owner_name'];
+$shareTitle = $shareLocale === 'de'
+    ? 'Ink von ' . $shareAuthor . ' auf Angus GitHub'
+    : 'Ink by ' . $shareAuthor . ' on Angus GitHub';
+$shareDescription = $shareLocale === 'de'
+    ? 'Erstelle deinen eigenen Ink auf InkWall. Der neueste zugelassene Ink wird live auf meinem GitHub Profil angezeigt.'
+    : 'Create your own InkWall note. The newest approved ink is shown live on my GitHub profile.';
 inkwall_begin_public_request('view');
 ?><!doctype html>
-<html lang="en" data-theme="light">
+<html lang="<?= inkwall_page_escape($shareLocale) ?>" data-theme="light">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <meta name="description" content="Publish a moderated E-Ink note to <?= inkwall_page_escape($profileLabel) ?>.">
+  <meta name="description" content="<?= inkwall_page_escape($shareDescription) ?>">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="<?= inkwall_page_escape($shareTitle) ?>">
+  <meta property="og:description" content="<?= inkwall_page_escape($shareDescription) ?>">
+  <meta property="og:url" content="<?= inkwall_page_escape($shareUrl) ?>">
+  <meta property="og:image" content="<?= inkwall_page_escape($shareImage) ?>">
+  <meta property="og:image:type" content="image/svg+xml">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="<?= inkwall_page_escape($shareTitle) ?>">
+  <meta name="twitter:description" content="<?= inkwall_page_escape($shareDescription) ?>">
+  <meta name="twitter:image" content="<?= inkwall_page_escape($shareImage) ?>">
   <link rel="icon" href="/assets/brand/logo.png" type="image/png">
   <title>GitHub E-Ink Message Surface</title>
   <script>
@@ -717,8 +739,8 @@ inkwall_begin_public_request('view');
       padding: 0 11px;
       border: 1px solid var(--line-strong);
       border-radius: 4px;
-      color: var(--cta-ink);
-      background: var(--cta);
+      color: var(--ink-soft);
+      background: transparent;
       font-family: var(--mono);
       font-size: 8px;
       font-weight: 780;
@@ -727,7 +749,7 @@ inkwall_begin_public_request('view');
       text-transform: uppercase;
       transition: transform .2s var(--ease), background .2s var(--ease);
     }
-    .public-preview-link:hover { background: color-mix(in srgb, var(--cta) 88%, var(--ink-soft)); transform: translateY(-1px); }
+    .public-preview-link:hover { color: var(--ink); background: var(--paper); transform: translateY(-1px); }
     .device {
       position: relative;
       padding: 16px;
@@ -1046,7 +1068,8 @@ inkwall_begin_public_request('view');
     }
     .recent-link:hover { border-color: var(--line-strong); color: var(--ink); background: var(--paper); }
     .recent-link .entity-token__icon { width: 15px; height: 15px; }
-    .recent-actions { grid-column: 2; display: flex; gap: 8px; justify-content: flex-start; min-height: 24px; }
+    .recent-actions { grid-column: 2; display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-start; min-height: 24px; }
+    .recent-action,
     .recent-report {
       padding: 0;
       border-bottom: 1px solid var(--line-strong);
@@ -1060,6 +1083,7 @@ inkwall_begin_public_request('view');
       text-decoration: none;
       text-transform: uppercase;
     }
+    .recent-action:hover,
     .recent-report:hover { color: var(--ink); }
     .recent-empty { padding: 30px 2px; color: var(--muted); font-size: 13px; border-bottom: 1px solid var(--line); }
     .recent-tools { display: flex; justify-content: center; padding-top: 26px; }
@@ -1322,6 +1346,7 @@ inkwall_begin_public_request('view');
 
     .recent-entry { position: relative; }
     .recent-actions { min-width: 72px; }
+    .recent-action,
     .recent-report {
       display: inline-flex;
       align-items: center;
@@ -1330,14 +1355,18 @@ inkwall_begin_public_request('view');
       border: 0;
       border-bottom: 1px solid var(--line-strong);
     }
+    .recent-action,
     .recent-report {
       opacity: 0;
       transform: translateY(3px);
       transition: opacity .16s ease, transform .2s var(--ease), color .16s ease;
     }
+    .recent-entry:hover .recent-action,
+    .recent-entry:focus-within .recent-action,
     .recent-entry:hover .recent-report,
     .recent-entry:focus-within .recent-report,
     .recent-report[aria-expanded="true"] { opacity: 1; transform: none; }
+    .recent-action svg,
     .recent-report svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
     .recent-link--identity { gap: 3px; }
     .recent-link__platform {
@@ -1399,7 +1428,7 @@ inkwall_begin_public_request('view');
     .report-submit:disabled { opacity: .48; cursor: wait; }
 
     @media (hover: none), (pointer: coarse), (max-width: 980px) {
-      .recent-report { opacity: 1; transform: none; }
+      .recent-action, .recent-report { opacity: 1; transform: none; }
     }
     @media (max-width: 680px) {
       .destination__media { border-radius: 22px 22px 8px 8px; }
@@ -1478,6 +1507,7 @@ inkwall_begin_public_request('view');
       100% { background-position: 0 0, 0 0; opacity: .27; }
     }
 
+    .recent-action,
     .recent-report {
       min-height: 30px;
       padding: 0 8px;
@@ -1486,6 +1516,8 @@ inkwall_begin_public_request('view');
       background: color-mix(in srgb, var(--paper) 72%, transparent);
       border-bottom-color: var(--line-strong);
     }
+    .recent-action:hover,
+    .recent-action[aria-expanded="true"],
     .recent-report:hover,
     .recent-report[aria-expanded="true"] {
       border-color: var(--line-strong);
@@ -2364,6 +2396,12 @@ inkwall_begin_public_request('view');
         dropImage: "Drop the image here",
         fileTypes: "JPEG, PNG, WebP or AVIF up to 12 MB",
         reportInk: "Report this ink",
+        downloadSvg: "Download",
+        shareInk: "Share",
+        shareTitle: "Ink by {name} on Angus GitHub",
+        shareText: "Create your own InkWall note. The newest approved ink is shown live on my GitHub profile.",
+        shareCopied: "Share link copied.",
+        shareFailed: "Sharing is unavailable here.",
         contentReview: "Content review",
         reason: "Reason",
         optionalContext: "Optional context",
@@ -2526,6 +2564,12 @@ inkwall_begin_public_request('view');
         dropImage: "Bild hier ablegen",
         fileTypes: "JPEG, PNG, WebP oder AVIF bis 12 MB",
         reportInk: "Ink melden",
+        downloadSvg: "Download",
+        shareInk: "Teilen",
+        shareTitle: "Ink von {name} auf Angus GitHub",
+        shareText: "Erstelle deinen eigenen Ink auf InkWall. Der neueste zugelassene Ink wird live auf meinem GitHub Profil angezeigt.",
+        shareCopied: "Share Link kopiert.",
+        shareFailed: "Teilen ist hier nicht verfuegbar.",
         contentReview: "Content Review",
         reason: "Grund",
         optionalContext: "Optionaler Kontext",
@@ -2644,7 +2688,9 @@ inkwall_begin_public_request('view');
           youtube: '<rect x="3" y="6" width="18" height="12" rx="4"></rect><path d="m10 9 5 3-5 3Z"></path>',
           bluesky: '<path d="M6.2 5.6c2.4 1.7 4.9 5.1 5.8 6.9.9-1.8 3.4-5.2 5.8-6.9 1.7-1.2 4.4-2.1 3.1 1.7-.2.8-1.4 6.4-2.2 7.3-2.4 2.6-5.5-.7-5.9-1.5.1 1.4.6 5.5-2.8 5.5s-2.9-4.1-2.8-5.5c-.4.8-3.5 4.1-5.9 1.5-.8-.9-2-6.5-2.2-7.3-1.3-3.8 1.4-2.9 3.1-1.7Z"></path>',
           linkedin: '<rect x="4" y="9" width="4" height="11"></rect><circle cx="6" cy="5.5" r="2"></circle><path d="M12 20V9h4v1.8c.9-1.4 4-2.1 4 2.7V20"></path>',
-          flag: '<path d="M5 21V4"></path><path d="M5 5h10l-1.8 3L15 11H5"></path>'
+          flag: '<path d="M5 21V4"></path><path d="M5 5h10l-1.8 3L15 11H5"></path>',
+          download: '<path d="M12 3v11"></path><path d="m7 10 5 5 5-5"></path><path d="M5 21h14"></path>',
+          share: '<circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><path d="m8.6 10.5 6.8-4"></path><path d="m8.6 13.5 6.8 4"></path>'
         };
         return icons[name] || icons.link;
       },
@@ -4884,6 +4930,7 @@ inkwall_begin_public_request('view');
 
       enterCreationMode() {
         this.setCreationMode("create");
+        this.showFirstInk();
         if (matchMedia("(max-width: 680px)").matches) {
           Dom.workflow.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
         }
@@ -4891,6 +4938,7 @@ inkwall_begin_public_request('view');
 
       exitCreationMode() {
         this.setCreationMode("public");
+        this.showLatest(true);
         Dom.appPage.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
       }
 
@@ -5349,6 +5397,68 @@ inkwall_begin_public_request('view');
         return this.reactionRepository.summary(message).reduce((sum, item) => sum + item.count, 0);
       }
 
+      inkShareUrl(message) {
+        const url = new URL(location.href);
+        url.search = "";
+        url.hash = "";
+        url.searchParams.set("ink", message.id);
+        url.searchParams.set("lang", this.locale);
+        return url.href;
+      }
+
+      inkSvgUrl(message, theme = Dom.html.dataset.theme === "dark" ? "dark" : "light") {
+        const basePath = location.pathname.replace(/(?:index\.php)?$/, "");
+        const url = new URL(`${basePath.endsWith("/") ? basePath : `${basePath}/`}latest.svg.php`, location.origin);
+        url.searchParams.set("id", message.id);
+        url.searchParams.set("theme", theme);
+        return url.href;
+      }
+
+      inkFileName(message) {
+        const safeName = String(message.name || "ink").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 34) || "ink";
+        return `inkwall-${safeName}-${message.id.slice(0, 8)}.svg`;
+      }
+
+      async downloadInkSvg(message) {
+        let blob = null;
+        try {
+          const response = await fetch(this.inkSvgUrl(message), { credentials: "same-origin", cache: "no-store" });
+          if (response.ok) blob = await response.blob();
+        } catch { /* Fall back to the local SVG renderer. */ }
+        if (!blob) {
+          const markup = this.display.svgMarkup({ mode: "archive", ...message, date: new Date(message.createdAt) });
+          blob = new Blob([markup], { type: "image/svg+xml;charset=utf-8" });
+        }
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = this.inkFileName(message);
+        document.body.append(anchor);
+        anchor.click();
+        anchor.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+
+      async shareInk(message) {
+        const url = this.inkShareUrl(message);
+        const title = this.text("shareTitle", { name: message.name });
+        const text = this.text("shareText");
+        try {
+          if (navigator.share) {
+            await navigator.share({ title, text, url });
+            return;
+          }
+          if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(url);
+            this.showToast(this.text("shareCopied"));
+            return;
+          }
+        } catch (error) {
+          if (error?.name === "AbortError") return;
+        }
+        this.showToast(this.text("shareFailed"));
+      }
+
       revealMessageInArchive(messageId) {
         const allPublicMessages = this.publicMessages();
         const index = allPublicMessages.findIndex(message => message.id === messageId);
@@ -5553,6 +5663,34 @@ inkwall_begin_public_request('view');
           const actions = document.createElement("div");
           actions.className = "recent-actions";
 
+          const download = document.createElement("button");
+          download.type = "button";
+          download.className = "recent-action recent-action--download";
+          download.setAttribute("aria-label", `${this.text("downloadSvg")} ${message.name}`);
+          download.append(IconRegistry.create("download", "recent-action__icon"));
+          const downloadLabel = document.createElement("span");
+          downloadLabel.textContent = this.text("downloadSvg");
+          download.append(downloadLabel);
+          download.addEventListener("click", event => {
+            event.stopPropagation();
+            this.downloadInkSvg(message);
+          });
+          actions.append(download);
+
+          const share = document.createElement("button");
+          share.type = "button";
+          share.className = "recent-action recent-action--share";
+          share.setAttribute("aria-label", `${this.text("shareInk")} ${message.name}`);
+          share.append(IconRegistry.create("share", "recent-action__icon"));
+          const shareLabel = document.createElement("span");
+          shareLabel.textContent = this.text("shareInk");
+          share.append(shareLabel);
+          share.addEventListener("click", event => {
+            event.stopPropagation();
+            this.shareInk(message);
+          });
+          actions.append(share);
+
           if (message.reportable !== false && !message.prepared) {
             const report = document.createElement("button");
             report.type = "button";
@@ -5654,7 +5792,23 @@ inkwall_begin_public_request('view');
         });
       }
 
+      displayMessageSignature(message) {
+        if (!message) return "";
+        return JSON.stringify({
+          id: message.id,
+          createdAt: message.createdAt,
+          name: message.name,
+          message: message.message,
+          image: message.image?.src || "",
+          bindings: message.bindings || {},
+          showFavicons: message.showFavicons !== false,
+          layout: message.layout || {}
+        });
+      }
+
       mergeLiveMessages(nextMessages, { notifyNew = false } = {}) {
+        const previousLatest = this.publicMessages()[0] || null;
+        const previousLatestSignature = this.displayMessageSignature(previousLatest);
         const previousById = new Map(this.messages.map(message => [message.id, message]));
         const previousIds = new Set(this.messages.filter(message => !message.prepared).map(message => message.id));
         let changed = false;
@@ -5671,7 +5825,10 @@ inkwall_begin_public_request('view');
         });
         const prepared = this.messages.find(message => message.prepared);
         this.messages = (prepared ? [...merged, prepared] : merged).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        const latest = this.publicMessages()[0] || null;
+        const latestChanged = this.displayMessageSignature(latest) !== previousLatestSignature;
         if (changed) this.renderRecent();
+        if (latestChanged && this.creationMode === "public" && this.previewMode === "latest") this.showLatest(true);
         if (!notifyNew) return;
         const fresh = merged
           .filter(message => !previousIds.has(message.id))

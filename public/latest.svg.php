@@ -6,10 +6,13 @@ $brand = inkwall_branding();
 $theme = ($_GET['theme'] ?? $brand['theme']) === 'dark' ? 'dark' : 'light';
 $requestedId = (string)($_GET['id'] ?? '');
 $requestedToken = (string)($_GET['token'] ?? '');
-if ($requestedId !== '' && preg_match('/^[a-f0-9-]{20,40}$/i', $requestedId) && inkwall_verify_note_token($requestedId, $requestedToken)) {
+if ($requestedId !== '' && preg_match('/^[a-f0-9-]{20,40}$/i', $requestedId)) {
     $stmt = inkwall_db()->prepare('SELECT * FROM inkwall_notes WHERE id = ? LIMIT 1');
     $stmt->execute([$requestedId]);
     $row = $stmt->fetch();
+    if (is_array($row) && ($row['status'] ?? '') !== 'published' && !inkwall_verify_note_token($requestedId, $requestedToken)) {
+        $row = false;
+    }
 } else {
     $row = inkwall_db()->query("SELECT * FROM inkwall_notes WHERE status = 'published' ORDER BY created_at DESC LIMIT 1")->fetch();
 }
