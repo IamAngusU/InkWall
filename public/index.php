@@ -246,7 +246,7 @@ inkwall_begin_public_request('view');
       100% { opacity: 1; filter: none; }
     }
 
-    .hero { max-width: 980px; margin-bottom: clamp(42px, 5vw, 68px); }
+    .hero { max-width: 980px; margin-bottom: clamp(34px, 4.5vw, 58px); }
     .eyebrow, .step-label, .field-label, .counter, .status, .display-label, .display-meta, .display-foot,
     .publish-state, .destination-kicker, .recent-kicker, .recent-count, .recent-index, .recent-meta,
     .button, .entity-summary, .policy-kicker, .image-meta, .image-progress__head { font-family: var(--mono); }
@@ -291,7 +291,7 @@ inkwall_begin_public_request('view');
     }
     .page[data-mode="create"] .hero { margin-bottom: 22px; }
     .page[data-mode="create"] h1 { font-size: clamp(36px, 5vw, 62px); letter-spacing: -.06em; }
-    .public-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; max-width: 980px; margin: -10px auto 34px; transition: margin .42s var(--ease); }
+    .public-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; max-width: 980px; margin: -10px auto 24px; transition: margin .42s var(--ease); }
     .page[data-mode="create"] .public-actions { margin-bottom: 18px; }
     .workspace-bar {
       display: none;
@@ -329,11 +329,11 @@ inkwall_begin_public_request('view');
       align-items: start;
       transition: grid-template-columns .48s var(--ease), gap .48s var(--ease);
     }
-    .page[data-mode="public"] .workflow { grid-template-columns: 0 minmax(0, 820px); justify-content: center; gap: 0; }
+    .page[data-mode="public"] .workflow { grid-template-columns: 0 minmax(0, 980px); justify-content: center; gap: 0; }
     .page[data-mode="public"] .mobile-stepper,
     .page[data-mode="public"] .publish-stage,
     .page[data-mode="public"] .preview-column > .step-label { display: none; }
-    .page[data-mode="public"] .preview-column { max-width: 820px; width: 100%; }
+    .page[data-mode="public"] .preview-column { max-width: 980px; width: 100%; }
     .mobile-stepper { display: none; }
     .composer { position: sticky; top: 82px; display: grid; gap: 18px; min-width: 0; max-height: 1400px; overflow: hidden; padding: 20px; border: 1px solid color-mix(in srgb, var(--line) 82%, transparent); border-radius: 16px; background: color-mix(in srgb, var(--paper) 36%, transparent); box-shadow: 0 18px 54px rgba(35, 39, 34, .07); opacity: 1; transform: translateX(0); transition: max-height .5s var(--ease), opacity .32s var(--ease), transform .42s var(--ease), padding .42s var(--ease), border-color .42s var(--ease), background .42s var(--ease), box-shadow .42s var(--ease); }
     .page[data-mode="public"] .composer { visibility: hidden; max-height: 0; padding: 0; border-color: transparent; background: transparent; box-shadow: none; opacity: 0; pointer-events: none; transform: translateX(-18px); }
@@ -667,6 +667,47 @@ inkwall_begin_public_request('view');
     }
 
     .preview-column { display: grid; gap: 17px; min-width: 0; }
+    .public-preview-head {
+      display: none;
+      align-items: end;
+      justify-content: space-between;
+      gap: 18px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+    .page[data-mode="public"] .public-preview-head { display: flex; }
+    .public-preview-kicker {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 9px;
+      font-weight: 760;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+    .public-preview-head h2 {
+      margin: 0;
+      color: var(--ink);
+      font-family: var(--reader);
+      font-size: clamp(28px, 3vw, 42px);
+      font-weight: 620;
+      letter-spacing: -.045em;
+      line-height: 1;
+    }
+    .public-preview-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      flex: 0 0 auto;
+      color: var(--ink-soft);
+      font-family: var(--mono);
+      font-size: 9px;
+      font-weight: 760;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+    }
+    .public-preview-status::before { width: 6px; height: 6px; border-radius: 50%; content: ""; background: var(--positive); }
     .device {
       position: relative;
       padding: 16px;
@@ -695,6 +736,19 @@ inkwall_begin_public_request('view');
       background: var(--paper);
       isolation: isolate;
       transition: background .45s var(--ease), border-color .45s var(--ease), color .45s var(--ease);
+    }
+    .page[data-mode="public"] .device {
+      padding: clamp(8px, 1.1vw, 14px);
+      border-radius: 14px;
+      background: color-mix(in srgb, var(--device) 36%, transparent);
+      box-shadow: 0 22px 70px rgba(35, 39, 34, .08);
+    }
+    .page[data-mode="public"] .device::before { display: none; }
+    .page[data-mode="public"] .device.has-image-preview { padding: clamp(8px, 1.1vw, 14px); background: color-mix(in srgb, var(--device) 28%, transparent); }
+    .page[data-mode="public"] .device.has-image-preview .display {
+      border-color: var(--device-edge);
+      border-radius: 6px;
+      background: var(--paper);
     }
     .display::before { display: none; }
     .display-svg-preview { position: relative; z-index: 3; display: block; width: 100%; height: 100%; background: var(--paper); }
@@ -903,6 +957,7 @@ inkwall_begin_public_request('view');
     .top-liked-score { display: inline-flex; align-items: center; gap: 5px; color: var(--ink-soft); font-family: var(--mono); font-size: 9px; font-weight: 760; }
     .top-liked-score span { color: var(--accent); font-size: 15px; line-height: 1; }
     .recent-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr)); gap: 18px; align-items: start; }
+    .recent-list.has-expanded { grid-template-columns: 1fr; }
     .recent-entry {
       display: grid;
       grid-template-columns: 34px minmax(0, 1fr);
@@ -920,11 +975,23 @@ inkwall_begin_public_request('view');
     .recent-entry.is-active { background: color-mix(in srgb, var(--paper) 58%, transparent); }
     .recent-entry.is-expanded {
       grid-column: 1 / -1;
+      grid-template-columns: minmax(0, 1fr);
       cursor: zoom-out;
       background: color-mix(in srgb, var(--paper) 68%, transparent);
       box-shadow: 0 24px 70px rgba(35, 39, 34, .12);
       transform: translateY(-2px);
     }
+    .recent-entry.is-expanded .recent-index {
+      position: absolute;
+      top: 17px;
+      left: 17px;
+      z-index: 2;
+      padding: 4px 6px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: color-mix(in srgb, var(--paper) 84%, transparent);
+    }
+    .recent-entry.is-expanded .recent-main { grid-column: 1 / -1; }
     .recent-index { padding-top: 4px; color: var(--muted); font-size: 9px; font-weight: 720; }
     .recent-main { display: grid; gap: 12px; min-width: 0; }
     .recent-svg-preview {
@@ -936,7 +1003,7 @@ inkwall_begin_public_request('view');
       box-shadow: 0 12px 34px rgba(35, 39, 34, .06);
     }
     .recent-svg-preview svg { display: block; width: 100%; height: auto; }
-    .recent-entry.is-expanded .recent-svg-preview { max-width: min(100%, 960px); justify-self: center; }
+    .recent-entry.is-expanded .recent-svg-preview { width: 100%; max-width: min(100%, 1120px); justify-self: center; }
     .recent-message { margin: 0; color: var(--ink); font-family: var(--reader); font-size: clamp(20px, 1.65vw, 28px); font-weight: 600; letter-spacing: -.036em; line-height: 1.1; white-space: pre-wrap; overflow-wrap: anywhere; }
     .recent-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; color: var(--muted); font-size: 8px; font-weight: 680; letter-spacing: .025em; text-transform: uppercase; }
     .recent-meta strong { color: var(--ink-soft); }
@@ -1782,6 +1849,13 @@ inkwall_begin_public_request('view');
       </form>
 
       <div class="preview-column">
+        <div class="public-preview-head" aria-live="polite">
+          <div>
+            <span class="public-preview-kicker" id="publicPreviewKicker">Currently public</span>
+            <h2 id="publicPreviewTitle">Latest public ink</h2>
+          </div>
+          <span class="public-preview-status" id="publicPreviewStatus">Live on GitHub</span>
+        </div>
         <div class="step-label">02 / Ink preview</div>
         <section class="device" aria-label="E-Ink preview">
           <div class="display-label">
@@ -2120,6 +2194,9 @@ inkwall_begin_public_request('view');
       displayName: document.getElementById("displayName"),
       displayScope: document.getElementById("displayScope"),
       deviceState: document.getElementById("deviceState"),
+      publicPreviewKicker: document.getElementById("publicPreviewKicker"),
+      publicPreviewTitle: document.getElementById("publicPreviewTitle"),
+      publicPreviewStatus: document.getElementById("publicPreviewStatus"),
       themeToggle: document.getElementById("themeToggle"),
       themeLabel: document.getElementById("themeLabel"),
       languageToggle: document.getElementById("languageToggle"),
@@ -2224,6 +2301,9 @@ inkwall_begin_public_request('view');
         formStart: "Write a name and a message.",
         paperDisplay: "Paper display / GitHub target",
         liveSurface: "Live surface",
+        publicPreviewKicker: "Currently public",
+        publicPreviewTitle: "Latest public ink",
+        publicPreviewStatus: "Live on GitHub",
         latestPublicNote: "Latest public note",
         noPublicInk: "No public ink yet.",
         anonymous: "Anonymous",
@@ -2382,6 +2462,9 @@ inkwall_begin_public_request('view');
         formStart: "Schreib einen Namen und eine Nachricht.",
         paperDisplay: "Paper Display / GitHub Ziel",
         liveSurface: "Live Flaeche",
+        publicPreviewKicker: "Aktuell oeffentlich",
+        publicPreviewTitle: "Neuester Public Ink",
+        publicPreviewStatus: "Live auf GitHub",
         latestPublicNote: "Neuester oeffentlicher Ink",
         noPublicInk: "Noch kein oeffentlicher Ink.",
         anonymous: "Anonym",
@@ -4555,6 +4638,9 @@ inkwall_begin_public_request('view');
         set(".eyebrow", "eyebrow");
         set(".hero h1", "heroTitle");
         set(".hero__route > span", "heroRoute");
+        Dom.publicPreviewKicker.textContent = this.text("publicPreviewKicker");
+        Dom.publicPreviewTitle.textContent = this.text("publicPreviewTitle");
+        Dom.publicPreviewStatus.textContent = this.text("publicPreviewStatus");
         Dom.createInkButton.textContent = this.creationMode === "create" ? this.text("backToPublicInk") : this.text("createInk");
         Dom.cancelCreationButton.textContent = this.text("backToPublicInk");
         set(".workspace-state", "draftWorkspace");
@@ -5336,6 +5422,7 @@ inkwall_begin_public_request('view');
         this.reactionPopover.close(true, false);
         this.reportPopover.close();
         Dom.recentList.replaceChildren();
+        Dom.recentList.classList.toggle("has-expanded", Boolean(this.expandedRecentId));
         const allPublicMessages = this.publicMessages();
         const filteredMessages = this.filteredMessages();
         const searchActive = Boolean(this.searchQuery.trim());
@@ -5349,6 +5436,7 @@ inkwall_begin_public_request('view');
           : "";
 
         if (!filteredMessages.length) {
+          Dom.recentList.classList.remove("has-expanded");
           const empty = document.createElement("div");
           empty.className = "recent-empty";
           empty.textContent = searchActive ? this.text("noMatches") : this.text("noPublicInks");
