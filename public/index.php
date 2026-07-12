@@ -291,7 +291,8 @@ inkwall_begin_public_request('view');
     }
     .page[data-mode="create"] .hero { margin-bottom: 22px; }
     .page[data-mode="create"] h1 { font-size: clamp(36px, 5vw, 62px); letter-spacing: -.06em; }
-    .public-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; max-width: 980px; margin: -10px 0 34px auto; }
+    .public-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; max-width: 980px; margin: -10px 0 34px auto; transition: margin .42s var(--ease); }
+    .page[data-mode="create"] .public-actions { margin-bottom: 18px; }
     .workspace-bar {
       display: none;
       align-items: center;
@@ -303,7 +304,7 @@ inkwall_begin_public_request('view');
     }
     .page[data-mode="create"] .workspace-bar { display: flex; }
     .workspace-cancel {
-      display: inline-flex;
+      display: none;
       align-items: center;
       gap: 8px;
       min-height: 34px;
@@ -326,16 +327,16 @@ inkwall_begin_public_request('view');
       grid-template-columns: minmax(300px, 390px) minmax(520px, 1fr);
       gap: clamp(48px, 6vw, 88px);
       align-items: start;
+      transition: grid-template-columns .48s var(--ease), gap .48s var(--ease);
     }
-    .page[data-mode="public"] .workflow { grid-template-columns: minmax(0, 980px); justify-content: center; }
-    .page[data-mode="public"] .composer,
+    .page[data-mode="public"] .workflow { grid-template-columns: 0 minmax(0, 980px); justify-content: center; gap: 0; }
     .page[data-mode="public"] .mobile-stepper,
     .page[data-mode="public"] .publish-stage,
     .page[data-mode="public"] .preview-column > .step-label { display: none; }
     .page[data-mode="public"] .preview-column { max-width: 980px; width: 100%; }
-    .page[data-mode="create"] .public-actions { display: none; }
     .mobile-stepper { display: none; }
-    .composer { position: sticky; top: 82px; display: grid; gap: 18px; min-width: 0; padding: 20px; border: 1px solid color-mix(in srgb, var(--line) 82%, transparent); border-radius: 16px; background: color-mix(in srgb, var(--paper) 36%, transparent); box-shadow: 0 18px 54px rgba(35, 39, 34, .07); }
+    .composer { position: sticky; top: 82px; display: grid; gap: 18px; min-width: 0; max-height: 1400px; overflow: hidden; padding: 20px; border: 1px solid color-mix(in srgb, var(--line) 82%, transparent); border-radius: 16px; background: color-mix(in srgb, var(--paper) 36%, transparent); box-shadow: 0 18px 54px rgba(35, 39, 34, .07); opacity: 1; transform: translateX(0); transition: max-height .5s var(--ease), opacity .32s var(--ease), transform .42s var(--ease), padding .42s var(--ease), border-color .42s var(--ease), background .42s var(--ease), box-shadow .42s var(--ease); }
+    .page[data-mode="public"] .composer { visibility: hidden; max-height: 0; padding: 0; border-color: transparent; background: transparent; box-shadow: none; opacity: 0; pointer-events: none; transform: translateX(-18px); }
     .step-label {
       display: flex;
       align-items: center;
@@ -490,6 +491,21 @@ inkwall_begin_public_request('view');
     .layout-field { display: grid; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 9px; background: color-mix(in srgb, var(--paper) 48%, transparent); }
     .layout-options { display: grid; gap: 11px; }
     .layout-option { display: grid; gap: 6px; color: var(--muted); font-family: var(--mono); font-size: 8px; font-weight: 720; letter-spacing: .05em; text-transform: uppercase; }
+    .image-layout-control {
+      max-height: 0;
+      margin: 0;
+      overflow: hidden;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-7px);
+      transition: max-height .42s var(--ease), opacity .24s ease, transform .42s var(--ease), margin .42s var(--ease);
+    }
+    .image-layout-control.is-visible {
+      max-height: 210px;
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
     .choice-row { display: grid; grid-template-columns: repeat(var(--choice-count, 3), minmax(0, 1fr)); gap: 6px; }
     .choice-row input { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; }
     .choice-row span {
@@ -1666,7 +1682,7 @@ inkwall_begin_public_request('view');
                 <label><input type="radio" name="layoutAlign" value="right"><span><i class="choice-icon" style="--choice-icon: url('assets/icons/align-right.svg')" aria-hidden="true"></i><b>Right</b></span></label>
               </div>
             </div>
-            <div class="layout-option image-layout-control" hidden>Image position
+            <div class="layout-option image-layout-control">Image position
               <div class="choice-row" id="layoutMediaChoices" role="radiogroup" aria-label="Image position">
                 <label><input type="radio" name="layoutMedia" value="top" checked><span><i class="choice-icon" style="--choice-icon: url('assets/icons/image-top.svg')" aria-hidden="true"></i><b>Above</b></span></label>
                 <label><input type="radio" name="layoutMedia" value="left"><span><i class="choice-icon" style="--choice-icon: url('assets/icons/image-left.svg')" aria-hidden="true"></i><b>Left</b></span></label>
@@ -1689,16 +1705,16 @@ inkwall_begin_public_request('view');
                   <label><input type="radio" name="fontWeight" value="bold" checked><span><b>Bold</b></span></label>
                 </div>
               </div>
-              <div class="layout-option image-layout-control" hidden>Image corners
+              <div class="layout-option image-layout-control">Image corners
                 <div class="choice-row" id="radiusModeChoices" role="radiogroup" aria-label="Image corner radius mode" style="--choice-count: 2">
                   <label><input type="radio" name="radiusMode" value="all" checked><span><b>All</b></span></label>
                   <label><input type="radio" name="radiusMode" value="custom"><span><b>Corners</b></span></label>
                 </div>
               </div>
-              <label class="layout-range image-layout-control" id="radiusAllControl" hidden>Image radius <output id="radiusAllValue">0</output>
+              <label class="layout-range image-layout-control" id="radiusAllControl">Image radius <output id="radiusAllValue">0</output>
                 <input id="radiusAllInput" type="range" min="0" max="42" step="1" value="0">
               </label>
-              <div class="radius-grid image-layout-control" id="radiusCornerControls" hidden>
+              <div class="radius-grid image-layout-control" id="radiusCornerControls">
                 <label class="layout-range">Top left <output id="radiusTlValue">0</output><input id="radiusTlInput" type="range" min="0" max="42" step="1" value="0"></label>
                 <label class="layout-range">Top right <output id="radiusTrValue">0</output><input id="radiusTrInput" type="range" min="0" max="42" step="1" value="0"></label>
                 <label class="layout-range">Bottom right <output id="radiusBrValue">0</output><input id="radiusBrInput" type="range" min="0" max="42" step="1" value="0"></label>
@@ -4528,7 +4544,7 @@ inkwall_begin_public_request('view');
         set(".eyebrow", "eyebrow");
         set(".hero h1", "heroTitle");
         set(".hero__route > span", "heroRoute");
-        Dom.createInkButton.textContent = this.text("createInk");
+        Dom.createInkButton.textContent = this.creationMode === "create" ? this.text("backToPublicInk") : this.text("createInk");
         Dom.cancelCreationButton.textContent = this.text("backToPublicInk");
         set(".workspace-state", "draftWorkspace");
         setAll(".mobile-stepper button", ["mobileWrite", "mobilePreviewPublish"]);
@@ -4649,7 +4665,7 @@ inkwall_begin_public_request('view');
 
       bindEvents() {
         Dom.pageBackButton.addEventListener("click", () => NavigationController.returnToPreviousSurface());
-        Dom.createInkButton.addEventListener("click", () => this.enterCreationMode());
+        Dom.createInkButton.addEventListener("click", () => this.creationMode === "create" ? this.exitCreationMode() : this.enterCreationMode());
         Dom.cancelCreationButton.addEventListener("click", () => this.exitCreationMode());
         Dom.nameInput.addEventListener("input", () => { this.updateState(); this.queueAutomaticApply(220); });
         Dom.nameInput.addEventListener("blur", () => this.queueAutomaticApply(30));
@@ -4711,11 +4727,13 @@ inkwall_begin_public_request('view');
         Dom.radiusBlValue.textContent = Dom.radiusBlInput.value;
         const custom = selectedChoice("radiusMode", "all") === "custom";
         const hasImage = Boolean(this.imageWorkbench?.source || this.imageWorkbench?.expectedImage || this.imageWorkbench?.output);
-        Dom.imageLayoutControls.forEach(control => { control.hidden = !hasImage; });
-        if (hasImage) {
-          Dom.radiusAllControl.hidden = custom;
-          Dom.radiusCornerControls.hidden = !custom;
-        }
+        Dom.imageLayoutControls.forEach(control => {
+          const isAllRadius = control === Dom.radiusAllControl;
+          const isCornerRadius = control === Dom.radiusCornerControls;
+          const visible = hasImage && (!isAllRadius || !custom) && (!isCornerRadius || custom);
+          control.classList.toggle("is-visible", visible);
+          control.setAttribute("aria-hidden", String(!visible));
+        });
       }
 
       setMobileStep(step) {
@@ -4730,6 +4748,7 @@ inkwall_begin_public_request('view');
         const next = mode === "create" ? "create" : "public";
         this.creationMode = next;
         Dom.appPage.dataset.mode = next;
+        Dom.createInkButton.textContent = next === "create" ? this.text("backToPublicInk") : this.text("createInk");
         if (next === "public") this.setMobileStep("write");
       }
 
@@ -5563,7 +5582,7 @@ inkwall_begin_public_request('view');
         Dom.footerRepositoryLink.href = AppConfig.repositoryUrl;
         this.applyLocale();
         this.renderLayoutControls();
-        this.showFirstInk();
+        this.showLatest(false);
         this.renderEntities();
         this.updateState();
         this.startLiveUpdates();
