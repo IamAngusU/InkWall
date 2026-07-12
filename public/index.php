@@ -708,6 +708,26 @@ inkwall_begin_public_request('view');
       text-transform: uppercase;
     }
     .public-preview-status::before { width: 6px; height: 6px; border-radius: 50%; content: ""; background: var(--positive); }
+    .public-preview-actions { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 9px; }
+    .public-preview-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 34px;
+      padding: 0 11px;
+      border: 1px solid var(--line-strong);
+      border-radius: 4px;
+      color: var(--cta-ink);
+      background: var(--cta);
+      font-family: var(--mono);
+      font-size: 8px;
+      font-weight: 780;
+      letter-spacing: .055em;
+      text-decoration: none;
+      text-transform: uppercase;
+      transition: transform .2s var(--ease), background .2s var(--ease);
+    }
+    .public-preview-link:hover { background: color-mix(in srgb, var(--cta) 88%, var(--ink-soft)); transform: translateY(-1px); }
     .device {
       position: relative;
       padding: 16px;
@@ -957,7 +977,6 @@ inkwall_begin_public_request('view');
     .top-liked-score { display: inline-flex; align-items: center; gap: 5px; color: var(--ink-soft); font-family: var(--mono); font-size: 9px; font-weight: 760; }
     .top-liked-score span { color: var(--accent); font-size: 15px; line-height: 1; }
     .recent-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr)); gap: 18px; align-items: start; }
-    .recent-list.has-expanded { grid-template-columns: 1fr; }
     .recent-entry {
       display: grid;
       grid-template-columns: 34px minmax(0, 1fr);
@@ -969,7 +988,8 @@ inkwall_begin_public_request('view');
       border-radius: 8px;
       background: color-mix(in srgb, var(--paper) 28%, transparent);
       cursor: zoom-in;
-      transition: background .18s ease, box-shadow .28s var(--ease), transform .28s var(--ease);
+      transform-origin: top left;
+      transition: background .18s ease, border-color .28s var(--ease), box-shadow .28s var(--ease), transform .28s var(--ease);
     }
     .recent-entry:hover { background: color-mix(in srgb, var(--paper) 38%, transparent); }
     .recent-entry.is-active { background: color-mix(in srgb, var(--paper) 58%, transparent); }
@@ -1001,6 +1021,7 @@ inkwall_begin_public_request('view');
       border-radius: 6px;
       background: var(--paper);
       box-shadow: 0 12px 34px rgba(35, 39, 34, .06);
+      transition: max-width .34s var(--ease), box-shadow .34s var(--ease);
     }
     .recent-svg-preview svg { display: block; width: 100%; height: auto; }
     .recent-entry.is-expanded .recent-svg-preview { width: 100%; max-width: min(100%, 1120px); justify-self: center; }
@@ -1854,7 +1875,10 @@ inkwall_begin_public_request('view');
             <span class="public-preview-kicker" id="publicPreviewKicker">Currently public</span>
             <h2 id="publicPreviewTitle">Latest public ink</h2>
           </div>
-          <span class="public-preview-status" id="publicPreviewStatus">Live on GitHub</span>
+          <div class="public-preview-actions">
+            <span class="public-preview-status" id="publicPreviewStatus">Live on GitHub</span>
+            <a class="public-preview-link" id="publicPreviewLink" href="<?= inkwall_page_escape($brand['profile_url']) ?>" target="_blank" rel="noopener noreferrer">View on GitHub</a>
+          </div>
         </div>
         <div class="step-label">02 / Ink preview</div>
         <section class="device" aria-label="E-Ink preview">
@@ -2197,6 +2221,7 @@ inkwall_begin_public_request('view');
       publicPreviewKicker: document.getElementById("publicPreviewKicker"),
       publicPreviewTitle: document.getElementById("publicPreviewTitle"),
       publicPreviewStatus: document.getElementById("publicPreviewStatus"),
+      publicPreviewLink: document.getElementById("publicPreviewLink"),
       themeToggle: document.getElementById("themeToggle"),
       themeLabel: document.getElementById("themeLabel"),
       languageToggle: document.getElementById("languageToggle"),
@@ -2304,6 +2329,7 @@ inkwall_begin_public_request('view');
         publicPreviewKicker: "Currently public",
         publicPreviewTitle: "Latest public ink",
         publicPreviewStatus: "Live on GitHub",
+        publicPreviewLink: "View on GitHub",
         latestPublicNote: "Latest public note",
         noPublicInk: "No public ink yet.",
         anonymous: "Anonymous",
@@ -2465,6 +2491,7 @@ inkwall_begin_public_request('view');
         publicPreviewKicker: "Aktuell oeffentlich",
         publicPreviewTitle: "Neuester Public Ink",
         publicPreviewStatus: "Live auf GitHub",
+        publicPreviewLink: "Auf GitHub ansehen",
         latestPublicNote: "Neuester oeffentlicher Ink",
         noPublicInk: "Noch kein oeffentlicher Ink.",
         anonymous: "Anonym",
@@ -4641,6 +4668,7 @@ inkwall_begin_public_request('view');
         Dom.publicPreviewKicker.textContent = this.text("publicPreviewKicker");
         Dom.publicPreviewTitle.textContent = this.text("publicPreviewTitle");
         Dom.publicPreviewStatus.textContent = this.text("publicPreviewStatus");
+        Dom.publicPreviewLink.textContent = this.text("publicPreviewLink");
         Dom.createInkButton.textContent = this.creationMode === "create" ? this.text("backToPublicInk") : this.text("createInk");
         Dom.cancelCreationButton.textContent = this.text("backToPublicInk");
         set(".workspace-state", "draftWorkspace");
@@ -4802,9 +4830,8 @@ inkwall_begin_public_request('view');
         });
         document.addEventListener("click", event => {
           if (!this.expandedRecentId) return;
-          if (Dom.recentList.contains(event.target)) return;
-          this.expandedRecentId = null;
-          Dom.recentList.querySelectorAll(".recent-entry.is-expanded").forEach(entry => entry.classList.remove("is-expanded"));
+          if (event.target.closest(".recent-entry")) return;
+          this.setExpandedRecent(null);
         });
         Dom.loadMoreButton.addEventListener("click", () => this.loadMoreRecent());
         Dom.recentSearch.addEventListener("input", () => {
@@ -5418,11 +5445,31 @@ inkwall_begin_public_request('view');
         });
       }
 
+      setExpandedRecent(nextId) {
+        const previousId = this.expandedRecentId;
+        const motionId = nextId || previousId;
+        const beforeRect = motionId
+          ? Dom.recentList.querySelector(`.recent-entry[data-note-id="${CSS.escape(motionId)}"]`)?.getBoundingClientRect()
+          : null;
+        this.expandedRecentId = nextId;
+        this.renderRecent();
+        if (!motionId || !beforeRect || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+        const afterEntry = Dom.recentList.querySelector(`.recent-entry[data-note-id="${CSS.escape(motionId)}"]`);
+        const afterRect = afterEntry?.getBoundingClientRect();
+        if (!afterEntry || !afterRect?.width || !afterRect?.height) return;
+        afterEntry.animate([
+          {
+            transform: `translate(${beforeRect.left - afterRect.left}px, ${beforeRect.top - afterRect.top}px) scale(${beforeRect.width / afterRect.width}, ${beforeRect.height / afterRect.height})`,
+            opacity: .94
+          },
+          { transform: "translate(0, 0) scale(1, 1)", opacity: 1 }
+        ], { duration: 360, easing: "cubic-bezier(.2,.8,.2,1)" });
+      }
+
       renderRecent() {
         this.reactionPopover.close(true, false);
         this.reportPopover.close();
         Dom.recentList.replaceChildren();
-        Dom.recentList.classList.toggle("has-expanded", Boolean(this.expandedRecentId));
         const allPublicMessages = this.publicMessages();
         const filteredMessages = this.filteredMessages();
         const searchActive = Boolean(this.searchQuery.trim());
@@ -5436,7 +5483,6 @@ inkwall_begin_public_request('view');
           : "";
 
         if (!filteredMessages.length) {
-          Dom.recentList.classList.remove("has-expanded");
           const empty = document.createElement("div");
           empty.className = "recent-empty";
           empty.textContent = searchActive ? this.text("noMatches") : this.text("noPublicInks");
@@ -5456,8 +5502,7 @@ inkwall_begin_public_request('view');
           article.setAttribute("aria-label", `${this.expandedRecentId === message.id ? "Shrink" : "Enlarge"} ink preview by ${message.name}`);
           const toggleExpanded = event => {
             if (event.target.closest("a, button, input, textarea, select, label")) return;
-            this.expandedRecentId = this.expandedRecentId === message.id ? null : message.id;
-            this.renderRecent();
+            this.setExpandedRecent(this.expandedRecentId === message.id ? null : message.id);
           };
           article.addEventListener("click", toggleExpanded);
           article.addEventListener("keydown", event => {
@@ -5697,6 +5742,7 @@ inkwall_begin_public_request('view');
 
         Dom.faviconToggle.setAttribute("aria-pressed", "true");
         Dom.heroDestinationLink.href = AppConfig.destinationUrl;
+        Dom.publicPreviewLink.href = AppConfig.destinationUrl;
         Dom.liveProfileLink.href = AppConfig.destinationUrl;
         Dom.repositoryLink.href = AppConfig.repositoryUrl;
         Dom.footerRepositoryLink.href = AppConfig.repositoryUrl;
