@@ -792,6 +792,28 @@ inkwall_begin_public_request('view');
       border-radius: 6px;
       background: var(--paper);
     }
+    .device.is-public-expanded { box-shadow: 0 26px 82px rgba(35, 39, 34, .15); }
+    .page[data-mode="public"] .display { cursor: zoom-in; }
+    .page[data-mode="public"] .device.is-public-expanded .display { cursor: zoom-out; }
+    .public-ink-detail {
+      display: grid;
+      gap: 12px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--paper) 58%, transparent);
+      box-shadow: 0 22px 62px rgba(35, 39, 34, .09);
+      animation: publicInkOpen .34s var(--ease) both;
+    }
+    .public-ink-detail[hidden] { display: none; }
+    .public-ink-detail .recent-svg-preview { max-width: min(100%, 1120px); justify-self: center; }
+    .public-ink-detail .recent-actions { grid-column: auto; }
+    .public-ink-detail .recent-action,
+    .public-ink-detail .recent-report { opacity: 1; transform: none; }
+    @keyframes publicInkOpen {
+      from { opacity: 0; transform: translateY(-6px) scale(.992); }
+      to { opacity: 1; transform: none; }
+    }
     .display::before { display: none; }
     .display-svg-preview { position: relative; z-index: 3; display: block; width: 100%; height: 100%; background: var(--paper); }
     .display-svg-preview svg { display: block; width: 100%; height: 100%; }
@@ -1957,6 +1979,7 @@ inkwall_begin_public_request('view');
             <div class="refresh-layer refresh-layer--scan"></div>
           </div>
         </section>
+        <section class="public-ink-detail" id="publicInkDetail" aria-label="Latest public ink details" hidden></section>
 
         <div class="publish-stage" id="publishStage" data-state="blocked">
           <div class="publish-copy">
@@ -2256,6 +2279,7 @@ inkwall_begin_public_request('view');
       device: document.querySelector(".device"),
       display: document.getElementById("display"),
       displaySvgPreview: document.getElementById("displaySvgPreview"),
+      publicInkDetail: document.getElementById("publicInkDetail"),
       displayContent: document.getElementById("displayContent"),
       displayGhost: document.getElementById("displayGhost"),
       displayMode: document.getElementById("displayMode"),
@@ -4596,6 +4620,7 @@ inkwall_begin_public_request('view');
         this.activeId = null;
         this.expandedRecentId = null;
         this.expandedTopLikedId = null;
+        this.expandedPublicInkId = null;
         this.appliedSignature = null;
         this.appliedContentSignature = null;
         this.publishedSignature = null;
@@ -4855,6 +4880,10 @@ inkwall_begin_public_request('view');
         Dom.pageBackButton.addEventListener("click", () => NavigationController.returnToPreviousSurface());
         Dom.createInkButton.addEventListener("click", () => this.creationMode === "create" ? this.exitCreationMode() : this.enterCreationMode());
         Dom.cancelCreationButton.addEventListener("click", () => this.exitCreationMode());
+        Dom.display.addEventListener("click", event => {
+          if (event.target.closest("a, button, input, textarea, select, label")) return;
+          this.togglePublicInkDetail();
+        });
         Dom.nameInput.addEventListener("input", () => { this.updateState(); this.queueAutomaticApply(220); });
         Dom.nameInput.addEventListener("blur", () => this.queueAutomaticApply(30));
         Dom.messageInput.addEventListener("input", () => { this.renderEntities(); this.updateState(); });
@@ -4942,6 +4971,10 @@ inkwall_begin_public_request('view');
         this.creationMode = next;
         Dom.appPage.dataset.mode = next;
         Dom.createInkButton.textContent = next === "create" ? this.text("backToPublicInk") : this.text("createInk");
+        if (next === "create") {
+          this.expandedPublicInkId = null;
+          this.renderPublicInkDetail();
+        }
         if (next === "public") this.setMobileStep("write");
       }
 
@@ -5200,6 +5233,8 @@ inkwall_begin_public_request('view');
         if (this.heldSignatures.has(draft.signature)) return this.setStatus("Change the draft before preparing another public ink.", "warning");
         this.previewMode = "draft";
         this.activeId = null;
+        this.expandedPublicInkId = null;
+        this.renderPublicInkDetail();
         this.appliedSignature = draft.signature;
         this.appliedContentSignature = draft.contentSignature;
         this.updateState();
@@ -5536,6 +5571,50 @@ inkwall_begin_public_request('view');
         return actions;
       }
 
+      latestPublicInk() {
+        const latest = this.publicMessages()[0];
+        return latest && !latest.prepared ? latest : null;
+      }
+
+      togglePublicInkDetail(force = null) {
+        const latest = this.latestPublicInk();
+        const shouldOpen = force === null ? !(latest && this.expandedPublicInkId === latest.id) : Boolean(force);
+        if (!latest || this.creationMode !== "public" || this.previewMode !== "latest") {
+          this.expandedPublicInkId = null;
+          return this.renderPublicInkDetail();
+        }
+        this.expandedPublicInkId = shouldOpen ? latest.id : null;
+        this.renderPublicInkDetail();
+      }
+
+      renderPublicInkDetail() {
+        const latest = this.latestPublicInk();
+        const open = Boolean(latest && this.expandedPublicInkId === latest.id && this.creationMode === "public" && this.previewMode === "latest");
+        Dom.device.classList.toggle("is-public-expanded", open);
+        Dom.display.setAttribute("aria-expanded", String(open));
+        Dom.display.setAttribute("role", "button");
+        Dom.publicInkDetail.replaceChildren();
+        Dom.publicInkDetail.hidden = !open;
+        if (!open || !latest) return;
+
+        const svgPreview = document.createElement("div");
+        svgPreview.className = "recent-svg-preview";
+        svgPreview.setAttribute("aria-hidden", "true");
+        svgPreview.innerHTML = this.display.svgMarkup({ mode: "archive", ...latest, date: new Date(latest.createdAt) });
+        const copy = document.createElement("p");
+        copy.className = "recent-message";
+        LinkRenderer.render(copy, latest.message, { bindings: latest.bindings, showFavicons: latest.showFavicons });
+        const meta = document.createElement("span");
+        meta.className = "recent-meta";
+        const author = document.createElement("strong");
+        author.textContent = latest.name;
+        const time = document.createElement("time");
+        time.dateTime = latest.createdAt;
+        time.textContent = this.display.formatDate(new Date(latest.createdAt));
+        meta.append(author, time);
+        Dom.publicInkDetail.append(svgPreview, copy, meta, this.renderReactionBar(latest, { afterChange: () => { this.renderPublicInkDetail(); this.renderRecent(); } }), this.renderInkActions(latest));
+      }
+
       revealMessageInArchive(messageId) {
         const allPublicMessages = this.publicMessages();
         const index = allPublicMessages.findIndex(message => message.id === messageId);
@@ -5771,6 +5850,7 @@ inkwall_begin_public_request('view');
         const latest = this.publicMessages()[0];
         this.previewMode = "latest";
         this.activeId = latest?.id || null;
+        if (this.expandedPublicInkId && this.expandedPublicInkId !== latest?.id) this.expandedPublicInkId = null;
         this.appliedSignature = null;
         this.appliedContentSignature = null;
         const payload = latest
@@ -5778,6 +5858,7 @@ inkwall_begin_public_request('view');
           : { mode: "latest", name: "Anonymous", message: "No public ink yet.", image: null, bindings: {}, showFavicons: true, date: new Date() };
         if (animate) this.display.refresh(payload);
         else this.display.set(payload);
+        this.renderPublicInkDetail();
         this.renderRecent();
       }
 
@@ -5793,9 +5874,11 @@ inkwall_begin_public_request('view');
         const firstInk = firstOwnerInk || messages.at(-1) || this.repository.preparedMessage();
         this.previewMode = "intro";
         this.activeId = firstInk.id;
+        this.expandedPublicInkId = null;
         this.appliedSignature = null;
         this.appliedContentSignature = null;
         this.display.set({ mode: "intro", ...firstInk, date: new Date(firstInk.createdAt) });
+        this.renderPublicInkDetail();
         this.renderRecent();
       }
 
@@ -5873,6 +5956,7 @@ inkwall_begin_public_request('view');
         const latest = this.publicMessages()[0] || null;
         const latestChanged = this.displayMessageSignature(latest) !== previousLatestSignature;
         if (changed) this.renderRecent();
+        if (changed && this.expandedPublicInkId) this.renderPublicInkDetail();
         if (latestChanged && this.creationMode === "public" && this.previewMode === "latest") this.showLatest(true);
         if (!notifyNew) return;
         const fresh = merged
