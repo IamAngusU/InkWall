@@ -4664,6 +4664,7 @@ inkwall_begin_public_request('view');
         this.expandedPublicInkId = null;
         this.appliedSignature = null;
         this.appliedContentSignature = null;
+        this.lastDraftPreview = null;
         this.publishedSignature = null;
         this.updateWaveSignature = null;
         this.isPublishing = false;
@@ -5021,7 +5022,7 @@ inkwall_begin_public_request('view');
 
       enterCreationMode() {
         this.setCreationMode("create");
-        this.showFirstInk();
+        this.showCreatePreview();
         if (matchMedia("(max-width: 680px)").matches) {
           Dom.workflow.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
         }
@@ -5278,8 +5279,7 @@ inkwall_begin_public_request('view');
         this.renderPublicInkDetail();
         this.appliedSignature = draft.signature;
         this.appliedContentSignature = draft.contentSignature;
-        this.updateState();
-        await this.display.refresh({
+        const payload = {
           mode: "draft",
           name: draft.nameResult.clean,
           message: draft.messageResult.moderated,
@@ -5288,7 +5288,10 @@ inkwall_begin_public_request('view');
           showFavicons: this.showFavicons,
           layout: draft.layout,
           date: new Date()
-        }, { revealOnMobile });
+        };
+        this.lastDraftPreview = { signature: draft.signature, contentSignature: draft.contentSignature, payload };
+        this.updateState();
+        await this.display.refresh(payload, { revealOnMobile });
         if (matchMedia("(max-width: 680px)").matches) this.setMobileStep("preview");
         this.renderRecent();
         this.updateState();
@@ -5926,6 +5929,23 @@ inkwall_begin_public_request('view');
         this.display.set({ mode: "intro", ...firstInk, date: new Date(firstInk.createdAt) });
         this.renderPublicInkDetail();
         this.renderRecent();
+      }
+
+      showCreatePreview() {
+        const draft = this.currentDraft();
+        if (this.lastDraftPreview && this.lastDraftPreview.signature === draft.signature) {
+          this.previewMode = "draft";
+          this.activeId = null;
+          this.expandedPublicInkId = null;
+          this.appliedSignature = this.lastDraftPreview.signature;
+          this.appliedContentSignature = this.lastDraftPreview.contentSignature;
+          this.display.set({ ...this.lastDraftPreview.payload, date: new Date(this.lastDraftPreview.payload.date) });
+          this.renderPublicInkDetail();
+          this.renderRecent();
+          this.updateState();
+          return;
+        }
+        this.showFirstInk();
       }
 
       async toggleTheme() {
