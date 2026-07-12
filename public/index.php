@@ -797,6 +797,7 @@ inkwall_begin_public_request('view');
       background: var(--paper);
     }
     .device.is-public-expanded { box-shadow: 0 26px 82px rgba(35, 39, 34, .15); }
+    .page[data-mode="public"] .device.is-public-expanded { display: none; }
     .page[data-mode="public"] .display { cursor: zoom-in; }
     .page[data-mode="public"] .device.is-public-expanded .display { cursor: zoom-out; }
     .public-ink-detail {
@@ -811,6 +812,8 @@ inkwall_begin_public_request('view');
     }
     .public-ink-detail[hidden] { display: none; }
     .public-ink-detail .recent-svg-preview { max-width: min(100%, 1120px); justify-self: center; }
+    .public-ink-detail .recent-message,
+    .public-ink-detail .recent-meta { display: none; }
     .public-ink-detail .recent-actions { grid-column: auto; }
     .public-ink-detail .recent-action,
     .public-ink-detail .recent-report { opacity: 1; transform: none; }
@@ -1026,6 +1029,8 @@ inkwall_begin_public_request('view');
       box-shadow: 0 22px 62px rgba(35, 39, 34, .11);
     }
     .top-liked-entry.is-expanded.has-no-thumb { grid-template-columns: 34px minmax(0, 1fr) auto; }
+    .top-liked-entry.is-expanded .top-liked-thumb,
+    .top-liked-entry.is-expanded .top-liked-main { display: none; }
     .top-liked-rank { color: var(--muted); font-family: var(--mono); font-size: 9px; font-weight: 760; }
     .top-liked-thumb { overflow: hidden; width: 92px; aspect-ratio: 1 / 1; border: 1px solid var(--line); border-radius: 5px; background: var(--paper); }
     .top-liked-thumb img { display: block; width: 100%; height: 100%; object-fit: cover; filter: grayscale(.06) contrast(1.02); }
@@ -5639,7 +5644,7 @@ inkwall_begin_public_request('view');
         const svgPreview = document.createElement("div");
         svgPreview.className = "recent-svg-preview";
         svgPreview.setAttribute("aria-hidden", "true");
-        svgPreview.innerHTML = this.display.svgMarkup({ mode: "archive", ...latest, date: new Date(latest.createdAt) });
+        svgPreview.innerHTML = this.display.svgMarkup({ mode: "latest", ...latest, date: new Date(latest.createdAt) });
         const copy = document.createElement("p");
         copy.className = "recent-message";
         LinkRenderer.render(copy, latest.message, { bindings: latest.bindings, showFavicons: latest.showFavicons });
@@ -5696,7 +5701,6 @@ inkwall_begin_public_request('view');
           row.setAttribute("aria-label", `${isExpanded ? "Collapse" : "Open"} liked ink by ${item.message.name}`);
           const toggleTopLiked = event => {
             if (event.target.closest("a, button, input, textarea, select, label")) return;
-            if (matchMedia("(max-width: 680px)").matches) return;
             this.expandedTopLikedId = this.expandedTopLikedId === item.message.id ? null : item.message.id;
             this.renderTopLiked();
           };
