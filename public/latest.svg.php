@@ -6,6 +6,7 @@ $brand = inkwall_branding();
 $theme = ($_GET['theme'] ?? $brand['theme']) === 'dark' ? 'dark' : 'light';
 $requestedId = (string)($_GET['id'] ?? '');
 $requestedToken = (string)($_GET['token'] ?? '');
+$latestPublishedId = (string)(inkwall_db()->query("SELECT id FROM inkwall_notes WHERE status = 'published' ORDER BY created_at DESC LIMIT 1")->fetchColumn() ?: '');
 if ($requestedId !== '' && preg_match('/^[a-f0-9-]{20,40}$/i', $requestedId)) {
     $stmt = inkwall_db()->prepare('SELECT * FROM inkwall_notes WHERE id = ? LIMIT 1');
     $stmt->execute([$requestedId]);
@@ -195,6 +196,8 @@ if ($hasImage) {
 $entityLabel = $entities ? implode('  ·  ', array_map(static fn(array $item): string => $item['label'], $entities)) . ' ↗' : $brand['site_label'] . ' · live';
 $entityHref = ($entities && !empty($entities[0]['url']) && in_array(strtolower(inkwall_env('INKWALL_SVG_CLICKABLE_LINKS', '1')), ['1', 'true', 'yes', 'on'], true)) ? (string)$entities[0]['url'] : '';
 $inkNumberText = str_pad((string)$inkNumber, 3, '0', STR_PAD_LEFT);
+$isLatestPublishedInk = $latestPublishedId !== '' && !empty($row['id']) && hash_equals($latestPublishedId, (string)$row['id']) && (($row['status'] ?? 'published') === 'published');
+$headerLabel = ($brand['svg_latest_label'] === 'all' || $isLatestPublishedInk || $inkNumber <= 0) ? 'LATEST PUBLIC INK' : 'INK #' . $inkNumberText;
 $badgeX = 292;
 $adBadgeWidth = $showAdBadge ? inkwall_svg_badge_width(strtoupper($brand['ad_badge_text'])) : 0;
 $reviewBadgeWidth = $showReviewBadge ? inkwall_svg_badge_width($reviewBadgeLabel) : 0;
@@ -213,14 +216,14 @@ header('X-Content-Type-Options: nosniff');
   <rect width="1200" height="<?= $svgHeight ?>" rx="24" fill="url(#grain)" opacity=".38"/>
   <?php endif ?>
   <rect x="24" y="24" width="1152" height="<?= $svgHeight - 48 ?>" rx="15" fill="none" stroke="<?= $ink ?>" stroke-width="2"/>
-  <circle cx="62" cy="52" r="7" fill="<?= $accent ?>"/><text x="82" y="59" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="20" font-weight="700" letter-spacing="2" fill="<?= $ink ?>">LATEST PUBLIC INK</text>
+  <circle cx="62" cy="52" r="7" fill="<?= $accent ?>"/><text x="82" y="59" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="20" font-weight="700" letter-spacing="2" fill="<?= $ink ?>"><?= inkwall_svg_escape($headerLabel) ?></text>
   <?= $image ?>
   <g font-family="ui-monospace, SFMono-Regular, Consolas, monospace" fill="<?= $ink ?>">
     <?php foreach ($lines as $index => $line): if ($line !== ''): ?><text x="<?= $messageX ?>" y="<?= $textTop + ($index * $lineHeight) ?>" text-anchor="<?= $textAnchor ?>" font-size="<?= $fontSize ?>" font-weight="<?= $fontWeight ?>"><?= inkwall_svg_escape($line) ?></text><?php endif; endforeach ?>
     <text x="<?= $messageX ?>" y="<?= $authorY ?>" text-anchor="<?= $textAnchor ?>" font-size="21" font-weight="700"><?= inkwall_svg_escape($displayAuthor) ?></text>
   </g>
   <text x="1138" y="58" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="15" fill="<?= $muted ?>"><?= inkwall_svg_escape($date) ?></text>
-  <text x="62" y="<?= $entityY ?>" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="15" fill="<?= $muted ?>">Currently showing Ink <tspan font-weight="800">#</tspan><tspan fill="<?= $accent ?>" font-weight="800"><?= inkwall_svg_escape($inkNumberText) ?></tspan></text>
+  <?php if ($brand['svg_ink_number'] && $isLatestPublishedInk): ?><text x="62" y="<?= $entityY ?>" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="15" fill="<?= $muted ?>">Currently showing Ink</text><text x="249" y="<?= $entityY ?>" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="15" font-weight="800" fill="<?= $ink ?>">#</text><text x="261" y="<?= $entityY ?>" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="15" font-weight="800" fill="<?= $accent ?>"><?= inkwall_svg_escape($inkNumberText) ?></text><?php endif ?>
   <?php if ($showAdBadge): ?><g opacity=".82"><rect x="<?= $badgeX ?>" y="<?= $entityY - 17 ?>" width="<?= $adBadgeWidth ?>" height="22" rx="7" fill="<?= $paper ?>" stroke="<?= $accent ?>" stroke-width="1.3"/><text x="<?= $badgeX + ($adBadgeWidth / 2) ?>" y="<?= $entityY - 2 ?>" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="10" font-weight="800" fill="<?= $accent ?>"><?= inkwall_svg_escape(strtoupper($brand['ad_badge_text'])) ?></text></g><?php endif ?>
   <?php if ($showReviewBadge): $reviewBadgeX = $badgeX + ($showAdBadge ? $adBadgeWidth + 10 : 0); ?><g opacity=".82"><rect x="<?= $reviewBadgeX ?>" y="<?= $entityY - 17 ?>" width="<?= $reviewBadgeWidth ?>" height="22" rx="7" fill="<?= $paper ?>" stroke="<?= $muted ?>" stroke-width="1"/><text x="<?= $reviewBadgeX + ($reviewBadgeWidth / 2) ?>" y="<?= $entityY - 2 ?>" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="10" font-weight="800" fill="<?= $muted ?>"><?= inkwall_svg_escape($reviewBadgeLabel) ?></text></g><?php endif ?>
   <?php if ($entityHref !== ''): ?><a href="<?= inkwall_svg_escape($entityHref) ?>" target="_blank" rel="noopener noreferrer"><?php endif ?><text x="<?= $entityX ?>" y="<?= $entityY ?>" text-anchor="<?= $entityAnchor ?>" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="15" fill="<?= $muted ?>"><?= inkwall_svg_escape($entityLabel) ?></text><?php if ($entityHref !== ''): ?></a><?php endif ?>

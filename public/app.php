@@ -49,12 +49,14 @@ function inkwall_branding(): array {
         'accent' => '#d7422f',
         'paper_texture' => 'dots',
         'theme' => 'light',
-        'ad_badge' => true,
+        'ad_badge' => false,
         'ad_badge_text' => 'ADS',
-        'review_badge' => true,
+        'review_badge' => false,
         'review_badge_mode' => 'auto',
         'review_badge_text' => 'Reviewed automatically',
         'review_badge_model_prefix' => 'Approved by',
+        'svg_ink_number' => true,
+        'svg_latest_label' => 'latest_only',
         'owner_name' => 'Angus Uelsmann',
         'profile_url' => 'https://github.com/IamAngusU',
         'repository_url' => 'https://github.com/IamAngusU/InkWall',
@@ -79,6 +81,7 @@ function inkwall_branding(): array {
         'review_badge_mode' => 'INKWALL_BRAND_REVIEW_BADGE_MODE',
         'review_badge_text' => 'INKWALL_BRAND_REVIEW_BADGE_TEXT',
         'review_badge_model_prefix' => 'INKWALL_BRAND_REVIEW_BADGE_MODEL_PREFIX',
+        'svg_latest_label' => 'INKWALL_BRAND_SVG_LATEST_LABEL',
         'owner_name' => 'INKWALL_BRAND_OWNER_NAME',
         'profile_url' => 'INKWALL_BRAND_PROFILE_URL',
         'repository_url' => 'INKWALL_BRAND_REPOSITORY_URL',
@@ -92,12 +95,15 @@ function inkwall_branding(): array {
     }
     if (inkwall_env('INKWALL_BRAND_AD_BADGE', '') !== '') $brand['ad_badge'] = inkwall_env_bool('INKWALL_BRAND_AD_BADGE', true);
     if (inkwall_env('INKWALL_BRAND_REVIEW_BADGE', '') !== '') $brand['review_badge'] = inkwall_env_bool('INKWALL_BRAND_REVIEW_BADGE', true);
+    if (inkwall_env('INKWALL_BRAND_SVG_INK_NUMBER', '') !== '') $brand['svg_ink_number'] = inkwall_env_bool('INKWALL_BRAND_SVG_INK_NUMBER', true);
     if (!is_string($brand['accent']) || !preg_match('/^#[0-9a-f]{6}$/i', $brand['accent'])) $brand['accent'] = '#d7422f';
     $brand['paper_texture'] = in_array($brand['paper_texture'], ['dots', 'clean'], true) ? $brand['paper_texture'] : 'dots';
     $brand['theme'] = in_array($brand['theme'], ['light', 'dark'], true) ? $brand['theme'] : 'light';
     $brand['image_rendering'] = in_array($brand['image_rendering'], ['ink', 'natural'], true) ? $brand['image_rendering'] : 'ink';
     $brand['ad_badge'] = (bool)$brand['ad_badge'];
     $brand['review_badge'] = (bool)$brand['review_badge'];
+    $brand['svg_ink_number'] = (bool)$brand['svg_ink_number'];
+    $brand['svg_latest_label'] = in_array($brand['svg_latest_label'], ['latest_only', 'all'], true) ? $brand['svg_latest_label'] : 'latest_only';
     $brand['review_badge_mode'] = in_array($brand['review_badge_mode'], ['auto', 'model'], true) ? $brand['review_badge_mode'] : 'auto';
     $brand['ad_badge_text'] = mb_substr(preg_replace('/[^a-z0-9 ]/i', '', (string)$brand['ad_badge_text']) ?? 'ADS', 0, 10) ?: 'ADS';
     foreach (['review_badge_text', 'review_badge_model_prefix'] as $key) {
@@ -1129,11 +1135,17 @@ function inkwall_public_note(array $row, string $visitorHash): array {
             'inverted' => (bool)$row['image_inverted'], 'signature' => $row['image_signature'] ?: '',
         ];
     }
+    $number = 0;
+    if (!empty($row['id'])) {
+        $stmt = inkwall_db()->prepare("SELECT COUNT(*) FROM inkwall_notes WHERE status = 'published' AND (created_at < ? OR (created_at = ? AND id <= ?))");
+        $stmt->execute([(string)$row['created_at'], (string)$row['created_at'], (string)$row['id']]);
+        $number = max(1, (int)$stmt->fetchColumn());
+    }
     return [
         'id' => $row['id'], 'name' => $row['author_name'], 'message' => $row['message_text'],
         'image' => $image, 'bindings' => json_decode($row['bindings_json'], true) ?: [],
         'layout' => inkwall_layout(json_decode((string)($row['layout_json'] ?? '{}'), true)),
         'showFavicons' => (bool)$row['show_favicons'], 'reportable' => true, 'prepared' => false,
-        'reactions' => inkwall_reaction_summary($row['id'], $visitorHash), 'createdAt' => $row['created_at'],
+        'reactions' => inkwall_reaction_summary($row['id'], $visitorHash), 'createdAt' => $row['created_at'], 'inkNumber' => $number,
     ];
 }

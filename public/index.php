@@ -15,8 +15,10 @@ function inkwall_asset_version(string $relative): string {
 $shareLocale = ($_GET['lang'] ?? '') === 'de' ? 'de' : 'en';
 $shareInkId = preg_match('/^[a-f0-9-]{20,40}$/i', (string)($_GET['ink'] ?? '')) ? (string)$_GET['ink'] : '';
 $shareInk = $shareInkId !== '' ? inkwall_note_row($shareInkId) : null;
+$latestShareInk = inkwall_db()->query("SELECT id, created_at, updated_at FROM inkwall_notes WHERE status = 'published' ORDER BY created_at DESC LIMIT 1")->fetch();
+$latestShareVersion = is_array($latestShareInk) ? (string)strtotime((string)($latestShareInk['updated_at'] ?: $latestShareInk['created_at'])) : (string)time();
 $shareUrl = $shareInk ? inkwall_public_url('?ink=' . rawurlencode($shareInkId) . '&lang=' . $shareLocale) : inkwall_public_url('?lang=' . $shareLocale);
-$shareImage = $shareInk ? inkwall_public_url('share.png.php?id=' . rawurlencode($shareInkId) . '&theme=light') : inkwall_public_url('share.png.php?theme=light');
+$shareImage = $shareInk ? inkwall_public_url('share.png.php?id=' . rawurlencode($shareInkId) . '&theme=light') : inkwall_public_url('share.png.php?theme=light&v=' . rawurlencode($latestShareVersion));
 $shareAuthor = $shareInk ? (string)$shareInk['author_name'] : $brand['owner_name'];
 $shareTitle = $shareLocale === 'de'
     ? 'Ink von ' . $shareAuthor . ' auf Angus GitHub'
@@ -1293,6 +1295,19 @@ inkwall_begin_public_request('view');
       .site-footer__repo { width: 100%; justify-content: center; }
       .recent-list { grid-template-columns: 1fr; gap: 14px; }
       .recent-entry { grid-template-columns: 28px minmax(0, 1fr); gap: 12px; padding: 14px; }
+      .recent-entry { cursor: default; }
+      .recent-entry.is-expanded {
+        grid-column: auto;
+        grid-template-columns: 28px minmax(0, 1fr);
+        box-shadow: none;
+        transform: none;
+      }
+      .recent-entry.is-expanded .recent-index {
+        position: static;
+        padding-top: 4px;
+        border: 0;
+        background: transparent;
+      }
       .recent-actions { grid-column: 2; display: flex; gap: 14px; justify-items: start; justify-content: flex-start; }
       .recent-message { font-size: clamp(22px, 7vw, 29px); }
       .policy { grid-template-columns: 1fr; gap: 14px; margin-top: 58px; }
@@ -2173,6 +2188,7 @@ inkwall_begin_public_request('view');
       storageKey: "angusu-eink-wall-v11",
       themeKey: "angusu_de-theme",
       localeKey: "angusu-eink-locale-v1",
+      initialInkId: <?= json_encode($shareInkId, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
       branding: Object.freeze(<?= $brandJson ?: '{}' ?>),
       destinationUrl: <?= json_encode($brand['profile_url'], JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
       repositoryUrl: <?= json_encode($brand['repository_url'], JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
@@ -2499,6 +2515,7 @@ inkwall_begin_public_request('view');
         toastRejected: "Ink was not accepted.",
         toastPublished: "Published. Open the profile now while this ink is still the latest.",
         toastNewInk: "New ink by {name}: {preview}",
+        toastSharedArchive: "Shared ink by {name} is in the archive. Tap to open it.",
         draftPreview: "Draft preview",
         firstPublicInk: "First public ink",
         archiveNote: "Archive note",
@@ -2510,19 +2527,19 @@ inkwall_begin_public_request('view');
         noteNotAccepted: "The note could not be accepted."
       }),
       de: Object.freeze({
-        title: "GitHub E-Ink Nachrichtenflaeche",
+        title: "GitHub E-Ink Nachrichtenfläche",
         switchLanguage: "Sprache wechseln",
-        back: "Zurueck",
+        back: "Zurück",
         darkMode: "Dunkel",
         lightMode: "Hell",
         switchDark: "Zu dunklem Modus wechseln",
         switchLight: "Zu hellem Modus wechseln",
         eyebrow: "Public E-Ink zu GitHub",
         heroTitle: "Setz eine Notiz auf mein GitHub.",
-        heroRoute: "Der neueste veroeffentlichte Ink landet in",
+        heroRoute: "Der neueste veröffentlichte Ink landet in",
         stepWrite: "01 / Schreiben",
         stepPreview: "02 / Ink Vorschau",
-        stepPublish: "03 / Auf GitHub veroeffentlichen",
+        stepPublish: "03 / Auf GitHub veröffentlichen",
         mobileWrite: "01 Schreiben",
         mobilePreview: "02 Vorschau",
         mobilePreviewPublish: "02 Vorschau + Senden",
@@ -2530,13 +2547,13 @@ inkwall_begin_public_request('view');
         name: "Name",
         namePlaceholder: "Dein Name",
         message: "Nachricht",
-        messagePlaceholder: "Kurze oeffentliche Notiz schreiben",
+        messagePlaceholder: "Kurze öffentliche Notiz schreiben",
         layout: "Layout",
         preserved: "Bleibt im SVG erhalten",
         textAlignment: "Textausrichtung",
         imagePosition: "Bildposition",
         paperTexture: "Papierstruktur",
-        fontSize: "Schriftgroesse",
+        fontSize: "Schriftgröße",
         weight: "Gewicht",
         imageCorners: "Bildecken",
         imageRadius: "Bildradius",
@@ -2556,10 +2573,10 @@ inkwall_begin_public_request('view');
         corners: "Ecken",
         image: "Bild",
         optional: "Optional",
-        addImage: "Bild hinzufuegen",
-        noImage: "Kein Bild ausgewaehlt",
+        addImage: "Bild hinzufügen",
+        noImage: "Kein Bild ausgewählt",
         remove: "Entfernen",
-        imageNote: "Wird lokal vor dem Upload komprimiert. Zieh den Ausschnitt, zoome mit zwei Fingern, nutze den Zoom-Regler oder invertiere das Bild unabhaengig vom Seitenthema.",
+        imageNote: "Wird lokal vor dem Upload komprimiert. Zieh den Ausschnitt, zoome mit zwei Fingern, nutze den Zoom-Regler oder invertiere das Bild unabhängig vom Seitenthema.",
         readingImage: "Bild wird gelesen",
         visibleFrame: "Sichtbarer Rahmen",
         dragReposition: "Zum Verschieben ziehen",
@@ -2567,36 +2584,36 @@ inkwall_begin_public_request('view');
         invertImage: "Bild invertieren",
         formStart: "Schreib einen Namen und eine Nachricht.",
         paperDisplay: "Paper Display / GitHub Ziel",
-        liveSurface: "Live Flaeche",
-        publicPreviewKicker: "Aktuell oeffentlich",
+        liveSurface: "Live Fläche",
+        publicPreviewKicker: "Aktuell öffentlich",
         publicPreviewTitle: "Neuester Public Ink",
         publicPreviewStatus: "Live auf GitHub",
         publicPreviewLink: "Auf GitHub ansehen",
-        latestPublicNote: "Neuester oeffentlicher Ink",
-        noPublicInk: "Noch kein oeffentlicher Ink.",
+        latestPublicNote: "Neuester öffentlicher Ink",
+        noPublicInk: "Noch kein öffentlicher Ink.",
         anonymous: "Anonym",
-        publicSurface: "Oeffentliche Flaeche",
+        publicSurface: "Öffentliche Fläche",
         previewRequired: "Vorschau erforderlich.",
-        previewRequiredHint: "Aktualisiere die Anzeige, pruefe den sichtbaren Ink und veroeffentliche ihn dann auf GitHub.",
+        previewRequiredHint: "Aktualisiere die Anzeige, prüfe den sichtbaren Ink und veröffentliche ihn dann auf GitHub.",
         updateInk: "Ink aktualisieren",
-        publishNote: "Ink veroeffentlichen",
+        publishNote: "Ink veröffentlichen",
         viewLiveInk: "Live Ink ansehen",
         createInk: "Neuen Ink erstellen",
-        backToPublicInk: "Zurueck zum oeffentlichen Ink",
+        backToPublicInk: "Zurück zum öffentlichen Ink",
         draftWorkspace: "Entwurfsbereich",
         destinationKicker: "Wo der Ink landet",
         destinationTitle: "Die neueste Notiz lebt auf meinem Profil.",
-        destinationCopy: "Veroeffentlichen ersetzt die aktuelle E-Ink Nachricht im Profil README. Lade das GitHub Profil neu, um die neueste oeffentliche Version zu sehen.",
-        openLiveProfile: "Live Profil oeffnen",
+        destinationCopy: "Veröffentlichen ersetzt die aktuelle E-Ink Nachricht im Profil README. Lade das GitHub Profil neu, um die neueste öffentliche Version zu sehen.",
+        openLiveProfile: "Live Profil öffnen",
         projectRepository: "Projekt Repository",
         mostLoved: "Meist geliebt",
         topLiked: "Top gelikte Inks.",
-        publicArchive: "Oeffentliches Archiv",
+        publicArchive: "Öffentliches Archiv",
         recentInks: "Neue Inks.",
         searchInk: "Alle Inks durchsuchen",
         showMore: "Mehr anzeigen",
         visitorPolicy: "Besucherinhalt und externe Ziele",
-        policyCopy: "Notizen und verlinkte Ziele werden von Besuchern eingereicht und repraesentieren nicht {owner}. Externe Ziele sind nicht empfohlen oder verifiziert. Besucher-Inks koennen gemeldet werden. Der vorbereitete Ink von {owner} wird vom Owner verwaltet und ist von oeffentlichen Meldungen ausgenommen. Priorisierte Sicherheitsmeldungen setzen einen Besucher-Ink sofort in Review. Andere Meldekategorien brauchen zwei unabhaengige Signale, bevor die Notiz fuer Review verborgen wird. Moderationsregeln, Meldewege und Sicherheitskontrollen werden laufend gepflegt. Nutzung wird mit einem zufaelligen Browser-Pseudonym verbunden; nur Landhinweise und Referrer-Domains werden gespeichert. Rohe IP-Adressen, Identitaeten, Browser-Fingerprints und komplette Referrer-URLs speichert InkWall nicht.",
+        policyCopy: "Notizen und verlinkte Ziele werden von Besuchern eingereicht und repräsentieren nicht {owner}. Externe Ziele sind nicht empfohlen oder verifiziert. Besucher-Inks können gemeldet werden. Der vorbereitete Ink von {owner} wird vom Owner verwaltet und ist von öffentlichen Meldungen ausgenommen. Priorisierte Sicherheitsmeldungen setzen einen Besucher-Ink sofort in Review. Andere Meldekategorien brauchen zwei unabhängige Signale, bevor die Notiz für Review verborgen wird. Moderationsregeln, Meldewege und Sicherheitskontrollen werden laufend gepflegt. Nutzung wird mit einem zufälligen Browser-Pseudonym verbunden; nur Landhinweise und Referrer-Domains werden gespeichert. Rohe IP-Adressen, Identitäten, Browser-Fingerprints und komplette Referrer-URLs speichert InkWall nicht.",
         reportNote: "Notiz melden",
         designedBy: "Designt und programmiert von",
         viewRepository: "Repository ansehen",
@@ -2615,65 +2632,66 @@ inkwall_begin_public_request('view');
         contentReview: "Content Review",
         reason: "Grund",
         optionalContext: "Optionaler Kontext",
-        reportPlaceholder: "Details hinzufuegen, die beim Review helfen",
+        reportPlaceholder: "Details hinzufügen, die beim Review helfen",
         cancel: "Abbrechen",
         submitReport: "Meldung senden",
         reactToInk: "Auf Ink reagieren",
         leaveReaction: "Reaction setzen",
-        reactionHint: "Mehrere sind moeglich. Tippe eine aktive Reaction erneut, um sie zu entfernen.",
+        reactionHint: "Mehrere sind möglich. Tippe eine aktive Reaction erneut, um sie zu entfernen.",
         externalLink: "Externer Link",
-        openDestination: "Ziel oeffnen",
-        externalCopy: "Dieses Ziel liegt ausserhalb von InkWall. Besucherlinks sind nicht verifiziert, und InkWall ist nicht verantwortlich fuer externe Inhalte, Services, Downloads oder Datenschutzpraktiken.",
-        openLink: "Link oeffnen",
+        openDestination: "Ziel öffnen",
+        externalCopy: "Dieses Ziel liegt außerhalb von InkWall. Besucherlinks sind nicht verifiziert, und InkWall ist nicht verantwortlich für externe Inhalte, Services, Downloads oder Datenschutzpraktiken.",
+        openLink: "Link öffnen",
         faviconOn: "Site Icons an",
         faviconOff: "Site Icons aus",
-        choose: "Auswaehlen",
+        choose: "Auswählen",
         noteCount: "{count} Notiz{plural}",
         searchCount: "{count} von {total} Notizen",
-        searchResult: "{count} Ergebnis{plural} fuer \"{query}\"",
+        searchResult: "{count} Ergebnis{plural} für \"{query}\"",
         noMatches: "Keine passenden Inks.",
-        noPublicInks: "Noch keine oeffentlichen Inks.",
+        noPublicInks: "Noch keine öffentlichen Inks.",
         nameAttention: "Name braucht Aufmerksamkeit.",
-        messageRejected: "Nachricht kann nicht veroeffentlicht werden.",
+        messageRejected: "Nachricht kann nicht veröffentlicht werden.",
         exactReview: "Diese exakte Notiz ist im Review.",
-        exactReviewHint: "Aendere den Entwurf, bevor du einen weiteren oeffentlichen Ink vorbereitest.",
+        exactReviewHint: "Ändere den Entwurf, bevor du einen weiteren öffentlichen Ink vorbereitest.",
         imageAttention: "Bild braucht Aufmerksamkeit.",
-        imageAttentionHint: "Entferne es oder waehle ein anderes Bild vor dem Veroeffentlichen.",
+        imageAttentionHint: "Entferne es oder wähle ein anderes Bild vor dem Veröffentlichen.",
         imagePreparing: "Bild wird vorbereitet.",
         imagePreparingHint: "Warte, bis das Bild fertig ist, und aktualisiere dann den Ink.",
         displayOutdated: "Anzeige ist nicht aktuell.",
-        displayOutdatedHint: "Aktualisiere den Ink, um das exakte oeffentliche Ergebnis zu pruefen.",
+        displayOutdatedHint: "Aktualisiere den Ink, um das exakte öffentliche Ergebnis zu prüfen.",
         previewReady: "Vorschau synchronisiert.",
-        previewReadyHint: "Veroeffentliche genau diesen Ink auf der GitHub Profilflaeche.",
+        previewReadyHint: "Veröffentliche genau diesen Ink auf der GitHub Profilfläche.",
         previewNeededHint: "Schreib einen Namen und eine Nachricht, dann aktualisiere die Anzeige.",
         liveHeadline: "Sieh ihn an, solange er noch der neueste ist.",
-        liveHint: "Oeffne das Profil jetzt. Die naechste oeffentliche Notiz ersetzt ihn oben.",
-        statusImageFailed: "Das ausgewaehlte Bild konnte nicht vorbereitet werden. Entferne es oder waehle ein anderes.",
+        liveHint: "Öffne das Profil jetzt. Die nächste öffentliche Notiz ersetzt ihn oben.",
+        statusImageFailed: "Das ausgewählte Bild konnte nicht vorbereitet werden. Entferne es oder wähle ein anderes.",
         statusImagePreparing: "Das E-Ink Bild wird vorbereitet. Publish bleibt gesperrt, bis es fertig ist.",
-        statusPublished: "Veroeffentlicht. Oeffne das Live Profil, solange diese Notiz noch die neueste ist.",
-        statusPreviewReady: "Ink ist aktuell. Bereit zum Veroeffentlichen.",
-        statusDraftChanged: "Entwurf geaendert. Aktualisiere die Anzeige, um weiterzumachen.",
+        statusPublished: "Veröffentlicht. Öffne das Live Profil, solange diese Notiz noch die neueste ist.",
+        statusPreviewReady: "Ink ist aktuell. Bereit zum Veröffentlichen.",
+        statusDraftChanged: "Entwurf geändert. Aktualisiere die Anzeige, um weiterzumachen.",
         statusReview: "Ink wartet auf manuellen Review. Ich habe Angus eine Mail geschickt.",
         publishProgressPreparing: "Ink wird vorbereitet.",
-        publishProgressChecking: "Moderation wird geprueft.",
+        publishProgressChecking: "Moderation wird geprüft.",
         publishProgressSending: "Wird an InkWall gesendet.",
-        publishProgressGithub: "GitHub Flaeche wird aktualisiert.",
-        publishProgressConfirming: "Live SVG wird bestaetigt.",
+        publishProgressGithub: "GitHub Fläche wird aktualisiert.",
+        publishProgressConfirming: "Live SVG wird bestätigt.",
         publishProgressVisible: "Ink sollte jetzt auf GitHub sichtbar sein.",
         publishProgressReview: "Im Review. Der vorige zugelassene Ink bleibt live.",
         publishProgressRejected: "Ink wurde nicht akzeptiert.",
-        publishProgressFailed: "Publish gestoppt, bevor GitHub geaendert wurde.",
+        publishProgressFailed: "Publish gestoppt, bevor GitHub geändert wurde.",
         toastReview: "Im Review. Der letzte zugelassene Ink bleibt live.",
         toastRejected: "Ink wurde nicht akzeptiert.",
-        toastPublished: "Veroeffentlicht. Oeffne das Profil jetzt, solange dieser Ink noch der neueste ist.",
+        toastPublished: "Veröffentlicht. Öffne das Profil jetzt, solange dieser Ink noch der neueste ist.",
         toastNewInk: "Neuer Ink von {name}: {preview}",
+        toastSharedArchive: "Geteilter Ink von {name} ist im Archiv. Tippen zum Öffnen.",
         draftPreview: "Entwurfs-Vorschau",
-        firstPublicInk: "Erster oeffentlicher Ink",
+        firstPublicInk: "Erster öffentlicher Ink",
         archiveNote: "Archivnotiz",
-        notPublished: "Nicht veroeffentlicht",
+        notPublished: "Nicht veröffentlicht",
         refreshing: "Aktualisiert",
         enterName: "Gib einen Anzeigenamen ein.",
-        neutralName: "Waehle einen neutralen Anzeigenamen.",
+        neutralName: "Wähle einen neutralen Anzeigenamen.",
         writeMessageFirst: "Schreib zuerst eine Nachricht.",
         noteNotAccepted: "Die Notiz konnte nicht akzeptiert werden."
       })
@@ -3120,7 +3138,8 @@ inkwall_begin_public_request('view');
           reportable: prepared ? false : record?.reportable !== false,
           prepared,
           reactions: this.normalizeReactions(record?.reactions),
-          createdAt
+          createdAt,
+          inkNumber: Math.max(0, Number(record?.inkNumber) || 0)
         };
       }
 
@@ -3310,10 +3329,16 @@ inkwall_begin_public_request('view');
         const entityLabel = this.svgEntityLabel(payload.message, payload.bindings);
         const entityX = align === "right" ? 62 : 1138;
         const entityAnchor = align === "right" ? "start" : "end";
+        const inkNumber = Math.max(0, Number(payload.inkNumber) || 0);
+        const inkNumberText = String(inkNumber || 0).padStart(3, "0");
+        const isLatest = payload.mode === "latest";
+        const showFooterNumber = Boolean(AppConfig.branding.svg_ink_number !== false && isLatest && inkNumber);
+        const headerLabel = AppConfig.branding.svg_latest_label === "all" || isLatest ? "LATEST PUBLIC INK" : inkNumber ? `INK #${inkNumberText}` : "INK";
+        const footerNumber = showFooterNumber ? `<text x="62" y="${entityY}" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="15" fill="${muted}">Currently showing Ink</text><text x="249" y="${entityY}" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="15" font-weight="800" fill="${ink}">#</text><text x="261" y="${entityY}" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="15" font-weight="800" fill="${red}">${this.escapeSvg(inkNumberText)}</text>` : "";
         const dots = showDots
           ? `<defs><pattern id="${grainId}" width="23" height="23" patternUnits="userSpaceOnUse"><circle cx="4" cy="7" r=".55" fill="${muted}"/><circle cx="18" cy="19" r=".32" fill="${muted}"/></pattern></defs><rect width="1200" height="${height}" rx="24" fill="url(#${grainId})" opacity=".38"/>`
           : "";
-        return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="${height}" viewBox="0 0 1200 ${height}" role="img"><title>Latest InkWall note by ${this.escapeSvg(payload.name || "Anonymous")}</title><desc>${this.escapeSvg(payload.message || "")}</desc><rect width="1200" height="${height}" rx="24" fill="${paper}"/>${dots}<rect x="24" y="24" width="1152" height="${height - 48}" rx="15" fill="none" stroke="${ink}" stroke-width="2"/><circle cx="62" cy="52" r="7" fill="${red}"/><text x="82" y="59" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="20" font-weight="700" letter-spacing="2" fill="${ink}">LATEST PUBLIC INK</text>${image}<g font-family="ui-monospace, SFMono-Regular, Consolas, monospace" fill="${ink}">${lines.map((line, index) => line ? `<text x="${messageX}" y="${textTop + (index * lineHeight)}" text-anchor="${textAnchor}" font-size="${fontSize}" font-weight="${fontWeight}">${this.escapeSvg(line)}</text>` : "").join("")}<text x="${messageX}" y="${authorY}" text-anchor="${textAnchor}" font-size="21" font-weight="700">${this.escapeSvg(payload.name || "Anonymous")}</text></g><text x="1138" y="58" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="15" fill="${muted}">${this.escapeSvg(date)}</text><text x="${entityX}" y="${entityY}" text-anchor="${entityAnchor}" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="15" fill="${muted}">${this.escapeSvg(entityLabel)}</text></svg>`;
+        return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="${height}" viewBox="0 0 1200 ${height}" role="img"><title>Latest InkWall note by ${this.escapeSvg(payload.name || "Anonymous")}</title><desc>${this.escapeSvg(payload.message || "")}</desc><rect width="1200" height="${height}" rx="24" fill="${paper}"/>${dots}<rect x="24" y="24" width="1152" height="${height - 48}" rx="15" fill="none" stroke="${ink}" stroke-width="2"/><circle cx="62" cy="52" r="7" fill="${red}"/><text x="82" y="59" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="20" font-weight="700" letter-spacing="2" fill="${ink}">${this.escapeSvg(headerLabel)}</text>${image}<g font-family="ui-monospace, SFMono-Regular, Consolas, monospace" fill="${ink}">${lines.map((line, index) => line ? `<text x="${messageX}" y="${textTop + (index * lineHeight)}" text-anchor="${textAnchor}" font-size="${fontSize}" font-weight="${fontWeight}">${this.escapeSvg(line)}</text>` : "").join("")}<text x="${messageX}" y="${authorY}" text-anchor="${textAnchor}" font-size="21" font-weight="700">${this.escapeSvg(payload.name || "Anonymous")}</text></g><text x="1138" y="58" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="15" fill="${muted}">${this.escapeSvg(date)}</text>${footerNumber}<text x="${entityX}" y="${entityY}" text-anchor="${entityAnchor}" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="15" fill="${muted}">${this.escapeSvg(entityLabel)}</text></svg>`;
       }
 
       set(payload) {
@@ -4218,7 +4243,16 @@ inkwall_begin_public_request('view');
       Object.freeze({ emoji: "😂", label: "Funny" }),
       Object.freeze({ emoji: "🤝", label: "Support" }),
       Object.freeze({ emoji: "👀", label: "Watching" }),
-      Object.freeze({ emoji: "🚀", label: "Launch" })
+      Object.freeze({ emoji: "🚀", label: "Launch" }),
+      Object.freeze({ emoji: "✨", label: "Spark" }),
+      Object.freeze({ emoji: "🙌", label: "Celebrate" }),
+      Object.freeze({ emoji: "👍", label: "Agree" }),
+      Object.freeze({ emoji: "😮", label: "Wow" }),
+      Object.freeze({ emoji: "🎉", label: "Party" }),
+      Object.freeze({ emoji: "🫶", label: "Care" }),
+      Object.freeze({ emoji: "💯", label: "Perfect" }),
+      Object.freeze({ emoji: "🌊", label: "Flow" }),
+      Object.freeze({ emoji: "🧠", label: "Smart" })
     ]);
     const PrimaryReaction = "❤";
     const FlyingHeartSymbols = Object.freeze(["❤", "♥", "💖", "💗", "💕"]);
@@ -4751,7 +4785,7 @@ inkwall_begin_public_request('view');
           span.setAttribute("aria-current", String(span.dataset.localeOption === this.locale));
         });
         set(".page-back__label", "back");
-        Dom.pageBackButton.setAttribute("aria-label", this.locale === "de" ? "Zurueck zu angusu.de" : "Return to angusu.de");
+        Dom.pageBackButton.setAttribute("aria-label", this.locale === "de" ? "Zurück zu angusu.de" : "Return to angusu.de");
         set(".eyebrow", "eyebrow");
         set(".hero h1", "heroTitle");
         set(".hero__route > span", "heroRoute");
@@ -5150,13 +5184,13 @@ inkwall_begin_public_request('view');
         if (!draft.nameResult.allowed && Dom.nameInput.value.trim()) return this.setStatus(this.reasonText(draft.nameResult.reason), "danger");
         if (!draft.messageResult.allowed) return this.setStatus(this.reasonText(draft.messageResult.reason), "danger");
         if (!draft.messageResult.clean) return this.setStatus(this.text("formStart"));
-        if (heldDraft) return this.setStatus(`${this.text("exactReview")} ${this.locale === "de" ? "Aendere den Entwurf, um weiterzumachen." : "Change the draft to continue."}`, "warning");
+        if (heldDraft) return this.setStatus(`${this.text("exactReview")} ${this.locale === "de" ? "Ändere den Entwurf, um weiterzumachen." : "Change the draft to continue."}`, "warning");
         if (this.imageWorkbench.failed) return this.setStatus(this.text("statusImageFailed"), "danger");
         if (draft.imagePending || this.imageWorkbench.processing) return this.setStatus(this.text("statusImagePreparing"));
         if (publishedDraftIsVisible) return this.setStatus(this.text("statusPublished"), "success");
-        if (previewMatchesDraft && draft.messageResult.count) return this.setStatus(this.locale === "de" ? `${draft.messageResult.count} Ausdruck${draft.messageResult.count === 1 ? "" : "e"} verborgen. Vorschau bereit zum Veroeffentlichen.` : `${draft.messageResult.count} expression${draft.messageResult.count === 1 ? "" : "s"} obscured. Preview ready to publish.`, "warning");
+        if (previewMatchesDraft && draft.messageResult.count) return this.setStatus(this.locale === "de" ? `${draft.messageResult.count} Ausdruck${draft.messageResult.count === 1 ? "" : "e"} verborgen. Vorschau bereit zum Veröffentlichen.` : `${draft.messageResult.count} expression${draft.messageResult.count === 1 ? "" : "s"} obscured. Preview ready to publish.`, "warning");
         if (previewMatchesDraft) return this.setStatus(this.text("statusPreviewReady"), "success");
-        if (draft.messageResult.count) return this.setStatus(this.locale === "de" ? `${draft.messageResult.count} Ausdruck${draft.messageResult.count === 1 ? "" : "e"} wird auf der oeffentlichen Flaeche verborgen.` : `${draft.messageResult.count} expression${draft.messageResult.count === 1 ? "" : "s"} will be obscured on the public surface.`, "warning");
+        if (draft.messageResult.count) return this.setStatus(this.locale === "de" ? `${draft.messageResult.count} Ausdruck${draft.messageResult.count === 1 ? "" : "e"} wird auf der öffentlichen Fläche verborgen.` : `${draft.messageResult.count} expression${draft.messageResult.count === 1 ? "" : "s"} will be obscured on the public surface.`, "warning");
         return this.setStatus(this.text("statusDraftChanged"));
       }
 
@@ -5266,7 +5300,7 @@ inkwall_begin_public_request('view');
         Dom.publishButton.disabled = true;
         Dom.updateButton.disabled = true;
         Dom.publishStage.dataset.state = "publishing";
-        this.setStatus(this.locale === "de" ? "Wird auf GitHub veroeffentlicht." : "Publishing to GitHub surface.");
+        this.setStatus(this.locale === "de" ? "Wird auf GitHub veröffentlicht." : "Publishing to GitHub surface.");
         await this.publishStep(10, "publishProgressPreparing", 120);
         try {
           const publishRequest = this.repository.publish({
@@ -5393,7 +5427,9 @@ inkwall_begin_public_request('view');
         });
         bar.append(like);
 
-        summary.filter(item => item.emoji !== PrimaryReaction).slice(0, 4).forEach(item => {
+        const secondary = summary.filter(item => item.emoji !== PrimaryReaction);
+        const secondaryLimit = matchMedia("(max-width: 430px)").matches ? 2 : matchMedia("(max-width: 760px)").matches ? 3 : 5;
+        secondary.slice(0, secondaryLimit).forEach(item => {
           const button = document.createElement("button");
           button.type = "button";
           button.className = `reaction-pill${item.reacted ? " is-selected" : ""}`;
@@ -5424,7 +5460,8 @@ inkwall_begin_public_request('view');
         add.setAttribute("aria-haspopup", "dialog");
         add.setAttribute("aria-controls", "reactionPopover");
         add.setAttribute("aria-label", `React to note ${message.id}`);
-        add.innerHTML = '<span aria-hidden="true">+</span><span>React</span>';
+        const hiddenCount = Math.max(0, secondary.length - secondaryLimit);
+        add.innerHTML = hiddenCount > 0 ? `<span aria-hidden="true">+</span><span>${hiddenCount}</span>` : '<span aria-hidden="true">+</span><span>React</span>';
         add.addEventListener("click", () => this.reactionPopover.open(message, add));
         bar.append(add);
         return bar;
@@ -5659,6 +5696,7 @@ inkwall_begin_public_request('view');
           row.setAttribute("aria-label", `${isExpanded ? "Collapse" : "Open"} liked ink by ${item.message.name}`);
           const toggleTopLiked = event => {
             if (event.target.closest("a, button, input, textarea, select, label")) return;
+            if (matchMedia("(max-width: 680px)").matches) return;
             this.expandedTopLikedId = this.expandedTopLikedId === item.message.id ? null : item.message.id;
             this.renderTopLiked();
           };
@@ -5726,6 +5764,7 @@ inkwall_begin_public_request('view');
             LinkRenderer.render(copy, item.message.message, { bindings: item.message.bindings, showFavicons: item.message.showFavicons });
             detail.append(svgPreview, copy, this.renderReactionBar(item.message, { afterChange: () => this.renderRecent() }), this.renderInkActions(item.message, { includeReport: false }));
           }
+          if (isExpanded) score.hidden = true;
           if (thumb) row.append(rank, thumb, main, score, detail);
           else row.append(rank, main, score, detail);
           Dom.topLikedList.append(row);
@@ -5789,6 +5828,7 @@ inkwall_begin_public_request('view');
           article.setAttribute("aria-label", `${this.expandedRecentId === message.id ? "Shrink" : "Enlarge"} ink preview by ${message.name}`);
           const toggleExpanded = event => {
             if (event.target.closest("a, button, input, textarea, select, label")) return;
+            if (matchMedia("(max-width: 680px)").matches) return;
             this.setExpandedRecent(this.expandedRecentId === message.id ? null : message.id);
           };
           article.addEventListener("click", toggleExpanded);
@@ -5852,7 +5892,7 @@ inkwall_begin_public_request('view');
         const latest = this.publicMessages()[0];
         this.previewMode = "latest";
         this.activeId = latest?.id || null;
-        if (this.expandedPublicInkId && this.expandedPublicInkId !== latest?.id) this.expandedPublicInkId = null;
+        this.expandedPublicInkId = latest?.id || null;
         this.appliedSignature = null;
         this.appliedContentSignature = null;
         const payload = latest
@@ -6015,6 +6055,20 @@ inkwall_begin_public_request('view');
         });
       }
 
+      showSharedInkNotice() {
+        if (!AppConfig.initialInkId) return;
+        const shared = this.publicMessages().find(message => message.id === AppConfig.initialInkId);
+        const latest = this.publicMessages()[0];
+        if (!shared || shared.id === latest?.id) return;
+        this.showToast(this.text("toastSharedArchive", { name: shared.name }), {
+          onClick: () => {
+            Dom.toast.classList.remove("is-visible");
+            if (!matchMedia("(max-width: 680px)").matches) this.setExpandedRecent(shared.id);
+            this.revealMessageInArchive(shared.id);
+          }
+        });
+      }
+
       async init() {
         this.applyThemeState(this.resolveTheme(), { persist: false });
         document.documentElement.lang = this.locale;
@@ -6037,6 +6091,7 @@ inkwall_begin_public_request('view');
         this.applyLocale();
         this.renderLayoutControls();
         this.showLatest(false);
+        this.showSharedInkNotice();
         this.renderEntities();
         this.updateState();
         this.startLiveUpdates();
