@@ -200,6 +200,22 @@ function Site-Label($Url) {
     return ($uri.Host + $uri.AbsolutePath).TrimEnd("/")
 }
 
+function Env-CandidatePaths($PublicUrl) {
+    $paths = @()
+    try {
+        $uri = [Uri]$PublicUrl
+        $host = $uri.Host.ToLowerInvariant()
+        $siteDir = $host -replace '[^a-z0-9]+', '_'
+        $paths += "/var/www/html/AlleProjekte/$siteDir/.env"
+        $paths += "/var/www/html/$siteDir/.env"
+        $paths += "/var/www/$siteDir/.env"
+        $paths += "/var/www/html/$host/.env"
+        $paths += "/var/www/$host/.env"
+    } catch {}
+    $paths += "/var/www/html/AlleProjekte/angusu_de/.env"
+    return @($paths | Where-Object { $_ -match '^/[A-Za-z0-9_./-]+$' } | Select-Object -Unique)
+}
+
 function Test-LocalPortFree($Port) {
     try {
         $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, $Port)
@@ -349,10 +365,18 @@ function Select-SshKey($Target, $ExistingKey = "") {
     }
 }
 
-function Find-RemoteEnvPath($Target, $KeyPath, $ExistingPath = "") {
+function Find-RemoteEnvPath($Target, $KeyPath, $ExistingPath = "", $CandidatePaths = @()) {
     if ($ExistingPath -and $ExistingPath -match '^/[A-Za-z0-9_./-]+$') {
         $existing = Invoke-QuietSsh $Target $KeyPath "test -f '$ExistingPath' && printf FOUND"
         if ($existing.Output -eq "FOUND") { return $ExistingPath }
+    }
+
+    foreach ($candidate in $CandidatePaths) {
+        $candidateResult = Invoke-QuietSsh $Target $KeyPath "test -f '$candidate' && grep -Iqs '^INKWALL_' '$candidate' && printf FOUND"
+        if ($candidateResult.Output -eq "FOUND") {
+            Write-Host "Found InkWall server config: $candidate"
+            if (YesNo "Use this server config?" "y") { return $candidate }
+        }
     }
 
     $scan = @'
@@ -375,7 +399,8 @@ done | head -20
     }
 
     while ($true) {
-        $path = Ask "Absolute path to the server .env" "/var/www/inkwall/.env"
+        $fallbackPath = if ($CandidatePaths.Count -gt 0) { [string]$CandidatePaths[0] } else { "/var/www/inkwall/.env" }
+        $path = Ask "Absolute path to the server .env" $fallbackPath
         if ($path -match '^/[A-Za-z0-9_./-]+$') { return $path }
         Write-Host "Please enter an absolute Linux path without spaces."
     }
@@ -513,7 +538,7 @@ if ($remoteMode -ne "off") {
             $remoteEndpoint = "http://127.0.0.1:$privatePort"
         } else {
             $oldServerEnv = if ($existing.ContainsKey("INKWALL_PRIVATE_REVIEW_SERVER_ENV")) { $existing["INKWALL_PRIVATE_REVIEW_SERVER_ENV"] } else { "" }
-            $serverEnvPath = Find-RemoteEnvPath $sshTarget $sshKey $oldServerEnv
+            $serverEnvPath = Find-RemoteEnvPath $sshTarget $sshKey $oldServerEnv (Env-CandidatePaths $publicUrl)
             $portAttempts = 0
             while (-not (Test-RemotePortFree $sshTarget $sshKey $privatePort)) {
                 $portAttempts++
