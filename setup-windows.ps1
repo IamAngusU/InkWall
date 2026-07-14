@@ -234,9 +234,9 @@ function Invoke-QuietSsh($Target, $KeyPath, $RemoteCommand, $Timeout = 8) {
     $args = @("-i", $KeyPath, "-o", "BatchMode=yes", "-o", "ConnectTimeout=$Timeout", $Target, $RemoteCommand)
     try {
         $process = Start-Process -FilePath "ssh" -ArgumentList $args -NoNewWindow -Wait -PassThru -RedirectStandardOutput $outFile -RedirectStandardError $errFile
-        $output = ""
-        if (Test-Path $outFile) { $output = (Get-Content $outFile -Raw -ErrorAction SilentlyContinue) }
-        return @{ ExitCode = $process.ExitCode; Output = $output.Trim() }
+        $output = if (Test-Path $outFile) { [string](Get-Content $outFile -Raw -ErrorAction SilentlyContinue) } else { "" }
+        $exitCode = if ($process) { [int]$process.ExitCode } else { 1 }
+        return @{ ExitCode = $exitCode; Output = $output.Trim() }
     } finally {
         Remove-Item $outFile, $errFile -Force -ErrorAction SilentlyContinue
     }
