@@ -464,7 +464,7 @@ Write-Host "InkWall quick setup" -ForegroundColor Cyan
 Muted "GitHub, repository, SSH, and server config are checked before anything starts."
 $existing = Read-EnvFile $EnvPath
 $githubDefault = GitHub-DefaultFromRemote
-if (-not $githubDefault) { $githubDefault = "https://github.com/IamAngusU" }
+if (-not $githubDefault) { $githubDefault = "yourname" }
 if ($existing.ContainsKey("INKWALL_BRANDING_JSON")) {
     try {
         $existingBrand = $existing["INKWALL_BRANDING_JSON"] | ConvertFrom-Json
@@ -739,11 +739,23 @@ if ($serverPaired) {
 }
 
 if ($remoteMode -ne "off") {
-    if (YesNo "Start InkWall automatically after Windows sign-in?" "y") {
-        $autostartMode = Ask "Autostart mode: hidden or window" "hidden"
+    Write-Host ""
+    Write-Host "Windows autostart:" -ForegroundColor Cyan
+    Write-Host "  y) Start the private receiver and SSH tunnel after Windows sign-in"
+    Write-Host "  n) Start it manually later"
+    if (YesNo "Install autostart?" "y") {
+        Write-Host ""
+        Write-Host "Autostart window mode:" -ForegroundColor Cyan
+        Write-Host "  hidden) Run quietly in the background"
+        Write-Host "  window) Open a visible window, useful while testing"
+        $autostartMode = Ask "Choose hidden or window" "hidden"
         if ($autostartMode -notin @("hidden", "window")) { $autostartMode = "hidden" }
         & (Join-Path $Root "manage-private-review-windows.ps1") -Action install -WindowMode $autostartMode -Port $privatePort -Server $sshTarget
-        if (YesNo "Start it now?" "y") {
+        Write-Host ""
+        Write-Host "Start now:" -ForegroundColor Cyan
+        Write-Host "  y) Start receiver and SSH tunnel now"
+        Write-Host "  n) Leave it installed, but start later"
+        if (YesNo "Start now?" "y") {
             & (Join-Path $Root "manage-private-review-windows.ps1") -Action start
         }
     } else {
