@@ -201,22 +201,27 @@ Private fallback review can send text, images, or both to your own machine. Use 
 INKWALL_REMOTE_REVIEW=fallback
 INKWALL_REMOTE_REVIEW_ENDPOINT=https://your-private-endpoint.example/review
 INKWALL_REMOTE_REVIEW_SECRET=change-this-long-random-secret
+INKWALL_REMOTE_REVIEW_ENCRYPT=1
+INKWALL_REMOTE_REVIEW_ENCRYPTION_KEY=change-this-second-long-random-secret
 INKWALL_REMOTE_REVIEW_TIMEOUT_SECONDS=8
 INKWALL_REMOTE_REVIEW_FAIL_OPEN=1
 INKWALL_REMOTE_REVIEW_SEND_TEXT=1
 INKWALL_REMOTE_REVIEW_SEND_IMAGE=1
 ```
 
-On your private machine you can run the included receiver. Put it behind HTTPS directly, through a reverse proxy, or through an SSH tunnel that forwards only this local port.
+On your private machine you can run the included receiver. Put it behind HTTPS directly, through a reverse proxy, or through an SSH tunnel that forwards only this local port. Requests are authenticated with HMAC. With `INKWALL_REMOTE_REVIEW_ENCRYPT=1`, the payload is encrypted with XChaCha20-Poly1305 before transport and decrypted only by the private receiver.
 
 ```bash
 export INKWALL_PRIVATE_REVIEW_SECRET="change-this-long-random-secret"
+export INKWALL_PRIVATE_REVIEW_ENCRYPTION_KEY="change-this-second-long-random-secret"
 export INKWALL_PRIVATE_REVIEW_DIR="$HOME/InkWallReviewInbox"
 export INKWALL_PRIVATE_REVIEW_DEFAULT=review
 # Optional: command receives the created job folder and prints JSON.
 export INKWALL_PRIVATE_REVIEW_COMMAND="$HOME/bin/inkwall-local-review"
 php -S 127.0.0.1:8787 tools/private-review-receiver.php
 ```
+
+The command can send the saved job to Ollama, a local script, a local app, or any other private review system. It receives the job folder path as its first argument and must print compact JSON:
 
 Example local review command output:
 

@@ -597,7 +597,7 @@ function inkwall_array_has_key_value(array $input, string $key, mixed $value): b
 function inkwall_remote_review_send(array $moderation, string $noteId, string $name, string $message, ?string $imageMime, ?string $imageData, string $reason): ?array {
     $endpoint = trim(inkwall_env('INKWALL_REMOTE_REVIEW_ENDPOINT', ''));
     $secret = inkwall_env('INKWALL_REMOTE_REVIEW_SECRET', '');
-    if ($endpoint === '' || $secret === '' || !filter_var($endpoint, FILTER_VALIDATE_URL)) return null;
+    if ($endpoint === '' || $secret === '' || !filter_var($endpoint, FILTER_VALIDATE_URL) || !inkwall_remote_review_endpoint_allowed($endpoint)) return null;
 
     $sendText = inkwall_env_bool('INKWALL_REMOTE_REVIEW_SEND_TEXT', true);
     $sendImage = inkwall_env_bool('INKWALL_REMOTE_REVIEW_SEND_IMAGE', true);
@@ -617,6 +617,8 @@ function inkwall_remote_review_send(array $moderation, string $noteId, string $n
             ] : null,
         ],
     ];
+    $payload = inkwall_remote_review_encrypt_payload($payload);
+    if ($payload === null) return null;
     $body = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     if (!is_string($body)) return null;
     $timestamp = (string)time();
@@ -640,6 +642,46 @@ function inkwall_remote_review_send(array $moderation, string $noteId, string $n
         error_log('[inkwall_remote_review] ' . $error->getMessage());
         return null;
     }
+}
+
+function inkwall_remote_review_endpoint_allowed(string $endpoint): bool {
+    $scheme = strtolower((string)(parse_url($endpoint, PHP_URL_SCHEME) ?? ''));
+    $host = strtolower((string)(parse_url($endpoint, PHP_URL_HOST) ?? ''));
+    if ($scheme === 'https') return true;
+    $allowLocalHttp = inkwall_env_bool('INKWALL_REMOTE_REVIEW_ALLOW_INSECURE_LOCAL', true);
+    return $allowLocalHttp && $scheme === 'http' && in_array($host, ['127.0.0.1', '::1', 'localhost'], true);
+}
+
+function inkwall_remote_review_encrypt_payload(array $payload): ?array {
+    if (!inkwall_env_bool('INKWALL_REMOTE_REVIEW_ENCRYPT', false)) return $payload;
+    if (!function_exists('sodium_crypto_aead_xchacha20poly1305_ietf_encrypt')) {
+        error_log('[inkwall_remote_review] sodium unavailable');
+        return null;
+    }
+    $key = inkwall_remote_review_encryption_key('INKWALL_REMOTE_REVIEW_ENCRYPTION_KEY', 'INKWALL_REMOTE_REVIEW_SECRET');
+    if ($key === null) return null;
+    $plain = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    if (!is_string($plain)) return null;
+    $nonce = random_bytes(SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_NPUBBYTES);
+    $cipher = sodium_crypto_aead_xchacha20poly1305_ietf_encrypt($plain, 'inkwall-remote-review-v1', $nonce, $key);
+    return [
+        'encrypted' => true,
+        'alg' => 'xchacha20poly1305',
+        'version' => 1,
+        'nonce' => base64_encode($nonce),
+        'ciphertext' => base64_encode($cipher),
+    ];
+}
+
+function inkwall_remote_review_encryption_key(string $primaryEnv, string $fallbackEnv): ?string {
+    $raw = inkwall_env($primaryEnv, '');
+    if ($raw === '') $raw = inkwall_env($fallbackEnv, '');
+    if ($raw === '') return null;
+    if (str_starts_with($raw, 'base64:')) {
+        $decoded = base64_decode(substr($raw, 7), true);
+        if (is_string($decoded) && strlen($decoded) === SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_KEYBYTES) return $decoded;
+    }
+    return hash('sha256', $raw, true);
 }
 
 function inkwall_remote_review_public_moderation(array $moderation): array {

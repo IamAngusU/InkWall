@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 $secret = (string)getenv('INKWALL_PRIVATE_REVIEW_SECRET');
+$encryptionKey = (string)getenv('INKWALL_PRIVATE_REVIEW_ENCRYPTION_KEY');
 $root = (string)(getenv('INKWALL_PRIVATE_REVIEW_DIR') ?: (__DIR__ . '/../data/private-review-inbox'));
 $defaultVerdict = strtolower((string)(getenv('INKWALL_PRIVATE_REVIEW_DEFAULT') ?: 'review'));
 $maxSkew = max(30, (int)(getenv('INKWALL_PRIVATE_REVIEW_MAX_SKEW') ?: 300));
@@ -35,6 +36,9 @@ if (!hash_equals($expected, $signature)) respond(['error' => 'Invalid signature'
 
 $payload = json_decode($raw, true);
 if (!is_array($payload)) respond(['error' => 'Invalid JSON'], 400);
+if (!empty($payload['encrypted'])) {
+    $payload = decrypt_payload($payload, $encryptionKey !== '' ? $encryptionKey : $secret);
+}
 
 $noteId = preg_replace('/[^a-z0-9-]+/i', '_', (string)($payload['note_id'] ?? 'unknown')) ?: 'unknown';
 $stamp = gmdate('Ymd-His');
@@ -91,3 +95,29 @@ $response = [
 ];
 file_put_contents($jobDir . '/decision.json', json_encode($response, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n", LOCK_EX);
 respond($response);
+
+function decrypt_payload(array $envelope, string $rawKey): array {
+    if (!function_exists('sodium_crypto_aead_xchacha20poly1305_ietf_decrypt')) {
+        respond(['error' => 'Sodium unavailable'], 500);
+    }
+    if ((string)($envelope['alg'] ?? '') !== 'xchacha20poly1305') respond(['error' => 'Unsupported encryption'], 400);
+    $nonce = base64_decode((string)($envelope['nonce'] ?? ''), true);
+    $cipher = base64_decode((string)($envelope['ciphertext'] ?? ''), true);
+    if (!is_string($nonce) || !is_string($cipher)) respond(['error' => 'Invalid encrypted payload'], 400);
+    $key = derive_key($rawKey);
+    if ($key === null) respond(['error' => 'Encryption key missing'], 500);
+    $plain = sodium_crypto_aead_xchacha20poly1305_ietf_decrypt($cipher, 'inkwall-remote-review-v1', $nonce, $key);
+    if (!is_string($plain)) respond(['error' => 'Cannot decrypt payload'], 401);
+    $payload = json_decode($plain, true);
+    if (!is_array($payload)) respond(['error' => 'Invalid decrypted JSON'], 400);
+    return $payload;
+}
+
+function derive_key(string $raw): ?string {
+    if ($raw === '') return null;
+    if (str_starts_with($raw, 'base64:')) {
+        $decoded = base64_decode(substr($raw, 7), true);
+        if (is_string($decoded) && strlen($decoded) === SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_KEYBYTES) return $decoded;
+    }
+    return hash('sha256', $raw, true);
+}
