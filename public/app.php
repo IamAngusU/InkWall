@@ -440,7 +440,7 @@ function inkwall_verify_note_token(string $noteId, string $token, string $purpos
     return hash_equals(inkwall_note_token($noteId, $purpose), $token);
 }
 
-function inkwall_ai_moderation(string $name, string $message, ?string $imageMime, ?string $imageData): array {
+function inkwall_ai_moderation(string $name, string $message, ?string $imageMime, ?string $imageData, string $noteId = ''): array {
     $localFlags = inkwall_moderation($name, $message);
     $result = [
         'verdict' => $localFlags ? 'review' : 'allow',
@@ -453,29 +453,33 @@ function inkwall_ai_moderation(string $name, string $message, ?string $imageMime
             'text' => inkwall_ai_review_step('text', 'local', 'local', $localFlags ? 'review' : 'allow', $localFlags, [], 0, ''),
         ],
     ];
-    if (!inkwall_ai_moderation_enabled()) return $result;
+    if (!inkwall_ai_moderation_enabled()) return inkwall_remote_review_apply($result, $noteId, $name, $message, $imageMime, $imageData, 'always');
 
     $hasImage = $imageData !== null && $imageMime !== null;
     $textConfig = inkwall_ai_channel_config('text');
     $imageConfig = $hasImage ? inkwall_ai_channel_config('image') : ['provider' => 'manual', 'model' => 'manual'];
     if ($hasImage && $imageConfig['provider'] === $textConfig['provider'] && inkwall_ai_provider_supports_images($textConfig['provider'])) {
-        return inkwall_ai_channel_moderation('text', $textConfig, $name, $message, $imageMime, $imageData, $localFlags);
+        $result = inkwall_ai_channel_moderation('text', $textConfig, $name, $message, $imageMime, $imageData, $localFlags);
+        return inkwall_remote_review_apply($result, $noteId, $name, $message, $imageMime, $imageData, 'fallback');
     }
 
     $textResult = inkwall_ai_channel_moderation('text', $textConfig, $name, $message, null, null, $localFlags);
-    if (!$hasImage) return $textResult;
+    if (!$hasImage) return inkwall_remote_review_apply($textResult, $noteId, $name, $message, null, null, 'fallback');
 
     if (in_array($imageConfig['provider'], ['local', 'manual'], true)) {
         $imageFlags = in_array(strtolower(inkwall_env('INKWALL_AI_ALLOW_UNCHECKED_IMAGES', '0')), ['1', 'true', 'yes', 'on'], true) ? [] : ['image_unchecked'];
-        return inkwall_ai_merge_results($textResult, inkwall_ai_channel_manual_result('image', $imageConfig, $imageFlags));
+        $result = inkwall_ai_merge_results($textResult, inkwall_ai_channel_manual_result('image', $imageConfig, $imageFlags));
+        return inkwall_remote_review_apply($result, $noteId, $name, $message, $imageMime, $imageData, 'fallback');
     }
     if (!inkwall_ai_provider_supports_images($imageConfig['provider'])) {
         $imageFlags = in_array(strtolower(inkwall_env('INKWALL_AI_ALLOW_UNCHECKED_IMAGES', '0')), ['1', 'true', 'yes', 'on'], true) ? [] : ['image_unchecked'];
-        return inkwall_ai_merge_results($textResult, inkwall_ai_channel_manual_result('image', $imageConfig, $imageFlags, 'no-vision'));
+        $result = inkwall_ai_merge_results($textResult, inkwall_ai_channel_manual_result('image', $imageConfig, $imageFlags, 'no-vision'));
+        return inkwall_remote_review_apply($result, $noteId, $name, $message, $imageMime, $imageData, 'fallback');
     }
 
     $imageResult = inkwall_ai_channel_moderation('image', $imageConfig, $name, $message, $imageMime, $imageData, []);
-    return inkwall_ai_merge_results($textResult, $imageResult);
+    $result = inkwall_ai_merge_results($textResult, $imageResult);
+    return inkwall_remote_review_apply($result, $noteId, $name, $message, $imageMime, $imageData, 'fallback');
 }
 
 function inkwall_ai_channel_moderation(string $channel, array $config, string $name, string $message, ?string $imageMime, ?string $imageData, array $localFlags): array {
@@ -544,6 +548,107 @@ function inkwall_ai_merge_results(array ...$results): array {
         'error' => mb_substr(implode(' | ', $errors), 0, 500),
         'reviewed_at' => $reviewedAt,
         'review' => $review,
+    ];
+}
+
+function inkwall_remote_review_apply(array $moderation, string $noteId, string $name, string $message, ?string $imageMime, ?string $imageData, string $reason): array {
+    $mode = strtolower(inkwall_env('INKWALL_REMOTE_REVIEW', 'off'));
+    if (in_array($mode, ['0', 'false', 'off', 'disabled', 'none'], true)) return $moderation;
+    $fallbackOnly = in_array($mode, ['fallback', 'failover', 'on_fail', 'on-fail'], true);
+    if ($fallbackOnly && !inkwall_remote_review_needs_fallback($moderation)) return $moderation;
+    if (!in_array($mode, ['1', 'true', 'on', 'enabled', 'always', 'all'], true) && !$fallbackOnly) return $moderation;
+
+    $remote = inkwall_remote_review_send($moderation, $noteId, $name, $message, $imageMime, $imageData, $reason);
+    if ($remote === null) {
+        if (inkwall_ai_fail_open('remote_review')) return $moderation;
+        return inkwall_ai_merge_results($moderation, inkwall_ai_result([], ['remote_review_unavailable'], [], 'remote_review', 'Remote review unavailable'));
+    }
+    return inkwall_ai_merge_results($moderation, $remote);
+}
+
+function inkwall_remote_review_needs_fallback(array $moderation): bool {
+    $flags = array_map('strval', is_array($moderation['flags'] ?? null) ? $moderation['flags'] : []);
+    foreach ($flags as $flag) {
+        if (in_array(inkwall_ai_flag_key($flag), ['ai_unavailable', 'ai_rate_limited', 'ai_unparseable', 'image_unchecked'], true)) return true;
+    }
+    $scores = is_array($moderation['scores'] ?? null) ? $moderation['scores'] : [];
+    if (inkwall_array_has_key_value($scores, 'fail_open', true)) return true;
+    $review = is_array($moderation['review'] ?? null) ? $moderation['review'] : [];
+    foreach ($review as $step) {
+        if (!is_array($step)) continue;
+        if (trim((string)($step['error'] ?? '')) !== '' && in_array((string)($step['decision'] ?? ''), ['allow', 'review'], true)) return true;
+        $stepFlags = array_map('strval', is_array($step['flags'] ?? null) ? $step['flags'] : []);
+        foreach ($stepFlags as $flag) {
+            if (in_array(inkwall_ai_flag_key($flag), ['ai_unavailable', 'ai_rate_limited', 'ai_unparseable', 'image_unchecked'], true)) return true;
+        }
+        if (inkwall_array_has_key_value(is_array($step['scores'] ?? null) ? $step['scores'] : [], 'fail_open', true)) return true;
+    }
+    return false;
+}
+
+function inkwall_array_has_key_value(array $input, string $key, mixed $value): bool {
+    foreach ($input as $k => $v) {
+        if ((string)$k === $key && $v === $value) return true;
+        if (is_array($v) && inkwall_array_has_key_value($v, $key, $value)) return true;
+    }
+    return false;
+}
+
+function inkwall_remote_review_send(array $moderation, string $noteId, string $name, string $message, ?string $imageMime, ?string $imageData, string $reason): ?array {
+    $endpoint = trim(inkwall_env('INKWALL_REMOTE_REVIEW_ENDPOINT', ''));
+    $secret = inkwall_env('INKWALL_REMOTE_REVIEW_SECRET', '');
+    if ($endpoint === '' || $secret === '' || !filter_var($endpoint, FILTER_VALIDATE_URL)) return null;
+
+    $sendText = inkwall_env_bool('INKWALL_REMOTE_REVIEW_SEND_TEXT', true);
+    $sendImage = inkwall_env_bool('INKWALL_REMOTE_REVIEW_SEND_IMAGE', true);
+    $payload = [
+        'project' => 'inkwall',
+        'version' => INKWALL_VERSION,
+        'note_id' => $noteId,
+        'created_at' => inkwall_now(),
+        'reason' => $reason,
+        'moderation' => inkwall_remote_review_public_moderation($moderation),
+        'content' => [
+            'name' => $sendText ? $name : '',
+            'message' => $sendText ? $message : '',
+            'image' => ($sendImage && $imageData !== null && $imageMime !== null) ? [
+                'mime' => $imageMime,
+                'base64' => base64_encode($imageData),
+            ] : null,
+        ],
+    ];
+    $body = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    if (!is_string($body)) return null;
+    $timestamp = (string)time();
+    $signature = base64_encode(hash_hmac('sha256', $timestamp . '.' . $body, $secret, true));
+    $headers = [
+        'X-InkWall-Timestamp: ' . $timestamp,
+        'X-InkWall-Signature: sha256=' . $signature,
+    ];
+
+    try {
+        $raw = inkwall_http_json($endpoint, $payload, $headers, inkwall_ai_env_int('INKWALL_REMOTE_REVIEW_TIMEOUT_SECONDS', 8, 1, 60));
+        $parsed = inkwall_ai_parse_chat_json(json_encode($raw, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
+        $model = mb_substr((string)($raw['model'] ?? inkwall_env('INKWALL_REMOTE_REVIEW_MODEL', 'private-review')), 0, 80);
+        $scores = array_merge($parsed['scores'], ['provider' => 'remote_review']);
+        $result = inkwall_ai_result([], $parsed['flags'], $scores, $model);
+        $result['review'] = [
+            'remote' => inkwall_ai_review_step('remote', 'remote_review', $model, (string)$result['verdict'], $result['flags'], $result['scores'], 0, ''),
+        ];
+        return $result;
+    } catch (Throwable $error) {
+        error_log('[inkwall_remote_review] ' . $error->getMessage());
+        return null;
+    }
+}
+
+function inkwall_remote_review_public_moderation(array $moderation): array {
+    return [
+        'verdict' => (string)($moderation['verdict'] ?? 'allow'),
+        'flags' => array_values(array_slice(array_map('strval', is_array($moderation['flags'] ?? null) ? $moderation['flags'] : []), 0, 20)),
+        'model' => mb_substr((string)($moderation['model'] ?? ''), 0, 160),
+        'error' => mb_substr((string)($moderation['error'] ?? ''), 0, 240),
+        'review' => is_array($moderation['review'] ?? null) ? $moderation['review'] : [],
     ];
 }
 
@@ -1057,7 +1162,7 @@ function inkwall_ai_telemetry_submit(array $moderation, string $status, bool $ha
     if ($endpoint === '' || !filter_var($endpoint, FILTER_VALIDATE_URL)) return;
     $review = is_array($moderation['review'] ?? null) ? $moderation['review'] : [];
     $channels = [];
-    foreach (['text', 'image'] as $channel) {
+    foreach (['text', 'image', 'remote'] as $channel) {
         if (!is_array($review[$channel] ?? null)) continue;
         $step = $review[$channel];
         $channels[$channel] = [
@@ -1092,7 +1197,7 @@ function inkwall_ai_telemetry_submit(array $moderation, string $status, bool $ha
     curl_close($ch);
 }
 
-function inkwall_http_json(string $url, array $payload, array $headers = []): array {
+function inkwall_http_json(string $url, array $payload, array $headers = [], int $timeoutSeconds = 10): array {
     $ch = curl_init($url);
     if ($ch === false) throw new RuntimeException('curl unavailable');
     curl_setopt_array($ch, [
@@ -1101,7 +1206,7 @@ function inkwall_http_json(string $url, array $payload, array $headers = []): ar
         CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_CONNECTTIMEOUT => 2,
-        CURLOPT_TIMEOUT => 10,
+        CURLOPT_TIMEOUT => max(1, $timeoutSeconds),
     ]);
     $raw = curl_exec($ch);
     $status = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);

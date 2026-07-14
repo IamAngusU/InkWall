@@ -36,7 +36,7 @@ if ($method === 'POST' && $path === 'messages') {
         $imageWidth = (int)$info[0]; $imageHeight = (int)$info[1]; $imageBytes = strlen($imageData);
         $imageInverted = !empty($image['inverted']) ? 1 : 0; $imageSignature = inkwall_clean_text($image['signature'] ?? '', 190);
     }
-    $moderation = inkwall_ai_moderation($name, $message, $imageMime, $imageData);
+    $moderation = inkwall_ai_moderation($name, $message, $imageMime, $imageData, $id);
     $flags = $moderation['flags'];
     $verdict = (string)($moderation['verdict'] ?? 'allow');
     $status = match ($verdict) {

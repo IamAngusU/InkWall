@@ -194,6 +194,36 @@ DeepSeek image sending is opt-in because the public DeepSeek API docs may differ
 
 For OpenAI image review, the API key only needs `Responses (/v1/responses)` write access. `List models` read access is optional for your own diagnostics. InkWall does not need OpenAI image generation, files, assistants, vector stores, chat completions, or the moderation endpoint when you use `openai_vision`.
 
+Private fallback review can send text, images, or both to your own machine. Use it when cloud AI is out of budget, unavailable, or when you want all review handled locally. The server signs every job with HMAC and accepts only `allow` or `review` plus flags from the private receiver. The normal InkWall flag policy still decides whether the note is public or held.
+
+```env
+# off, fallback, or always
+INKWALL_REMOTE_REVIEW=fallback
+INKWALL_REMOTE_REVIEW_ENDPOINT=https://your-private-endpoint.example/review
+INKWALL_REMOTE_REVIEW_SECRET=change-this-long-random-secret
+INKWALL_REMOTE_REVIEW_TIMEOUT_SECONDS=8
+INKWALL_REMOTE_REVIEW_FAIL_OPEN=1
+INKWALL_REMOTE_REVIEW_SEND_TEXT=1
+INKWALL_REMOTE_REVIEW_SEND_IMAGE=1
+```
+
+On your private machine you can run the included receiver. Put it behind HTTPS directly, through a reverse proxy, or through an SSH tunnel that forwards only this local port.
+
+```bash
+export INKWALL_PRIVATE_REVIEW_SECRET="change-this-long-random-secret"
+export INKWALL_PRIVATE_REVIEW_DIR="$HOME/InkWallReviewInbox"
+export INKWALL_PRIVATE_REVIEW_DEFAULT=review
+# Optional: command receives the created job folder and prints JSON.
+export INKWALL_PRIVATE_REVIEW_COMMAND="$HOME/bin/inkwall-local-review"
+php -S 127.0.0.1:8787 tools/private-review-receiver.php
+```
+
+Example local review command output:
+
+```json
+{"verdict":"allow","flags":[],"confidence":0.91,"model":"local-qwen3-vision"}
+```
+
 InkWall shares anonymous AI metadata with the maintainer by default so future releases can compare provider reliability and speed. It sends version, status, `has_image`, channel, provider, model, decision, flags, confidence, and latency. It does not send names, messages, images, IPs, full referrers, visitor hashes, report details, or secrets.
 
 ```env
