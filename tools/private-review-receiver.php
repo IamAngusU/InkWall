@@ -26,6 +26,9 @@ function header_value(string $name): string {
 if (strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {
     respond(['error' => 'POST required'], 405);
 }
+if (header_value('X-InkWall-Probe') === '1') {
+    respond(['ok' => true, 'service' => 'inkwall-private-review']);
+}
 if ($secret === '') respond(['error' => 'Receiver secret missing'], 500);
 
 log_line('Review request received from server.');

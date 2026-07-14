@@ -80,6 +80,10 @@ function Muted($Text) {
     Write-Host $Text -ForegroundColor DarkGray
 }
 
+function Warn($Text) {
+    Write-Host $Text -ForegroundColor Yellow
+}
+
 function Quote-ProcessArg($Value) {
     $text = [string]$Value
     if ($text -notmatch '[\s"]') { return $text }
@@ -117,13 +121,13 @@ function Test-PortFree($PortToCheck) {
 
 function Test-ServerCanReachReceiver($Server, $SshKey, $PortToCheck) {
     if (-not (Get-Command ssh -ErrorAction SilentlyContinue)) { return $false }
-    $remote = "if command -v curl >/dev/null 2>&1; then curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:$PortToCheck/; else printf NO_CURL; fi"
+    $remote = "if command -v curl >/dev/null 2>&1; then curl -s -X POST -H 'X-InkWall-Probe: 1' -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:$PortToCheck/; else printf NO_CURL; fi"
     $args = @("-o", "BatchMode=yes", "-o", "ConnectTimeout=8")
     if ($SshKey) { $args += @("-i", $SshKey) }
     $args += @($Server, $remote)
     try {
         $result = (& ssh @args 2>$null)
-        return (($result -join "").Trim() -eq "405")
+        return (($result -join "").Trim() -eq "200")
     } catch {
         return $false
     }
@@ -165,7 +169,9 @@ foreach ($key in @(
     "INKWALL_OLLAMA_SEND_IMAGES",
     "INKWALL_BROWSER_REVIEW_OPEN",
     "INKWALL_BROWSER_REVIEW_TIMEOUT_SECONDS",
-    "INKWALL_BROWSER_REVIEW_MODEL"
+    "INKWALL_BROWSER_REVIEW_MODEL",
+    "INKWALL_CONTEXTBRIDGE_EXE",
+    "INKWALL_CONTEXTBRIDGE_CONFIG"
 )) {
     if (-not [Environment]::GetEnvironmentVariable($key) -and $envValues.ContainsKey($key)) {
         [Environment]::SetEnvironmentVariable($key, $envValues[$key], "Process")
@@ -236,8 +242,27 @@ Good "SSH with encrypted InkWall payloads"
 Muted "Waiting for review jobs. Received jobs will be logged here and saved in the inbox."
 Write-Host ""
 
+$bridgeProcess = $null
+if ($env:INKWALL_CONTEXTBRIDGE_EXE -and (Test-Path $env:INKWALL_CONTEXTBRIDGE_EXE) -and $env:INKWALL_CONTEXTBRIDGE_CONFIG) {
+    Write-Host "ContextBridge: " -NoNewline
+    $health = & $env:INKWALL_CONTEXTBRIDGE_EXE health --config $env:INKWALL_CONTEXTBRIDGE_CONFIG 2>$null
+    if ($LASTEXITCODE -eq 0) {
+        Good "already running"
+    } else {
+        $bridgeArgs = @("serve", "--config", $env:INKWALL_CONTEXTBRIDGE_CONFIG)
+        $bridgeProcess = Start-Process -FilePath $env:INKWALL_CONTEXTBRIDGE_EXE -ArgumentList (Join-ProcessArgs $bridgeArgs) -WorkingDirectory (Split-Path -Parent $env:INKWALL_CONTEXTBRIDGE_EXE) -NoNewWindow -PassThru
+        Start-Sleep -Milliseconds 700
+        if ($bridgeProcess.HasExited) { throw "ContextBridge could not start." }
+        Good "started"
+    }
+}
+
+$phpOutput = Join-Path $LogDir "private-review-php-output.log"
+$phpServerLog = Join-Path $LogDir "private-review-php-server.log"
+Set-Content -Path $phpOutput -Value "" -Encoding UTF8
+Set-Content -Path $phpServerLog -Value "" -Encoding UTF8
 $phpArgs = @("-S", "$HostName`:$selectedPort", "tools/private-review-receiver.php")
-$phpProcess = Start-Process -FilePath "php" -ArgumentList $phpArgs -WorkingDirectory $Root -NoNewWindow -PassThru
+$phpProcess = Start-Process -FilePath "php" -ArgumentList $phpArgs -WorkingDirectory $Root -RedirectStandardOutput $phpOutput -RedirectStandardError $phpServerLog -PassThru
 Start-Sleep -Milliseconds 500
 if ($phpProcess.HasExited) {
     Write-Host "The private review receiver could not start."
@@ -276,7 +301,24 @@ try {
             Warn "Tunnel is open, but the reachability probe did not confirm it yet."
             Log-Line "Server reachability probe did not confirm tunnel"
         }
-        $sshProcess.WaitForExit()
+        $seenReceiverLines = 0
+        while (-not $sshProcess.HasExited -and -not $phpProcess.HasExited) {
+            Start-Sleep -Milliseconds 500
+            $receiverLines = @(Get-Content $phpServerLog -ErrorAction SilentlyContinue | Where-Object { $_ -match '\[\d{2}:\d{2}:\d{2}\]\s+(.+)$' })
+            if ($receiverLines.Count -le $seenReceiverLines) { continue }
+            foreach ($line in $receiverLines[$seenReceiverLines..($receiverLines.Count - 1)]) {
+                if ($line -notmatch '\[\d{2}:\d{2}:\d{2}\]\s+(.+)$') { continue }
+                $eventText = $Matches[1]
+                if ($eventText -eq "Review request received from server.") { Info "Review job received." }
+                elseif ($eventText -eq "Decrypting review payload.") { Muted "Decrypting the protected job payload..." }
+                elseif ($eventText -like "Stored review job:*") { Good ($eventText -replace '^Stored review job:', 'Job stored:') }
+                elseif ($eventText -eq "Running local review command.") { Info "Running the configured local review engine..." }
+                elseif ($eventText -like "Decision sent:*") { Good $eventText }
+                elseif ($eventText -like "Using default private review decision:*") { Warn $eventText }
+                elseif ($eventText -like "Local review command did not return valid JSON.*") { Warn $eventText }
+            }
+            $seenReceiverLines = $receiverLines.Count
+        }
         if ($phpProcess.HasExited) { break }
         Write-Host "Tunnel disconnected. " -NoNewline
         Muted "Reconnecting in 5 seconds."
@@ -286,4 +328,5 @@ try {
 } finally {
     if ($sshProcess -and -not $sshProcess.HasExited) { Stop-Process -Id $sshProcess.Id -Force -ErrorAction SilentlyContinue }
     if (-not $phpProcess.HasExited) { Stop-Process -Id $phpProcess.Id -Force -ErrorAction SilentlyContinue }
+    if ($bridgeProcess -and -not $bridgeProcess.HasExited) { Stop-Process -Id $bridgeProcess.Id -Force -ErrorAction SilentlyContinue }
 }

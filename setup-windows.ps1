@@ -84,6 +84,59 @@ function Write-EnvValues($Path, $Updates) {
     Set-Content -Path $Path -Value $updated -Encoding UTF8
 }
 
+function Set-ContextBridgeProvider($ConfigPath, $Provider) {
+    $yaml = Get-Content $ConfigPath -Raw
+    if ($Provider -eq "browser") {
+        $yaml = $yaml -replace '(?m)^\s{4}provider: ollama\s*$', '    provider: browser'
+        $yaml = $yaml -replace '(?m)^\s{4}fallback: \[browser\]\s*$', '    fallback: []'
+    } else {
+        $yaml = $yaml -replace '(?m)^\s{4}provider: browser\s*$', '    provider: ollama'
+        $yaml = $yaml -replace '(?m)^\s{4}fallback: \[\]\s*$', '    fallback: [browser]'
+    }
+    $utf8 = New-Object System.Text.UTF8Encoding($false)
+    [IO.File]::WriteAllText($ConfigPath, $yaml, $utf8)
+}
+
+function Ensure-ContextBridge($Provider) {
+    $installDir = Join-Path $Root "tools\contextbridge"
+    $exe = Join-Path $installDir "contextbridge.exe"
+    $configPath = Join-Path $installDir "config.yml"
+    $extensionPath = Join-Path $installDir "extension"
+
+    if (-not (Test-Path $exe)) {
+        Info "ContextBridge is not installed yet. Downloading and verifying the official GitHub release..."
+        $installer = Join-Path ([IO.Path]::GetTempPath()) ("contextbridge-install-" + [guid]::NewGuid().ToString("N") + ".ps1")
+        try {
+            Invoke-WebRequest -Uri "https://raw.githubusercontent.com/IamAngusU/ContextBridge/main/install.ps1" -OutFile $installer -UseBasicParsing
+            & $installer -InstallDir $installDir -Provider $Provider -NoAutostart -NoStart | Out-Host
+            if ($LASTEXITCODE -ne 0 -or -not (Test-Path $exe)) { throw "ContextBridge installation did not complete." }
+        } finally {
+            Remove-Item $installer -Force -ErrorAction SilentlyContinue
+        }
+    } elseif (-not (Test-Path $configPath)) {
+        & $exe init --config $configPath | Out-Host
+        if ($LASTEXITCODE -ne 0) { throw "ContextBridge config could not be created." }
+    }
+
+    Set-ContextBridgeProvider $configPath $Provider
+    Good "ContextBridge is ready: $exe"
+    if ($Provider -eq "browser") {
+        Write-Host "Browser extension: " -NoNewline
+        Good $extensionPath
+        $tokenLine = Get-Content $configPath | Where-Object { $_ -match '^\s*token:\s*(\S+)\s*$' } | Select-Object -First 1
+        if ($tokenLine -match '^\s*token:\s*(\S+)\s*$' -and (Get-Command Set-Clipboard -ErrorAction SilentlyContinue)) {
+            Set-Clipboard -Value $Matches[1]
+            Good "The local pairing token was copied to your clipboard."
+        }
+        Muted "Load this folder once at chrome://extensions or edge://extensions, then paste the token and pair your chosen tab."
+    }
+    return @{
+        Exe = $exe
+        Config = $configPath
+        Extension = $extensionPath
+    }
+}
+
 function Configure-PrivateReviewEngine($Existing) {
     $privateReviewCommand = if ($Existing.ContainsKey("INKWALL_PRIVATE_REVIEW_COMMAND")) { $Existing["INKWALL_PRIVATE_REVIEW_COMMAND"] } else { "" }
     $ollamaUrl = if ($Existing.ContainsKey("INKWALL_OLLAMA_URL")) { $Existing["INKWALL_OLLAMA_URL"] } else { "http://127.0.0.1:11434" }
@@ -91,37 +144,40 @@ function Configure-PrivateReviewEngine($Existing) {
     $ollamaSendImages = if ($Existing.ContainsKey("INKWALL_OLLAMA_SEND_IMAGES")) { $Existing["INKWALL_OLLAMA_SEND_IMAGES"] } else { "0" }
     $browserReviewTimeout = if ($Existing.ContainsKey("INKWALL_BROWSER_REVIEW_TIMEOUT_SECONDS")) { $Existing["INKWALL_BROWSER_REVIEW_TIMEOUT_SECONDS"] } else { "180" }
     $browserReviewOpen = if ($Existing.ContainsKey("INKWALL_BROWSER_REVIEW_OPEN")) { $Existing["INKWALL_BROWSER_REVIEW_OPEN"] } else { "1" }
+    $contextBridgeExe = if ($Existing.ContainsKey("INKWALL_CONTEXTBRIDGE_EXE")) { $Existing["INKWALL_CONTEXTBRIDGE_EXE"] } else { "" }
+    $contextBridgeConfig = if ($Existing.ContainsKey("INKWALL_CONTEXTBRIDGE_CONFIG")) { $Existing["INKWALL_CONTEXTBRIDGE_CONFIG"] } else { "" }
+    $contextBridgeExtension = if ($Existing.ContainsKey("INKWALL_CONTEXTBRIDGE_EXTENSION")) { $Existing["INKWALL_CONTEXTBRIDGE_EXTENSION"] } else { "" }
 
     Write-Host ""
     Write-Host "Private computer review engine:" -ForegroundColor Cyan
     Write-Host "  1) Manual/default: save the job and return the default decision"
-    Write-Host "  2) Ollama on this PC: run tools/private-review-ollama.php"
+    Write-Host "  2) ContextBridge with Ollama: local model first, selected browser tab as fallback"
     Write-Host "  3) Custom command: run your own local script or app"
-    Write-Host "  4) Browser bridge: open a local review page for a browser AI workflow"
-    $engineDefault = if ($privateReviewCommand -match 'private-review-ollama\.php') { "2" } elseif ($privateReviewCommand -match 'private-review-browser\.php') { "4" } elseif ($privateReviewCommand) { "3" } else { "1" }
+    Write-Host "  4) ContextBridge with a selected browser tab: no local model required"
+    $engineDefault = if ($privateReviewCommand -match 'contextbridge') { "2" } elseif ($privateReviewCommand -match 'private-review-ollama\.php') { "2" } elseif ($privateReviewCommand -match 'private-review-browser\.php') { "4" } elseif ($privateReviewCommand) { "3" } else { "1" }
     $engine = Ask "Choose 1, 2, 3, or 4" $engineDefault
     if ($engine -eq "2") {
-        $privateReviewCommand = "php tools/private-review-ollama.php"
-        $ollamaUrl = Ask "Ollama URL" $ollamaUrl
-        $ollamaModel = Ask "Ollama model" $ollamaModel
-        Write-Host "Ollama image sending:" -ForegroundColor Cyan
-        Write-Host "  0) Text only, image jobs can still be held by policy"
-        Write-Host "  1) Send image bytes to Ollama for multimodal models"
-        $ollamaSendImages = Ask "Choose 0 or 1" $ollamaSendImages
-        if ($ollamaSendImages -notin @("0", "1")) { $ollamaSendImages = "0" }
+        $bridge = Ensure-ContextBridge "ollama"
+        $contextBridgeExe = $bridge.Exe
+        $contextBridgeConfig = $bridge.Config
+        $contextBridgeExtension = $bridge.Extension
+        $privateReviewCommand = "php tools/private-review-contextbridge.php"
     } elseif ($engine -eq "3") {
         $privateReviewCommand = Ask "Custom review command" $privateReviewCommand
+        $contextBridgeExe = ""
+        $contextBridgeConfig = ""
+        $contextBridgeExtension = ""
     } elseif ($engine -eq "4") {
-        $privateReviewCommand = "php tools/private-review-browser.php"
-        Write-Host "Browser bridge mode:" -ForegroundColor Cyan
-        Write-Host "  1) Open the local review page automatically"
-        Write-Host "  0) Only save the files in the inbox"
-        $browserReviewOpen = Ask "Choose 0 or 1" $browserReviewOpen
-        if ($browserReviewOpen -notin @("0", "1")) { $browserReviewOpen = "1" }
-        $browserReviewTimeout = Ask "Seconds to wait for browser-answer.json" $browserReviewTimeout
-        if ($browserReviewTimeout -notmatch '^\d+$') { $browserReviewTimeout = "180" }
+        $bridge = Ensure-ContextBridge "browser"
+        $contextBridgeExe = $bridge.Exe
+        $contextBridgeConfig = $bridge.Config
+        $contextBridgeExtension = $bridge.Extension
+        $privateReviewCommand = "php tools/private-review-contextbridge.php"
     } else {
         $privateReviewCommand = ""
+        $contextBridgeExe = ""
+        $contextBridgeConfig = ""
+        $contextBridgeExtension = ""
     }
 
     return @{
@@ -133,6 +189,9 @@ function Configure-PrivateReviewEngine($Existing) {
         INKWALL_BROWSER_REVIEW_OPEN = $browserReviewOpen
         INKWALL_BROWSER_REVIEW_TIMEOUT_SECONDS = $browserReviewTimeout
         INKWALL_BROWSER_REVIEW_MODEL = "browser-bridge"
+        INKWALL_CONTEXTBRIDGE_EXE = $contextBridgeExe
+        INKWALL_CONTEXTBRIDGE_CONFIG = $contextBridgeConfig
+        INKWALL_CONTEXTBRIDGE_EXTENSION = $contextBridgeExtension
     }
 }
 
@@ -580,6 +639,10 @@ if ($hasExistingSetup) {
     } elseif ($existingAction -eq "3") {
         $updates = Configure-PrivateReviewEngine $existing
         Write-EnvValues $EnvPath $updates
+        if ($updates["INKWALL_CONTEXTBRIDGE_EXE"] -and $existing["INKWALL_PRIVATE_REVIEW_SSH_TARGET"] -and $existing["INKWALL_PRIVATE_REVIEW_SSH_KEY"] -and $existing["INKWALL_PRIVATE_REVIEW_SERVER_ENV"]) {
+            Info "Updating the server timeout for local model and browser review..."
+            Configure-RemoteServer $existing["INKWALL_PRIVATE_REVIEW_SSH_TARGET"] $existing["INKWALL_PRIVATE_REVIEW_SSH_KEY"] $existing["INKWALL_PRIVATE_REVIEW_SERVER_ENV"] "INKWALL_REMOTE_REVIEW_TIMEOUT_SECONDS=210"
+        }
         Good "Private review engine updated in $EnvPath."
         Write-Host "Restart it with: .\manage-private-review-windows.cmd start"
         exit 0
@@ -662,6 +725,9 @@ $ollamaModel = if ($existing.ContainsKey("INKWALL_OLLAMA_MODEL")) { $existing["I
 $ollamaSendImages = if ($existing.ContainsKey("INKWALL_OLLAMA_SEND_IMAGES")) { $existing["INKWALL_OLLAMA_SEND_IMAGES"] } else { "0" }
 $browserReviewTimeout = if ($existing.ContainsKey("INKWALL_BROWSER_REVIEW_TIMEOUT_SECONDS")) { $existing["INKWALL_BROWSER_REVIEW_TIMEOUT_SECONDS"] } else { "180" }
 $browserReviewOpen = if ($existing.ContainsKey("INKWALL_BROWSER_REVIEW_OPEN")) { $existing["INKWALL_BROWSER_REVIEW_OPEN"] } else { "1" }
+$contextBridgeExe = if ($existing.ContainsKey("INKWALL_CONTEXTBRIDGE_EXE")) { $existing["INKWALL_CONTEXTBRIDGE_EXE"] } else { "" }
+$contextBridgeConfig = if ($existing.ContainsKey("INKWALL_CONTEXTBRIDGE_CONFIG")) { $existing["INKWALL_CONTEXTBRIDGE_CONFIG"] } else { "" }
+$contextBridgeExtension = if ($existing.ContainsKey("INKWALL_CONTEXTBRIDGE_EXTENSION")) { $existing["INKWALL_CONTEXTBRIDGE_EXTENSION"] } else { "" }
 
 if (Get-Command Get-ScheduledTask -ErrorAction SilentlyContinue) {
     $oldTask = Get-ScheduledTask -TaskName "InkWall Private Review" -ErrorAction SilentlyContinue
@@ -763,7 +829,7 @@ INKWALL_REMOTE_REVIEW_ENCRYPTION_KEY=$remoteEncryptKey
 INKWALL_REMOTE_REVIEW_FAIL_OPEN=1
 INKWALL_REMOTE_REVIEW_SEND_TEXT=1
 INKWALL_REMOTE_REVIEW_SEND_IMAGE=1
-INKWALL_REMOTE_REVIEW_TIMEOUT_SECONDS=8
+INKWALL_REMOTE_REVIEW_TIMEOUT_SECONDS=210
 "@
             Info "Configuring the InkWall server connection..."
             Configure-RemoteServer $sshTarget $sshKey $serverEnvPath $pairConfig
@@ -804,6 +870,9 @@ if ($remoteMode -ne "off") {
     $ollamaSendImages = $engineUpdates["INKWALL_OLLAMA_SEND_IMAGES"]
     $browserReviewOpen = $engineUpdates["INKWALL_BROWSER_REVIEW_OPEN"]
     $browserReviewTimeout = $engineUpdates["INKWALL_BROWSER_REVIEW_TIMEOUT_SECONDS"]
+    $contextBridgeExe = $engineUpdates["INKWALL_CONTEXTBRIDGE_EXE"]
+    $contextBridgeConfig = $engineUpdates["INKWALL_CONTEXTBRIDGE_CONFIG"]
+    $contextBridgeExtension = $engineUpdates["INKWALL_CONTEXTBRIDGE_EXTENSION"]
 }
 
 $brand = [ordered]@{
@@ -863,7 +932,7 @@ INKWALL_REMOTE_REVIEW_ENCRYPTION_KEY=$remoteEncryptKey
 INKWALL_REMOTE_REVIEW_FAIL_OPEN=1
 INKWALL_REMOTE_REVIEW_SEND_TEXT=1
 INKWALL_REMOTE_REVIEW_SEND_IMAGE=1
-INKWALL_REMOTE_REVIEW_TIMEOUT_SECONDS=8
+INKWALL_REMOTE_REVIEW_TIMEOUT_SECONDS=210
 
 INKWALL_PRIVATE_REVIEW_PORT=$privatePort
 INKWALL_PRIVATE_REVIEW_SSH_TARGET=$sshTarget
@@ -877,6 +946,9 @@ INKWALL_OLLAMA_TIMEOUT_SECONDS=25
 INKWALL_BROWSER_REVIEW_OPEN=$browserReviewOpen
 INKWALL_BROWSER_REVIEW_TIMEOUT_SECONDS=$browserReviewTimeout
 INKWALL_BROWSER_REVIEW_MODEL=browser-bridge
+INKWALL_CONTEXTBRIDGE_EXE=$contextBridgeExe
+INKWALL_CONTEXTBRIDGE_CONFIG=$contextBridgeConfig
+INKWALL_CONTEXTBRIDGE_EXTENSION=$contextBridgeExtension
 
 INKWALL_AI_ALLOW_REJECT=0
 INKWALL_AI_FLAG_POLICY_JSON={"advertising":"allow","harassment":"hold","copyright":"hold","violence":"hold","nudity":"hold"}

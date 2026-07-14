@@ -328,7 +328,13 @@ On native Windows, use:
 .\start-private-review-windows.cmd
 ```
 
-The command can send the saved job to Ollama, a local script, a local app, or any other private review system. It receives the job folder path as its first argument and must print compact JSON:
+The command can send the saved job to Ollama, a local script, a local app, or any other private review system. It receives the job folder path as its first argument and must print compact JSON.
+
+The Windows setup offers [ContextBridge](https://github.com/IamAngusU/ContextBridge) for both Ollama and a selected browser AI tab. If it is not installed, InkWall downloads the matching release automatically. ContextBridge provides YAML routes, a folder inbox, a local authenticated API, provider fallback, and a Chrome or Edge extension that receives access only to the tab and origin selected by the user. InkWall calls it through `tools/private-review-contextbridge.php`, so Windows paths containing spaces remain safe.
+
+Run `setup-windows.cmd`, choose `3) Change only the private review engine`, then choose either ContextBridge with Ollama or ContextBridge with a selected browser tab. The receiver starts ContextBridge together with the encrypted InkWall tunnel.
+
+The older direct adapters remain available for custom configurations.
 
 For Ollama on the private computer:
 
@@ -341,7 +347,7 @@ INKWALL_OLLAMA_SEND_IMAGES=0
 
 `INKWALL_OLLAMA_SEND_IMAGES=1` is only useful with a local multimodal model. The receiver logs every received job, command run, and returned decision in the terminal. Each job is also saved in the inbox with `payload.json`, `name.txt`, `message.txt`, optional `image.*`, `command.log`, `command.exit`, and `decision.json`.
 
-For a browser-based local AI workflow:
+For the older manual browser handoff:
 
 ```env
 INKWALL_PRIVATE_REVIEW_COMMAND=php tools/private-review-browser.php
@@ -349,7 +355,7 @@ INKWALL_BROWSER_REVIEW_OPEN=1
 INKWALL_BROWSER_REVIEW_TIMEOUT_SECONDS=180
 ```
 
-This creates `browser-review.html`, `browser-prompt.txt`, and `browser-answer.example.json` inside the job folder. The page opens locally, shows the prompt and submitted image, and waits until `browser-answer.json` appears. This is the safe browser bridge layer; direct control of a specific existing browser tab can be added per AI website through a DevTools or extension adapter.
+This creates `browser-review.html`, `browser-prompt.txt`, and `browser-answer.example.json` inside the job folder. The page opens locally, shows the prompt and submitted image, and waits until `browser-answer.json` appears. ContextBridge replaces this copy-and-paste flow when automatic tab pairing is configured.
 
 Example local review command output:
 
