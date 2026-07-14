@@ -7,6 +7,10 @@ $root = (string)(getenv('INKWALL_PRIVATE_REVIEW_DIR') ?: (__DIR__ . '/../data/pr
 $defaultVerdict = strtolower((string)(getenv('INKWALL_PRIVATE_REVIEW_DEFAULT') ?: 'review'));
 $maxSkew = max(30, (int)(getenv('INKWALL_PRIVATE_REVIEW_MAX_SKEW') ?: 300));
 
+function log_line(string $message): void {
+    fwrite(STDERR, '[' . gmdate('H:i:s') . '] ' . $message . "\n");
+}
+
 function respond(array $payload, int $status = 200): never {
     http_response_code($status);
     header('Content-Type: application/json; charset=UTF-8');
@@ -24,6 +28,7 @@ if (strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {
 }
 if ($secret === '') respond(['error' => 'Receiver secret missing'], 500);
 
+log_line('Review request received from server.');
 $raw = (string)file_get_contents('php://input');
 $timestamp = header_value('X-InkWall-Timestamp');
 $signature = header_value('X-InkWall-Signature');
@@ -37,6 +42,7 @@ if (!hash_equals($expected, $signature)) respond(['error' => 'Invalid signature'
 $payload = json_decode($raw, true);
 if (!is_array($payload)) respond(['error' => 'Invalid JSON'], 400);
 if (!empty($payload['encrypted'])) {
+    log_line('Decrypting review payload.');
     $payload = decrypt_payload($payload, $encryptionKey !== '' ? $encryptionKey : $secret);
 }
 
@@ -46,6 +52,7 @@ $jobDir = rtrim($root, '/\\') . '/' . $stamp . '-' . substr($noteId, 0, 48);
 if (!is_dir($jobDir) && !mkdir($jobDir, 0700, true) && !is_dir($jobDir)) {
     respond(['error' => 'Cannot create job directory'], 500);
 }
+log_line('Stored review job: ' . $jobDir);
 
 file_put_contents($jobDir . '/payload.json', json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n", LOCK_EX);
 $content = is_array($payload['content'] ?? null) ? $payload['content'] : [];
@@ -68,14 +75,22 @@ if (is_array($content['image'] ?? null)) {
 $decision = null;
 $command = trim((string)(getenv('INKWALL_PRIVATE_REVIEW_COMMAND') ?: ''));
 if ($command !== '') {
+    log_line('Running local review command.');
     $output = [];
     $status = 0;
     exec($command . ' ' . escapeshellarg($jobDir), $output, $status);
+    file_put_contents($jobDir . '/command.log', implode("\n", $output) . "\n", LOCK_EX);
+    file_put_contents($jobDir . '/command.exit', (string)$status . "\n", LOCK_EX);
     $decoded = json_decode(implode("\n", $output), true);
-    if ($status === 0 && is_array($decoded)) $decision = $decoded;
+    if ($status === 0 && is_array($decoded)) {
+        $decision = $decoded;
+    } else {
+        log_line('Local review command did not return valid JSON. Falling back to default decision.');
+    }
 }
 
 if (!is_array($decision)) {
+    log_line('Using default private review decision: ' . $defaultVerdict);
     $decision = [
         'verdict' => in_array($defaultVerdict, ['allow', 'review'], true) ? $defaultVerdict : 'review',
         'flags' => $defaultVerdict === 'review' ? ['private_review_pending'] : [],
@@ -94,6 +109,7 @@ $response = [
     'stored_at' => $jobDir,
 ];
 file_put_contents($jobDir . '/decision.json', json_encode($response, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n", LOCK_EX);
+log_line('Decision sent: ' . $response['verdict'] . ' via ' . $response['model']);
 respond($response);
 
 function decrypt_payload(array $envelope, string $rawKey): array {

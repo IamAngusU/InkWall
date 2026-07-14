@@ -328,6 +328,17 @@ On native Windows, use:
 
 The command can send the saved job to Ollama, a local script, a local app, or any other private review system. It receives the job folder path as its first argument and must print compact JSON:
 
+For Ollama on the private computer:
+
+```env
+INKWALL_PRIVATE_REVIEW_COMMAND=php tools/private-review-ollama.php
+INKWALL_OLLAMA_URL=http://127.0.0.1:11434
+INKWALL_OLLAMA_MODEL=gemma3:4b
+INKWALL_OLLAMA_SEND_IMAGES=0
+```
+
+`INKWALL_OLLAMA_SEND_IMAGES=1` is only useful with a local multimodal model. The receiver logs every received job, command run, and returned decision in the terminal. Each job is also saved in the inbox with `payload.json`, `name.txt`, `message.txt`, optional `image.*`, `command.log`, `command.exit`, and `decision.json`.
+
 Example local review command output:
 
 ```json

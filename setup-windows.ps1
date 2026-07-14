@@ -521,6 +521,10 @@ $remoteMode = if ($mode -eq "1") { "fallback" } elseif ($mode -eq "2") { "always
 $deepseekKey = if ($existing.ContainsKey("DEEPSEEK_API_KEY")) { $existing["DEEPSEEK_API_KEY"] } else { "" }
 $openaiKey = if ($existing.ContainsKey("OPENAI_API_KEY")) { $existing["OPENAI_API_KEY"] } else { "" }
 $hadSavedCloudKeys = [bool]($deepseekKey -or $openaiKey)
+$privateReviewCommand = if ($existing.ContainsKey("INKWALL_PRIVATE_REVIEW_COMMAND")) { $existing["INKWALL_PRIVATE_REVIEW_COMMAND"] } else { "" }
+$ollamaUrl = if ($existing.ContainsKey("INKWALL_OLLAMA_URL")) { $existing["INKWALL_OLLAMA_URL"] } else { "http://127.0.0.1:11434" }
+$ollamaModel = if ($existing.ContainsKey("INKWALL_OLLAMA_MODEL")) { $existing["INKWALL_OLLAMA_MODEL"] } else { "gemma3:4b" }
+$ollamaSendImages = if ($existing.ContainsKey("INKWALL_OLLAMA_SEND_IMAGES")) { $existing["INKWALL_OLLAMA_SEND_IMAGES"] } else { "0" }
 
 if (Get-Command Get-ScheduledTask -ErrorAction SilentlyContinue) {
     $oldTask = Get-ScheduledTask -TaskName "InkWall Private Review" -ErrorAction SilentlyContinue
@@ -648,6 +652,30 @@ if ($mode -eq "1" -and -not $serverPaired) {
     }
 }
 
+if ($remoteMode -ne "off") {
+    Write-Host ""
+    Write-Host "Private computer review engine:" -ForegroundColor Cyan
+    Write-Host "  1) Manual/default: save the job and return the default decision"
+    Write-Host "  2) Ollama on this PC: run tools/private-review-ollama.php"
+    Write-Host "  3) Custom command: run your own local script or app"
+    $engineDefault = if ($privateReviewCommand -match 'private-review-ollama\.php') { "2" } elseif ($privateReviewCommand) { "3" } else { "1" }
+    $engine = Ask "Choose 1, 2, or 3" $engineDefault
+    if ($engine -eq "2") {
+        $privateReviewCommand = "php tools/private-review-ollama.php"
+        $ollamaUrl = Ask "Ollama URL" $ollamaUrl
+        $ollamaModel = Ask "Ollama model" $ollamaModel
+        Write-Host "Ollama image sending:" -ForegroundColor Cyan
+        Write-Host "  0) Text only, image jobs can still be held by policy"
+        Write-Host "  1) Send image bytes to Ollama for multimodal models"
+        $ollamaSendImages = Ask "Choose 0 or 1" $ollamaSendImages
+        if ($ollamaSendImages -notin @("0", "1")) { $ollamaSendImages = "0" }
+    } elseif ($engine -eq "3") {
+        $privateReviewCommand = Ask "Custom review command" $privateReviewCommand
+    } else {
+        $privateReviewCommand = ""
+    }
+}
+
 $brand = [ordered]@{
     accent = $accent
     paper_texture = "dots"
@@ -711,6 +739,11 @@ INKWALL_PRIVATE_REVIEW_PORT=$privatePort
 INKWALL_PRIVATE_REVIEW_SSH_TARGET=$sshTarget
 INKWALL_PRIVATE_REVIEW_SSH_KEY=$sshKey
 INKWALL_PRIVATE_REVIEW_SERVER_ENV=$serverEnvPath
+INKWALL_PRIVATE_REVIEW_COMMAND=$privateReviewCommand
+INKWALL_OLLAMA_URL=$ollamaUrl
+INKWALL_OLLAMA_MODEL=$ollamaModel
+INKWALL_OLLAMA_SEND_IMAGES=$ollamaSendImages
+INKWALL_OLLAMA_TIMEOUT_SECONDS=25
 
 INKWALL_AI_ALLOW_REJECT=0
 INKWALL_AI_FLAG_POLICY_JSON={"advertising":"allow","harassment":"hold","copyright":"hold","violence":"hold","nudity":"hold"}

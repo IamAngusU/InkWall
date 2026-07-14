@@ -47,6 +47,18 @@ function Write-EnvValue($Path, $Key, $Value) {
     Set-Content -Path $Path -Value $updated -Encoding UTF8
 }
 
+function Info($Text) {
+    Write-Host $Text -ForegroundColor Cyan
+}
+
+function Good($Text) {
+    Write-Host $Text -ForegroundColor Green
+}
+
+function Muted($Text) {
+    Write-Host $Text -ForegroundColor DarkGray
+}
+
 function Ensure-EnvFile {
     if (Test-Path ".env") { return }
     Write-Host "No .env found. Creating a minimal private-review config."
@@ -100,6 +112,17 @@ if (-not $env:INKWALL_PRIVATE_REVIEW_DIR) {
 if (-not $env:INKWALL_PRIVATE_REVIEW_DEFAULT) {
     $env:INKWALL_PRIVATE_REVIEW_DEFAULT = "review"
 }
+foreach ($key in @(
+    "INKWALL_PRIVATE_REVIEW_COMMAND",
+    "INKWALL_OLLAMA_URL",
+    "INKWALL_OLLAMA_MODEL",
+    "INKWALL_OLLAMA_TIMEOUT_SECONDS",
+    "INKWALL_OLLAMA_SEND_IMAGES"
+)) {
+    if (-not [Environment]::GetEnvironmentVariable($key) -and $envValues.ContainsKey($key)) {
+        [Environment]::SetEnvironmentVariable($key, $envValues[$key], "Process")
+    }
+}
 
 if (-not $env:INKWALL_PRIVATE_REVIEW_SECRET) {
     $env:INKWALL_PRIVATE_REVIEW_SECRET = New-Secret
@@ -128,12 +151,22 @@ if (-not $envValues.ContainsKey("INKWALL_REMOTE_REVIEW") -or -not $envValues["IN
 Write-EnvValue ".env" "INKWALL_REMOTE_REVIEW_ENCRYPT" "1"
 Write-EnvValue ".env" "INKWALL_PRIVATE_REVIEW_PORT" $selectedPort
 
-Write-Host "InkWall private review receiver"
-Write-Host "Inbox: $env:INKWALL_PRIVATE_REVIEW_DIR"
-Write-Host "Local URL: http://${HostName}:$selectedPort"
+Info "InkWall private review receiver"
+Write-Host "Inbox: " -NoNewline
+Good "$env:INKWALL_PRIVATE_REVIEW_DIR"
+Write-Host "Local URL: " -NoNewline
+Good "http://${HostName}:$selectedPort"
+if ($env:INKWALL_PRIVATE_REVIEW_COMMAND) {
+    Write-Host "Local review command: " -NoNewline
+    Good "$env:INKWALL_PRIVATE_REVIEW_COMMAND"
+} else {
+    Write-Host "Local review command: " -NoNewline
+    Muted "none, default decision is $env:INKWALL_PRIVATE_REVIEW_DEFAULT"
+}
 Write-Host ""
 if (-not $Server) {
-    Write-Host "Server tunnel: not configured"
+    Write-Host "Server tunnel: " -NoNewline
+    Muted "not configured"
     Write-Host "Run .\setup-windows.cmd to pair this receiver with an InkWall server."
     Write-Host ""
     php -S "$HostName`:$selectedPort" tools/private-review-receiver.php
@@ -145,8 +178,11 @@ if (-not (Get-Command ssh -ErrorAction SilentlyContinue)) {
     exit 1
 }
 
-Write-Host "Server tunnel: $Server"
-Write-Host "Transport: SSH with encrypted InkWall payloads"
+Write-Host "Server tunnel: " -NoNewline
+Good "$Server"
+Write-Host "Transport: " -NoNewline
+Good "SSH with encrypted InkWall payloads"
+Muted "Waiting for review jobs. Received jobs will be logged here and saved in the inbox."
 Write-Host ""
 
 $phpArgs = @("-S", "$HostName`:$selectedPort", "tools/private-review-receiver.php")
@@ -169,10 +205,11 @@ try {
         )
         if ($sshKey) { $sshArgs += @("-i", $sshKey) }
         $sshArgs += $Server
-        Write-Host "Connecting secure tunnel..."
+        Info "Connecting secure tunnel..."
         & ssh @sshArgs
         if ($phpProcess.HasExited) { break }
-        Write-Host "Tunnel disconnected. Reconnecting in 5 seconds."
+        Write-Host "Tunnel disconnected. " -NoNewline
+        Muted "Reconnecting in 5 seconds."
         Start-Sleep -Seconds 5
     }
 } finally {
