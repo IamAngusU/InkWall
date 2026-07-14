@@ -229,19 +229,17 @@ function Validate-SshTarget($Target) {
 }
 
 function Invoke-QuietSsh($Target, $KeyPath, $RemoteCommand, $Timeout = 8) {
-    $outFile = [IO.Path]::GetTempFileName()
     $errFile = [IO.Path]::GetTempFileName()
     $args = @("-i", $KeyPath, "-o", "BatchMode=yes", "-o", "ConnectTimeout=$Timeout", $Target, $RemoteCommand)
     try {
-        $process = Start-Process -FilePath "ssh" -ArgumentList $args -NoNewWindow -Wait -PassThru -RedirectStandardOutput $outFile -RedirectStandardError $errFile
-        $rawOutput = if (Test-Path $outFile) { Get-Content $outFile -Raw -ErrorAction SilentlyContinue } else { "" }
-        $output = if ($null -eq $rawOutput) { "" } else { [string]$rawOutput }
-        $exitCode = if ($process) { [int]$process.ExitCode } else { 1 }
+        $rawOutput = & ssh @args 2>$errFile
+        $exitCode = if ($null -eq $LASTEXITCODE) { 1 } else { [int]$LASTEXITCODE }
+        $output = if ($null -eq $rawOutput) { "" } else { [string]::Join("`n", @($rawOutput)) }
         return @{ ExitCode = $exitCode; Output = ([string]$output).Trim() }
     } catch {
         return @{ ExitCode = 1; Output = "" }
     } finally {
-        Remove-Item $outFile, $errFile -Force -ErrorAction SilentlyContinue
+        Remove-Item $errFile -Force -ErrorAction SilentlyContinue
     }
 }
 
