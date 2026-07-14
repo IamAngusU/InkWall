@@ -351,12 +351,17 @@ function Select-SshKey($Target, $ExistingKey = "") {
 
 function Find-RemoteEnvPath($Target, $KeyPath, $ExistingPath = "") {
     if ($ExistingPath -and $ExistingPath -match '^/[A-Za-z0-9_./-]+$') {
-        $exists = & ssh -i $KeyPath -o BatchMode=yes $Target "test -f '$ExistingPath' && printf FOUND" 2>$null
-        if (($exists -join "").Trim() -eq "FOUND") { return $ExistingPath }
+        $existing = Invoke-QuietSsh $Target $KeyPath "test -f '$ExistingPath' && printf FOUND"
+        if ($existing.Output -eq "FOUND") { return $ExistingPath }
     }
 
-    $scan = 'find "$HOME" /var/www /srv /opt -maxdepth 7 -type f -name .env 2>/dev/null | while IFS= read -r f; do grep -q "^INKWALL_" "$f" && printf "%s\n" "$f"; done | head -20'
-    $found = @(& ssh -i $KeyPath -o BatchMode=yes $Target $scan 2>$null | Where-Object { $_ -match '^/[A-Za-z0-9_./-]+$' } | Select-Object -Unique)
+    $scan = @'
+for d in "$HOME" /var/www /srv /opt; do
+  [ -d "$d" ] && find "$d" -maxdepth 7 -type f -name .env -exec sh -c 'for f do grep -Iqs "^INKWALL_" "$f" && printf "%s\n" "$f"; done' sh {} + 2>/dev/null
+done | head -20
+'@
+    $scanResult = Invoke-QuietSsh $Target $KeyPath $scan 20
+    $found = @($scanResult.Output -split "`n" | Where-Object { $_ -match '^/[A-Za-z0-9_./-]+$' } | Select-Object -Unique)
     if ($found.Count -eq 1) {
         Write-Host "Found InkWall server config: $($found[0])"
         if (YesNo "Use this server config?" "y") { return [string]$found[0] }
