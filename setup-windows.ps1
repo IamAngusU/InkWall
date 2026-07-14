@@ -407,10 +407,26 @@ done | head -20
 }
 
 function Test-RemotePortFree($Target, $KeyPath, $Port) {
-    $phpCode = '$s=@stream_socket_server("tcp://127.0.0.1:' + $Port + '",$e,$m); if ($s) { fclose($s); echo "FREE"; }'
-    $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($phpCode))
-    $command = "command -v php >/dev/null 2>&1 || { printf NO_PHP; exit 2; }; php -r `"eval(base64_decode('$encoded'));`""
-    $result = Invoke-QuietSsh $Target $KeyPath $command 12
+    $script = @"
+if ! command -v php >/dev/null 2>&1; then
+  printf NO_PHP
+  exit 2
+fi
+php <<'PHP'
+<?php
+`$port = $Port;
+`$server = @stream_socket_server("tcp://127.0.0.1:" . `$port, `$errno, `$errstr);
+if (`$server) {
+    fclose(`$server);
+    echo "FREE";
+} else {
+    echo "BUSY";
+}
+PHP
+"@
+    $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($script))
+    $command = "printf '%s' '$encoded' | base64 -d | sh"
+    $result = Invoke-QuietSsh $Target $KeyPath $command 15
     $value = $result.Output.Trim()
     if ($value -eq "NO_PHP") { throw "PHP CLI was not found on the InkWall server." }
     return ($value -eq "FREE")
@@ -541,13 +557,16 @@ if ($remoteMode -ne "off") {
         } else {
             $oldServerEnv = if ($existing.ContainsKey("INKWALL_PRIVATE_REVIEW_SERVER_ENV")) { $existing["INKWALL_PRIVATE_REVIEW_SERVER_ENV"] } else { "" }
             $serverEnvPath = Find-RemoteEnvPath $sshTarget $sshKey $oldServerEnv (Env-CandidatePaths $publicUrl)
+            Info "Finding a review port that is free on this PC and the server..."
             $portAttempts = 0
             while (-not (Test-RemotePortFree $sshTarget $sshKey $privatePort)) {
                 $portAttempts++
                 if ($portAttempts -ge 100) { throw "No shared free review port was found on this PC and server." }
+                Muted "Port $privatePort is not available. Trying the next port."
                 $privatePort = Find-FreeLocalPort ($privatePort + 1)
                 $remoteEndpoint = "http://127.0.0.1:$privatePort"
             }
+            Good "Review port selected: $privatePort"
 
             if ($mode -eq "1") {
                 Muted "Existing cloud API keys on the server are kept unless you replace them here."
@@ -595,8 +614,10 @@ INKWALL_REMOTE_REVIEW_SEND_TEXT=1
 INKWALL_REMOTE_REVIEW_SEND_IMAGE=1
 INKWALL_REMOTE_REVIEW_TIMEOUT_SECONDS=8
 "@
+            Info "Configuring the InkWall server connection..."
             Configure-RemoteServer $sshTarget $sshKey $serverEnvPath $pairConfig
             $serverPaired = $true
+            Good "Server connection configured."
         }
     }
 }
