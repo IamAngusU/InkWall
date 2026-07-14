@@ -201,6 +201,16 @@ if [ "$remote_mode" != "off" ]; then
   say ""
   say "SSH reverse tunnel from your computer to the server:"
   say "  ssh -N -R 127.0.0.1:8787:127.0.0.1:8787 user@your-server"
+
+  if [ "$(uname -s 2>/dev/null || true)" = "Linux" ] && yes_no "Install private review autostart on this Linux user?" "n"; then
+    if yes_no "Run hidden as a user service?" "y"; then
+      "$ROOT_DIR/manage-private-review-linux.sh" install service || true
+    else
+      "$ROOT_DIR/manage-private-review-linux.sh" install terminal || true
+    fi
+  else
+    say "Autostart can be managed later with ./manage-private-review-linux.sh"
+  fi
 fi
 
 say ""

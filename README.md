@@ -96,6 +96,25 @@ cd InkWall
 ./install.sh
 ```
 
+Private review receiver on Linux, macOS, or WSL:
+
+```bash
+./start-private-review-linux.sh
+```
+
+Linux desktop/server autostart can be managed later:
+
+```bash
+./manage-private-review-linux.sh
+./manage-private-review-linux.sh install service
+./manage-private-review-linux.sh install terminal
+./manage-private-review-linux.sh status
+./manage-private-review-linux.sh stop
+./manage-private-review-linux.sh remove
+```
+
+`service` runs hidden through the user service manager and restarts after crashes. `terminal` is a visible desktop autostart for debugging on graphical Linux sessions.
+
 Windows users can choose WSL or native Windows. Native Windows does not need `sudo`, `apt`, or Homebrew:
 
 ```powershell
@@ -115,6 +134,22 @@ If `php -v` is not found, install PHP for Windows from php.net or your package m
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\start-private-review-windows.ps1 -Port 8797
+```
+
+Autostart can be managed later without editing files:
+
+```powershell
+.\manage-private-review-windows.cmd
+.\manage-private-review-windows.cmd install hidden
+.\manage-private-review-windows.cmd status
+.\manage-private-review-windows.cmd stop
+.\manage-private-review-windows.cmd remove
+```
+
+`hidden` starts the receiver as a scheduled task after sign-in. Use `window` when you want a visible receiver window for debugging:
+
+```powershell
+.\manage-private-review-windows.cmd install window
 ```
 
 The installer creates `.env`, generates private-review secrets, prepares `data/`, and lets you choose one of three review modes:

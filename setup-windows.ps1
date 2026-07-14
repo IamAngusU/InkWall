@@ -22,8 +22,13 @@ function YesNo($Prompt, $Default = "y") {
 }
 
 function New-Secret {
-    $bytes = [byte[]]::new(32)
-    [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+    $bytes = New-Object byte[] 32
+    $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+    try {
+        $rng.GetBytes($bytes)
+    } finally {
+        if ($rng) { $rng.Dispose() }
+    }
     return "base64:" + [Convert]::ToBase64String($bytes)
 }
 
@@ -182,4 +187,13 @@ if ($remoteMode -ne "off") {
     Write-Host "  `$env:INKWALL_PRIVATE_REVIEW_ENCRYPTION_KEY='$remoteEncryptKey'"
     Write-Host "  `$env:INKWALL_PRIVATE_REVIEW_DIR=`"`$HOME\InkWallReviewInbox`""
     Write-Host "  .\start-private-review-windows.ps1"
+
+    Write-Host ""
+    if (YesNo "Install private review autostart now?" "n") {
+        $autostartMode = Ask "Autostart mode: hidden or window" "hidden"
+        if ($autostartMode -notin @("hidden", "window")) { $autostartMode = "hidden" }
+        & (Join-Path $Root "manage-private-review-windows.ps1") -Action install -WindowMode $autostartMode
+    } else {
+        Write-Host "Autostart can be managed later with .\manage-private-review-windows.cmd"
+    }
 }

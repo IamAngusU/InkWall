@@ -21,8 +21,13 @@ function Read-EnvFile($Path) {
 }
 
 function New-Secret {
-    $bytes = [byte[]]::new(32)
-    [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+    $bytes = New-Object byte[] 32
+    $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+    try {
+        $rng.GetBytes($bytes)
+    } finally {
+        if ($rng) { $rng.Dispose() }
+    }
     return "base64:" + [Convert]::ToBase64String($bytes)
 }
 
