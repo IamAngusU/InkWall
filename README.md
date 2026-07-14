@@ -116,7 +116,7 @@ InkWall can run with no AI key at all. In that mode it uses local heuristics and
 - `review` is held for a human.
 - AI never returns a final block/delete decision.
 - `latest.svg.php` only reads `published` notes, so a held note automatically falls back to the last approved ink.
-- AI calls have separate cost guards. When a quota is reached, or DeepSeek balance is unavailable/too low, the note is held for manual review without another model call.
+- AI calls have separate cost guards. When a quota is reached, or provider budget is unavailable/too low, the note is held for manual review by default. Set fail-open per provider if your deployment should keep publishing when an AI provider is out of budget.
 
 Supported providers:
 
@@ -124,6 +124,14 @@ Supported providers:
 # OpenAI moderation, text + image
 INKWALL_AI_PROVIDER=openai_moderation
 OPENAI_API_KEY=sk-...
+
+# OpenAI vision via Responses API, image review only
+INKWALL_AI_IMAGE_PROVIDER=openai_vision
+INKWALL_AI_IMAGE_MODEL=gpt-4o-mini
+INKWALL_OPENAI_VISION_DETAIL=low
+INKWALL_OPENAI_DAILY_SPEND_LIMIT_USD=1.00
+INKWALL_OPENAI_ESTIMATED_IMAGE_CALL_USD=0.01
+INKWALL_OPENAI_VISION_FAIL_OPEN=1
 
 # DeepSeek, OpenAI-compatible review
 INKWALL_AI_PROVIDER=deepseek
@@ -133,6 +141,7 @@ INKWALL_DEEPSEEK_BALANCE_GUARD=1
 INKWALL_DEEPSEEK_MIN_BALANCE_USD=0.25
 INKWALL_DEEPSEEK_DAILY_SPEND_LIMIT_USD=1.00
 INKWALL_DEEPSEEK_ESTIMATED_CALL_USD=0.01
+INKWALL_DEEPSEEK_FAIL_OPEN=0
 # Enable only if your DeepSeek model/API accepts OpenAI-style image content.
 INKWALL_DEEPSEEK_SEND_IMAGES=0
 
@@ -148,8 +157,8 @@ You can also split text and image review by provider. Empty channel values keep 
 INKWALL_AI_PROVIDER=deepseek
 INKWALL_AI_TEXT_PROVIDER=deepseek
 INKWALL_AI_TEXT_MODEL=deepseek-v4-flash
-INKWALL_AI_IMAGE_PROVIDER=openai_moderation
-INKWALL_AI_IMAGE_MODEL=omni-moderation-latest
+INKWALL_AI_IMAGE_PROVIDER=openai_vision
+INKWALL_AI_IMAGE_MODEL=gpt-4o-mini
 ```
 
 For a more future-proof config, use the JSON channel form. `manual` means the channel is not model-reviewed and can be held by policy.
@@ -183,6 +192,8 @@ Each note stores a structured review chain in `ai_review_json`:
 
 DeepSeek image sending is opt-in because the public DeepSeek API docs may differ by model and account. Ollama is text-only in the default InkWall integration. If a user submits an image with a text-only provider, InkWall adds `image_unchecked` by default. Set `INKWALL_AI_REVIEW_UNCHECKED_IMAGES=1` if those images should always wait for human review, or `INKWALL_AI_ALLOW_UNCHECKED_IMAGES=1` if you do not want the audit flag.
 
+For OpenAI image review, the API key only needs `Responses (/v1/responses)` write access. `List models` read access is optional for your own diagnostics. InkWall does not need OpenAI image generation, files, assistants, vector stores, chat completions, or the moderation endpoint when you use `openai_vision`.
+
 InkWall shares anonymous AI metadata with the maintainer by default so future releases can compare provider reliability and speed. It sends version, status, `has_image`, channel, provider, model, decision, flags, confidence, and latency. It does not send names, messages, images, IPs, full referrers, visitor hashes, report details, or secrets.
 
 ```env
@@ -215,7 +226,7 @@ INKWALL_AI_FLAG_POLICY_JSON={"advertising":"allow","harassment":"hold","copyrigh
 # INKWALL_AI_FLAG_ADVERTISING=allow
 ```
 
-The default AI quotas are intentionally small for public profiles. For DeepSeek, InkWall records balance snapshots and estimates rolling 24-hour spend from balance drops, so the budget is based on provider balance movement rather than a calendar-day counter.
+The default AI quotas are intentionally small for public profiles. For DeepSeek, InkWall records balance snapshots and estimates rolling 24-hour spend from balance drops, so the budget is based on provider balance movement rather than a calendar-day counter. For OpenAI Vision, InkWall records a configurable estimated call cost because the public API key flow does not expose a simple project balance endpoint.
 
 ```env
 INKWALL_AI_VISITOR_HOURLY_LIMIT=5
@@ -226,6 +237,11 @@ INKWALL_DEEPSEEK_BALANCE_GUARD=1
 INKWALL_DEEPSEEK_MIN_BALANCE_USD=0.25
 INKWALL_DEEPSEEK_DAILY_SPEND_LIMIT_USD=1.00
 INKWALL_DEEPSEEK_ESTIMATED_CALL_USD=0.01
+INKWALL_OPENAI_DAILY_SPEND_LIMIT_USD=1.00
+INKWALL_OPENAI_ESTIMATED_IMAGE_CALL_USD=0.01
+INKWALL_OPENAI_VISION_FAIL_OPEN=0
+# Optional global fallback. Provider-specific values win.
+INKWALL_AI_FAIL_OPEN=0
 ```
 
 For review notifications set `INKWALL_REVIEW_EMAIL`, `INKWALL_PUBLIC_URL`, and SMTP values such as `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, and `MAIL_PASSWORD`. Review mails include a signed SVG preview URL for the exact held ink.
