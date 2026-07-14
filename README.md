@@ -102,8 +102,13 @@ Windows users can choose WSL or native Windows. Native Windows does not need `su
 git clone https://github.com/IamAngusU/InkWall.git
 cd InkWall
 php -v
-powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
 .\start-private-review-windows.cmd
+```
+
+The Windows start helper creates missing private-review secrets, writes them to `.env`, chooses a free port, creates the inbox folder, and prints the matching tunnel command. Run the full Windows setup wizard only when you also want to configure branding, public URL, and cloud keys:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
 ```
 
 If `php -v` is not found, install PHP for Windows from php.net or your package manager, then open a new terminal. If Windows refuses a socket on port `8787`, the Windows start helper automatically tries the next free port and prints the matching tunnel and server endpoint. You can also choose one:

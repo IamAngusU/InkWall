@@ -20,6 +20,40 @@ function Read-EnvFile($Path) {
     return $values
 }
 
+function New-Secret {
+    $bytes = [byte[]]::new(32)
+    [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+    return "base64:" + [Convert]::ToBase64String($bytes)
+}
+
+function Write-EnvValue($Path, $Key, $Value) {
+    $lines = @()
+    if (Test-Path $Path) { $lines = @(Get-Content $Path) }
+    $found = $false
+    $updated = foreach ($line in $lines) {
+        if ($line -match "^$([regex]::Escape($Key))=") {
+            $found = $true
+            "$Key=$Value"
+        } else {
+            $line
+        }
+    }
+    if (-not $found) { $updated += "$Key=$Value" }
+    Set-Content -Path $Path -Value $updated -Encoding UTF8
+}
+
+function Ensure-EnvFile {
+    if (Test-Path ".env") { return }
+    Write-Host "No .env found. Creating a minimal private-review config."
+    Copy-Item ".env.example" ".env"
+    Write-EnvValue ".env" "INKWALL_AI_CLOUD_ENABLED" "0"
+    Write-EnvValue ".env" "INKWALL_AI_TEXT_CLOUD_ENABLED" "0"
+    Write-EnvValue ".env" "INKWALL_AI_IMAGE_CLOUD_ENABLED" "0"
+    Write-EnvValue ".env" "INKWALL_REMOTE_REVIEW" "fallback"
+    Write-EnvValue ".env" "INKWALL_REMOTE_REVIEW_ENCRYPT" "1"
+    Write-EnvValue ".env" "INKWALL_REMOTE_REVIEW_FAIL_OPEN" "1"
+}
+
 function Test-PortFree($PortToCheck) {
     try {
         $address = [System.Net.Dns]::GetHostAddresses($HostName) | Where-Object { $_.AddressFamily -eq [System.Net.Sockets.AddressFamily]::InterNetwork } | Select-Object -First 1
@@ -38,6 +72,7 @@ if (-not (Get-Command php -ErrorAction SilentlyContinue)) {
     exit 1
 }
 
+Ensure-EnvFile
 $envValues = Read-EnvFile ".env"
 if (-not $env:INKWALL_PRIVATE_REVIEW_SECRET -and $envValues.ContainsKey("INKWALL_REMOTE_REVIEW_SECRET")) {
     $env:INKWALL_PRIVATE_REVIEW_SECRET = $envValues["INKWALL_REMOTE_REVIEW_SECRET"]
@@ -53,8 +88,14 @@ if (-not $env:INKWALL_PRIVATE_REVIEW_DEFAULT) {
 }
 
 if (-not $env:INKWALL_PRIVATE_REVIEW_SECRET) {
-    Write-Host "Missing receiver secret. Run .\setup-windows.ps1 first or set INKWALL_PRIVATE_REVIEW_SECRET."
-    exit 1
+    $env:INKWALL_PRIVATE_REVIEW_SECRET = New-Secret
+    Write-EnvValue ".env" "INKWALL_REMOTE_REVIEW_SECRET" $env:INKWALL_PRIVATE_REVIEW_SECRET
+    Write-Host "Generated INKWALL_REMOTE_REVIEW_SECRET and saved it to .env."
+}
+if (-not $env:INKWALL_PRIVATE_REVIEW_ENCRYPTION_KEY) {
+    $env:INKWALL_PRIVATE_REVIEW_ENCRYPTION_KEY = New-Secret
+    Write-EnvValue ".env" "INKWALL_REMOTE_REVIEW_ENCRYPTION_KEY" $env:INKWALL_PRIVATE_REVIEW_ENCRYPTION_KEY
+    Write-Host "Generated INKWALL_REMOTE_REVIEW_ENCRYPTION_KEY and saved it to .env."
 }
 
 $selectedPort = $Port
@@ -68,6 +109,10 @@ if ($selectedPort -ge ($Port + 100)) {
 }
 
 New-Item -ItemType Directory -Force -Path $env:INKWALL_PRIVATE_REVIEW_DIR | Out-Null
+$serverEndpoint = "http://127.0.0.1:$selectedPort"
+Write-EnvValue ".env" "INKWALL_REMOTE_REVIEW_ENDPOINT" $serverEndpoint
+Write-EnvValue ".env" "INKWALL_REMOTE_REVIEW" "fallback"
+Write-EnvValue ".env" "INKWALL_REMOTE_REVIEW_ENCRYPT" "1"
 
 Write-Host "InkWall private review receiver"
 Write-Host "Inbox: $env:INKWALL_PRIVATE_REVIEW_DIR"
@@ -82,7 +127,8 @@ if ($Server) {
 }
 Write-Host ""
 Write-Host "Set the server endpoint to:"
-Write-Host "INKWALL_REMOTE_REVIEW_ENDPOINT=http://127.0.0.1:$selectedPort"
+Write-Host "INKWALL_REMOTE_REVIEW_ENDPOINT=$serverEndpoint"
+Write-Host "Saved this endpoint to local .env."
 Write-Host ""
 
 php -S "$HostName`:$selectedPort" tools/private-review-receiver.php
