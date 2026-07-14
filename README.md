@@ -121,10 +121,18 @@ Windows users can choose WSL or native Windows. Native Windows does not need `su
 git clone https://github.com/IamAngusU/InkWall.git
 cd InkWall
 php -v
+.\setup-windows.cmd
+```
+
+The Windows setup asks for branding, public URL, moderation mode, optional cloud keys, private review fallback, autostart, and whether the receiver should start immediately.
+
+If you only want to start the private review receiver later:
+
+```powershell
 .\start-private-review-windows.cmd
 ```
 
-The Windows start helper creates missing private-review secrets, writes them to `.env`, chooses a free port, creates the inbox folder, and prints the matching tunnel command. Run the full Windows setup wizard only when you also want to configure branding, public URL, and cloud keys:
+The Windows start helper creates missing private-review secrets, writes them to `.env`, chooses a free port, creates the inbox folder, and prints the matching tunnel command. You can also run the setup wizard directly with PowerShell:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
@@ -141,6 +149,7 @@ Autostart can be managed later without editing files:
 ```powershell
 .\manage-private-review-windows.cmd
 .\manage-private-review-windows.cmd install hidden
+.\manage-private-review-windows.cmd start
 .\manage-private-review-windows.cmd status
 .\manage-private-review-windows.cmd stop
 .\manage-private-review-windows.cmd remove

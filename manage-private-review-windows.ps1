@@ -33,6 +33,19 @@ function Task-Exists {
     return $null -ne $task
 }
 
+function Task-Running {
+    $task = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+    return $task -and $task.State -eq "Running"
+}
+
+function Format-TaskResult($Code) {
+    switch ($Code) {
+        0 { return "0, success" }
+        267009 { return "267009, running" }
+        default { return "$Code" }
+    }
+}
+
 function Install-Task {
     if (Task-Exists) {
         Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false | Out-Null
@@ -69,7 +82,7 @@ function Show-Status {
     Write-Host "Autostart is installed."
     Write-Host "State: $($task.State)"
     Write-Host "Last run: $($info.LastRunTime)"
-    Write-Host "Last result: $($info.LastTaskResult)"
+    Write-Host "Last result: $(Format-TaskResult $info.LastTaskResult)"
     Write-Host "Next run: $($info.NextRunTime)"
 }
 
@@ -107,6 +120,10 @@ switch ($Action) {
     "start" {
         Require-ScheduledTasks
         if (-not (Task-Exists)) { Install-Task }
+        if (Task-Running) {
+            Write-Host "Already running: $TaskName"
+            exit 0
+        }
         Start-ScheduledTask -TaskName $TaskName
         Write-Host "Started: $TaskName"
     }

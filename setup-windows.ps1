@@ -193,7 +193,11 @@ if ($remoteMode -ne "off") {
         $autostartMode = Ask "Autostart mode: hidden or window" "hidden"
         if ($autostartMode -notin @("hidden", "window")) { $autostartMode = "hidden" }
         & (Join-Path $Root "manage-private-review-windows.ps1") -Action install -WindowMode $autostartMode
+        if (YesNo "Start private review receiver now?" "y") {
+            & (Join-Path $Root "manage-private-review-windows.ps1") -Action start
+        }
     } else {
         Write-Host "Autostart can be managed later with .\manage-private-review-windows.cmd"
+        Write-Host "Start the receiver now with .\start-private-review-windows.cmd"
     }
 }
