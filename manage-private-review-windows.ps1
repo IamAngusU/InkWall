@@ -57,6 +57,7 @@ function Install-Task {
     $args += " -File `"$script`""
     if ($Port -gt 0) { $args += " -Port $Port" }
     if ($Server) { $args += " -Server `"$Server`"" }
+    if ($WindowMode -eq "window") { $args += " -KeepOpenOnError" }
 
     $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $args -WorkingDirectory $Root
     $trigger = New-ScheduledTaskTrigger -AtLogOn

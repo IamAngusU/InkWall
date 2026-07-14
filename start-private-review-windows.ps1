@@ -1,12 +1,33 @@
 param(
     [int]$Port = 0,
     [string]$HostName = "127.0.0.1",
-    [string]$Server = ""
+    [string]$Server = "",
+    [switch]$KeepOpenOnError
 )
 
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $Root
+$LogDir = Join-Path $Root "data\logs"
+New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
+$LogFile = Join-Path $LogDir "private-review-windows.log"
+
+function Log-Line($Text) {
+    $line = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') $Text"
+    Add-Content -Path $LogFile -Value $line -Encoding UTF8
+}
+
+trap {
+    $message = $_.Exception.Message
+    Write-Host "InkWall private review stopped: $message" -ForegroundColor Red
+    Log-Line "ERROR $message"
+    Log-Line "ERROR $($_ | Out-String)"
+    Write-Host "Log file: $LogFile"
+    if ($KeepOpenOnError -or $env:INKWALL_KEEP_WINDOW_OPEN_ON_ERROR -eq "1") {
+        Read-Host "Press Enter to close"
+    }
+    exit 1
+}
 
 function Read-EnvFile($Path) {
     $values = @{}
@@ -169,6 +190,7 @@ Write-EnvValue ".env" "INKWALL_REMOTE_REVIEW_ENCRYPT" "1"
 Write-EnvValue ".env" "INKWALL_PRIVATE_REVIEW_PORT" $selectedPort
 
 Info "InkWall private review receiver"
+Log-Line "Starting private review receiver on http://${HostName}:$selectedPort"
 Write-Host "Inbox: " -NoNewline
 Good "$env:INKWALL_PRIVATE_REVIEW_DIR"
 Write-Host "Local URL: " -NoNewline
@@ -176,6 +198,7 @@ Good "http://${HostName}:$selectedPort"
 if ($env:INKWALL_PRIVATE_REVIEW_COMMAND) {
     Write-Host "Local review command: " -NoNewline
     Good "$env:INKWALL_PRIVATE_REVIEW_COMMAND"
+    Log-Line "Review command: $env:INKWALL_PRIVATE_REVIEW_COMMAND"
 } else {
     Write-Host "Local review command: " -NoNewline
     Muted "none, default decision is $env:INKWALL_PRIVATE_REVIEW_DEFAULT"
@@ -197,6 +220,7 @@ if (-not (Get-Command ssh -ErrorAction SilentlyContinue)) {
 
 Write-Host "Server tunnel: " -NoNewline
 Good "$Server"
+Log-Line "Server tunnel target: $Server"
 Write-Host "Transport: " -NoNewline
 Good "SSH with encrypted InkWall payloads"
 Muted "Waiting for review jobs. Received jobs will be logged here and saved in the inbox."
@@ -224,23 +248,29 @@ try {
         if ($sshKey) { $sshArgs += @("-i", $sshKey) }
         $sshArgs += $Server
         Info "Connecting secure tunnel..."
+        Log-Line "Connecting SSH tunnel to $Server on local port $selectedPort"
         $sshProcess = Start-Process -FilePath "ssh" -ArgumentList $sshArgs -NoNewWindow -PassThru
         Start-Sleep -Milliseconds 1200
         if ($sshProcess.HasExited) {
             Warn "Secure tunnel could not stay connected. Retrying in 5 seconds."
+            Log-Line "SSH tunnel exited early with code $($sshProcess.ExitCode)"
             Start-Sleep -Seconds 5
             continue
         }
         Good "Secure tunnel connected."
+        Log-Line "SSH tunnel connected"
         if (Test-ServerCanReachReceiver $Server $sshKey $selectedPort) {
             Good "Server can reach this receiver on 127.0.0.1:$selectedPort."
+            Log-Line "Server reachability probe succeeded"
         } else {
             Warn "Tunnel is open, but the reachability probe did not confirm it yet."
+            Log-Line "Server reachability probe did not confirm tunnel"
         }
         $sshProcess.WaitForExit()
         if ($phpProcess.HasExited) { break }
         Write-Host "Tunnel disconnected. " -NoNewline
         Muted "Reconnecting in 5 seconds."
+        Log-Line "SSH tunnel disconnected with code $($sshProcess.ExitCode)"
         Start-Sleep -Seconds 5
     }
 } finally {
