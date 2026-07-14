@@ -1,0 +1,41 @@
+name: Feature request
+description: Suggest a focused improvement to InkWall
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: Explain the user need before proposing an implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed experience
+      description: Describe the smallest useful interaction or behavior.
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Affected surface
+      options:
+        - Editor and preview
+        - Public SVG and profile rendering
+        - Archive, reactions, or reports
+        - Moderation and review
+        - Deployment or documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: privacy
+    attributes:
+      label: Privacy and moderation impact
+      description: Note any new stored data, external calls, or moderation behavior.
+      placeholder: No new data is stored, or explain the proposed boundary.
+    validations:
+      required: true

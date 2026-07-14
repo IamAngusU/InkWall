@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security-sensitive report
+    url: https://angusu.de/
+    about: Contact the maintainer privately instead of publishing a vulnerability or private data.
+  - name: Live InkWall
+    url: https://angusu.de/inkwall/
+    about: Check the current public deployment before reporting a production-only issue.
