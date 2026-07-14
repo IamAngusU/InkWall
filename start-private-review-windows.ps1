@@ -80,6 +80,16 @@ function Muted($Text) {
     Write-Host $Text -ForegroundColor DarkGray
 }
 
+function Quote-ProcessArg($Value) {
+    $text = [string]$Value
+    if ($text -notmatch '[\s"]') { return $text }
+    return '"' + ($text -replace '"', '\"') + '"'
+}
+
+function Join-ProcessArgs($Values) {
+    return (($Values | ForEach-Object { Quote-ProcessArg $_ }) -join " ")
+}
+
 function Ensure-EnvFile {
     if (Test-Path ".env") { return }
     Write-Host "No .env found. Creating a minimal private-review config."
@@ -249,7 +259,7 @@ try {
         $sshArgs += $Server
         Info "Connecting secure tunnel..."
         Log-Line "Connecting SSH tunnel to $Server on local port $selectedPort"
-        $sshProcess = Start-Process -FilePath "ssh" -ArgumentList $sshArgs -NoNewWindow -PassThru
+        $sshProcess = Start-Process -FilePath "ssh" -ArgumentList (Join-ProcessArgs $sshArgs) -NoNewWindow -PassThru
         Start-Sleep -Milliseconds 1200
         if ($sshProcess.HasExited) {
             Warn "Secure tunnel could not stay connected. Retrying in 5 seconds."
