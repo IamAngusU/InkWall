@@ -84,6 +84,20 @@ function Test-PortFree($PortToCheck) {
     }
 }
 
+function Test-ServerCanReachReceiver($Server, $SshKey, $PortToCheck) {
+    if (-not (Get-Command ssh -ErrorAction SilentlyContinue)) { return $false }
+    $remote = "if command -v curl >/dev/null 2>&1; then curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:$PortToCheck/; else printf NO_CURL; fi"
+    $args = @("-o", "BatchMode=yes", "-o", "ConnectTimeout=8")
+    if ($SshKey) { $args += @("-i", $SshKey) }
+    $args += @($Server, $remote)
+    try {
+        $result = (& ssh @args 2>$null)
+        return (($result -join "").Trim() -eq "405")
+    } catch {
+        return $false
+    }
+}
+
 if (-not (Get-Command php -ErrorAction SilentlyContinue)) {
     Write-Host "PHP CLI was not found in PATH."
     exit 1
@@ -197,6 +211,7 @@ if ($phpProcess.HasExited) {
 }
 
 try {
+    $sshProcess = $null
     while (-not $phpProcess.HasExited) {
         $sshArgs = @(
             "-N",
@@ -209,12 +224,26 @@ try {
         if ($sshKey) { $sshArgs += @("-i", $sshKey) }
         $sshArgs += $Server
         Info "Connecting secure tunnel..."
-        & ssh @sshArgs
+        $sshProcess = Start-Process -FilePath "ssh" -ArgumentList $sshArgs -NoNewWindow -PassThru
+        Start-Sleep -Milliseconds 1200
+        if ($sshProcess.HasExited) {
+            Warn "Secure tunnel could not stay connected. Retrying in 5 seconds."
+            Start-Sleep -Seconds 5
+            continue
+        }
+        Good "Secure tunnel connected."
+        if (Test-ServerCanReachReceiver $Server $sshKey $selectedPort) {
+            Good "Server can reach this receiver on 127.0.0.1:$selectedPort."
+        } else {
+            Warn "Tunnel is open, but the reachability probe did not confirm it yet."
+        }
+        $sshProcess.WaitForExit()
         if ($phpProcess.HasExited) { break }
         Write-Host "Tunnel disconnected. " -NoNewline
         Muted "Reconnecting in 5 seconds."
         Start-Sleep -Seconds 5
     }
 } finally {
+    if ($sshProcess -and -not $sshProcess.HasExited) { Stop-Process -Id $sshProcess.Id -Force -ErrorAction SilentlyContinue }
     if (-not $phpProcess.HasExited) { Stop-Process -Id $phpProcess.Id -Force -ErrorAction SilentlyContinue }
 }
