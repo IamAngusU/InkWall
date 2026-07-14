@@ -1,5 +1,5 @@
 param(
-    [int]$Port = 8787,
+    [int]$Port = 0,
     [string]$HostName = "127.0.0.1",
     [string]$Server = ""
 )
@@ -79,6 +79,15 @@ if (-not (Get-Command php -ErrorAction SilentlyContinue)) {
 
 Ensure-EnvFile
 $envValues = Read-EnvFile ".env"
+$configuredPort = 0
+if ($envValues.ContainsKey("INKWALL_PRIVATE_REVIEW_PORT") -and $envValues["INKWALL_PRIVATE_REVIEW_PORT"] -match '^\d+$') {
+    $configuredPort = [int]$envValues["INKWALL_PRIVATE_REVIEW_PORT"]
+}
+if ($Port -le 0) { $Port = if ($configuredPort -gt 0) { $configuredPort } else { 8787 } }
+if (-not $Server -and $envValues.ContainsKey("INKWALL_PRIVATE_REVIEW_SSH_TARGET")) {
+    $Server = $envValues["INKWALL_PRIVATE_REVIEW_SSH_TARGET"]
+}
+$sshKey = if ($envValues.ContainsKey("INKWALL_PRIVATE_REVIEW_SSH_KEY")) { $envValues["INKWALL_PRIVATE_REVIEW_SSH_KEY"] } else { "" }
 if (-not $env:INKWALL_PRIVATE_REVIEW_SECRET -and $envValues.ContainsKey("INKWALL_REMOTE_REVIEW_SECRET")) {
     $env:INKWALL_PRIVATE_REVIEW_SECRET = $envValues["INKWALL_REMOTE_REVIEW_SECRET"]
 }
@@ -104,36 +113,68 @@ if (-not $env:INKWALL_PRIVATE_REVIEW_ENCRYPTION_KEY) {
 }
 
 $selectedPort = $Port
-while ($selectedPort -lt ($Port + 100)) {
-    if (Test-PortFree $selectedPort) { break }
-    $selectedPort++
-}
-if ($selectedPort -ge ($Port + 100)) {
-    Write-Host "No free local port found from $Port to $($Port + 99)."
+if (-not (Test-PortFree $selectedPort)) {
+    Write-Host "Port $selectedPort is already in use. InkWall may already be running."
+    Write-Host "Check with .\manage-private-review-windows.cmd status"
     exit 1
 }
 
 New-Item -ItemType Directory -Force -Path $env:INKWALL_PRIVATE_REVIEW_DIR | Out-Null
 $serverEndpoint = "http://127.0.0.1:$selectedPort"
 Write-EnvValue ".env" "INKWALL_REMOTE_REVIEW_ENDPOINT" $serverEndpoint
-Write-EnvValue ".env" "INKWALL_REMOTE_REVIEW" "fallback"
+if (-not $envValues.ContainsKey("INKWALL_REMOTE_REVIEW") -or -not $envValues["INKWALL_REMOTE_REVIEW"]) {
+    Write-EnvValue ".env" "INKWALL_REMOTE_REVIEW" "fallback"
+}
 Write-EnvValue ".env" "INKWALL_REMOTE_REVIEW_ENCRYPT" "1"
+Write-EnvValue ".env" "INKWALL_PRIVATE_REVIEW_PORT" $selectedPort
 
 Write-Host "InkWall private review receiver"
 Write-Host "Inbox: $env:INKWALL_PRIVATE_REVIEW_DIR"
 Write-Host "Local URL: http://${HostName}:$selectedPort"
 Write-Host ""
-if ($Server) {
-    Write-Host "SSH reverse tunnel:"
-    Write-Host "ssh -N -R 127.0.0.1:$selectedPort`:$HostName`:$selectedPort $Server"
-} else {
-    Write-Host "SSH reverse tunnel example:"
-    Write-Host "ssh -N -R 127.0.0.1:$selectedPort`:$HostName`:$selectedPort user@your-server"
+if (-not $Server) {
+    Write-Host "Server tunnel: not configured"
+    Write-Host "Run .\setup-windows.cmd to pair this receiver with an InkWall server."
+    Write-Host ""
+    php -S "$HostName`:$selectedPort" tools/private-review-receiver.php
+    exit $LASTEXITCODE
 }
-Write-Host ""
-Write-Host "Set the server endpoint to:"
-Write-Host "INKWALL_REMOTE_REVIEW_ENDPOINT=$serverEndpoint"
-Write-Host "Saved this endpoint to local .env."
+
+if (-not (Get-Command ssh -ErrorAction SilentlyContinue)) {
+    Write-Host "Windows OpenSSH Client was not found."
+    exit 1
+}
+
+Write-Host "Server tunnel: $Server"
+Write-Host "Transport: SSH with encrypted InkWall payloads"
 Write-Host ""
 
-php -S "$HostName`:$selectedPort" tools/private-review-receiver.php
+$phpArgs = @("-S", "$HostName`:$selectedPort", "tools/private-review-receiver.php")
+$phpProcess = Start-Process -FilePath "php" -ArgumentList $phpArgs -WorkingDirectory $Root -NoNewWindow -PassThru
+Start-Sleep -Milliseconds 500
+if ($phpProcess.HasExited) {
+    Write-Host "The private review receiver could not start."
+    exit 1
+}
+
+try {
+    while (-not $phpProcess.HasExited) {
+        $sshArgs = @(
+            "-N",
+            "-o", "BatchMode=yes",
+            "-o", "ExitOnForwardFailure=yes",
+            "-o", "ServerAliveInterval=30",
+            "-o", "ServerAliveCountMax=3",
+            "-R", "127.0.0.1:$selectedPort`:$HostName`:$selectedPort"
+        )
+        if ($sshKey) { $sshArgs += @("-i", $sshKey) }
+        $sshArgs += $Server
+        Write-Host "Connecting secure tunnel..."
+        & ssh @sshArgs
+        if ($phpProcess.HasExited) { break }
+        Write-Host "Tunnel disconnected. Reconnecting in 5 seconds."
+        Start-Sleep -Seconds 5
+    }
+} finally {
+    if (-not $phpProcess.HasExited) { Stop-Process -Id $phpProcess.Id -Force -ErrorAction SilentlyContinue }
+}

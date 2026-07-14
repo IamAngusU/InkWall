@@ -97,7 +97,7 @@ case "$mode" in
     cloud_enabled=0
     text_cloud=0
     image_cloud=0
-    remote_mode=fallback
+    remote_mode=always
     ;;
   3)
     cloud_enabled=0

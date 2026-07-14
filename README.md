@@ -124,7 +124,9 @@ php -v
 .\setup-windows.cmd
 ```
 
-The Windows setup asks for branding, public URL, moderation mode, optional cloud keys, private review fallback, autostart, and whether the receiver should start immediately.
+The Windows setup accepts either a GitHub username or profile URL, verifies the account and repository, and derives the display name, profile URL, repository URL, and short site label automatically. It then asks only for the public URL, review email, moderation mode, and optional advanced branding or cloud keys.
+
+When the private receiver runs on Windows and InkWall runs on another server, the same setup can finish the connection over SSH. Enter `user@host` once. The wizard creates a dedicated SSH key, finds the server `.env`, transfers matching secrets over SSH, installs the reverse tunnel, and can start receiver plus tunnel at sign-in. Private keys are saved locally and are not printed.
 
 If you only want to start the private review receiver later:
 
@@ -132,13 +134,13 @@ If you only want to start the private review receiver later:
 .\start-private-review-windows.cmd
 ```
 
-The Windows start helper creates missing private-review secrets, writes them to `.env`, chooses a free port, creates the inbox folder, and prints the matching tunnel command. You can also run the setup wizard directly with PowerShell:
+The Windows start helper creates missing private-review secrets, writes them to `.env`, uses the saved port, creates the inbox folder, and starts the saved SSH tunnel when the server was paired by setup. You can also run the setup wizard directly with PowerShell:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
 ```
 
-If `php -v` is not found, install PHP for Windows from php.net or your package manager, then open a new terminal. If Windows refuses a socket on port `8787`, the Windows start helper automatically tries the next free port and prints the matching tunnel and server endpoint. You can also choose one:
+If `php -v` is not found, install PHP for Windows from php.net or your package manager, then open a new terminal. The setup wizard finds a local and remote port that are both free and saves that port permanently. You can also choose a local receiver port manually before pairing:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\start-private-review-windows.ps1 -Port 8797
@@ -182,7 +184,7 @@ For private-computer-only review:
 INKWALL_AI_CLOUD_ENABLED=0
 INKWALL_AI_TEXT_CLOUD_ENABLED=0
 INKWALL_AI_IMAGE_CLOUD_ENABLED=0
-INKWALL_REMOTE_REVIEW=fallback
+INKWALL_REMOTE_REVIEW=always
 ```
 
 Manual setup is also possible. Copy the example environment file when you want review mail or AI moderation:

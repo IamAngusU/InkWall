@@ -85,7 +85,9 @@ mkdir -p "$INKWALL_PRIVATE_REVIEW_DIR"
 
 endpoint="http://127.0.0.1:$selected"
 env_set INKWALL_REMOTE_REVIEW_ENDPOINT "$endpoint"
-env_set INKWALL_REMOTE_REVIEW fallback
+if [ -z "$(env_get INKWALL_REMOTE_REVIEW || true)" ]; then
+  env_set INKWALL_REMOTE_REVIEW fallback
+fi
 env_set INKWALL_REMOTE_REVIEW_ENCRYPT 1
 
 printf '%s\n' "InkWall private review receiver"

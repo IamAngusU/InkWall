@@ -3,7 +3,7 @@ param(
     [string]$Action = "ask",
     [ValidateSet("hidden", "window")]
     [string]$WindowMode = "hidden",
-    [int]$Port = 8787,
+    [int]$Port = 0,
     [string]$Server = "",
     [string]$TaskName = "InkWall Private Review"
 )
@@ -54,7 +54,8 @@ function Install-Task {
     $script = Join-Path $Root "start-private-review-windows.ps1"
     $args = "-NoProfile -ExecutionPolicy Bypass"
     if ($WindowMode -eq "hidden") { $args += " -WindowStyle Hidden" }
-    $args += " -File `"$script`" -Port $Port"
+    $args += " -File `"$script`""
+    if ($Port -gt 0) { $args += " -Port $Port" }
     if ($Server) { $args += " -Server `"$Server`"" }
 
     $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $args -WorkingDirectory $Root
