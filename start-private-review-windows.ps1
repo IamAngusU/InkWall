@@ -117,7 +117,10 @@ foreach ($key in @(
     "INKWALL_OLLAMA_URL",
     "INKWALL_OLLAMA_MODEL",
     "INKWALL_OLLAMA_TIMEOUT_SECONDS",
-    "INKWALL_OLLAMA_SEND_IMAGES"
+    "INKWALL_OLLAMA_SEND_IMAGES",
+    "INKWALL_BROWSER_REVIEW_OPEN",
+    "INKWALL_BROWSER_REVIEW_TIMEOUT_SECONDS",
+    "INKWALL_BROWSER_REVIEW_MODEL"
 )) {
     if (-not [Environment]::GetEnvironmentVariable($key) -and $envValues.ContainsKey($key)) {
         [Environment]::SetEnvironmentVariable($key, $envValues[$key], "Process")

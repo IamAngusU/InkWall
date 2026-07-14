@@ -339,6 +339,16 @@ INKWALL_OLLAMA_SEND_IMAGES=0
 
 `INKWALL_OLLAMA_SEND_IMAGES=1` is only useful with a local multimodal model. The receiver logs every received job, command run, and returned decision in the terminal. Each job is also saved in the inbox with `payload.json`, `name.txt`, `message.txt`, optional `image.*`, `command.log`, `command.exit`, and `decision.json`.
 
+For a browser-based local AI workflow:
+
+```env
+INKWALL_PRIVATE_REVIEW_COMMAND=php tools/private-review-browser.php
+INKWALL_BROWSER_REVIEW_OPEN=1
+INKWALL_BROWSER_REVIEW_TIMEOUT_SECONDS=180
+```
+
+This creates `browser-review.html`, `browser-prompt.txt`, and `browser-answer.example.json` inside the job folder. The page opens locally, shows the prompt and submitted image, and waits until `browser-answer.json` appears. This is the safe browser bridge layer; direct control of a specific existing browser tab can be added per AI website through a DevTools or extension adapter.
+
 Example local review command output:
 
 ```json

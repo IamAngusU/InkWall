@@ -525,6 +525,8 @@ $privateReviewCommand = if ($existing.ContainsKey("INKWALL_PRIVATE_REVIEW_COMMAN
 $ollamaUrl = if ($existing.ContainsKey("INKWALL_OLLAMA_URL")) { $existing["INKWALL_OLLAMA_URL"] } else { "http://127.0.0.1:11434" }
 $ollamaModel = if ($existing.ContainsKey("INKWALL_OLLAMA_MODEL")) { $existing["INKWALL_OLLAMA_MODEL"] } else { "gemma3:4b" }
 $ollamaSendImages = if ($existing.ContainsKey("INKWALL_OLLAMA_SEND_IMAGES")) { $existing["INKWALL_OLLAMA_SEND_IMAGES"] } else { "0" }
+$browserReviewTimeout = if ($existing.ContainsKey("INKWALL_BROWSER_REVIEW_TIMEOUT_SECONDS")) { $existing["INKWALL_BROWSER_REVIEW_TIMEOUT_SECONDS"] } else { "180" }
+$browserReviewOpen = if ($existing.ContainsKey("INKWALL_BROWSER_REVIEW_OPEN")) { $existing["INKWALL_BROWSER_REVIEW_OPEN"] } else { "1" }
 
 if (Get-Command Get-ScheduledTask -ErrorAction SilentlyContinue) {
     $oldTask = Get-ScheduledTask -TaskName "InkWall Private Review" -ErrorAction SilentlyContinue
@@ -658,8 +660,9 @@ if ($remoteMode -ne "off") {
     Write-Host "  1) Manual/default: save the job and return the default decision"
     Write-Host "  2) Ollama on this PC: run tools/private-review-ollama.php"
     Write-Host "  3) Custom command: run your own local script or app"
-    $engineDefault = if ($privateReviewCommand -match 'private-review-ollama\.php') { "2" } elseif ($privateReviewCommand) { "3" } else { "1" }
-    $engine = Ask "Choose 1, 2, or 3" $engineDefault
+    Write-Host "  4) Browser bridge: open a local review page for a browser AI workflow"
+    $engineDefault = if ($privateReviewCommand -match 'private-review-ollama\.php') { "2" } elseif ($privateReviewCommand -match 'private-review-browser\.php') { "4" } elseif ($privateReviewCommand) { "3" } else { "1" }
+    $engine = Ask "Choose 1, 2, 3, or 4" $engineDefault
     if ($engine -eq "2") {
         $privateReviewCommand = "php tools/private-review-ollama.php"
         $ollamaUrl = Ask "Ollama URL" $ollamaUrl
@@ -671,6 +674,15 @@ if ($remoteMode -ne "off") {
         if ($ollamaSendImages -notin @("0", "1")) { $ollamaSendImages = "0" }
     } elseif ($engine -eq "3") {
         $privateReviewCommand = Ask "Custom review command" $privateReviewCommand
+    } elseif ($engine -eq "4") {
+        $privateReviewCommand = "php tools/private-review-browser.php"
+        Write-Host "Browser bridge mode:" -ForegroundColor Cyan
+        Write-Host "  1) Open the local review page automatically"
+        Write-Host "  0) Only save the files in the inbox"
+        $browserReviewOpen = Ask "Choose 0 or 1" $browserReviewOpen
+        if ($browserReviewOpen -notin @("0", "1")) { $browserReviewOpen = "1" }
+        $browserReviewTimeout = Ask "Seconds to wait for browser-answer.json" $browserReviewTimeout
+        if ($browserReviewTimeout -notmatch '^\d+$') { $browserReviewTimeout = "180" }
     } else {
         $privateReviewCommand = ""
     }
@@ -744,6 +756,9 @@ INKWALL_OLLAMA_URL=$ollamaUrl
 INKWALL_OLLAMA_MODEL=$ollamaModel
 INKWALL_OLLAMA_SEND_IMAGES=$ollamaSendImages
 INKWALL_OLLAMA_TIMEOUT_SECONDS=25
+INKWALL_BROWSER_REVIEW_OPEN=$browserReviewOpen
+INKWALL_BROWSER_REVIEW_TIMEOUT_SECONDS=$browserReviewTimeout
+INKWALL_BROWSER_REVIEW_MODEL=browser-bridge
 
 INKWALL_AI_ALLOW_REJECT=0
 INKWALL_AI_FLAG_POLICY_JSON={"advertising":"allow","harassment":"hold","copyright":"hold","violence":"hold","nudity":"hold"}
