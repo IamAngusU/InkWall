@@ -96,6 +96,22 @@ cd InkWall
 ./install.sh
 ```
 
+Windows users can choose WSL or native Windows. Native Windows does not need `sudo`, `apt`, or Homebrew:
+
+```powershell
+git clone https://github.com/IamAngusU/InkWall.git
+cd InkWall
+php -v
+powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
+.\start-private-review-windows.cmd
+```
+
+If `php -v` is not found, install PHP for Windows from php.net or your package manager, then open a new terminal. If Windows refuses a socket on port `8787`, the Windows start helper automatically tries the next free port and prints the matching tunnel and server endpoint. You can also choose one:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\start-private-review-windows.ps1 -Port 8797
+```
+
 The installer creates `.env`, generates private-review secrets, prepares `data/`, and lets you choose one of three review modes:
 
 - cloud AI with private fallback
@@ -251,6 +267,12 @@ export INKWALL_PRIVATE_REVIEW_DEFAULT=review
 # Optional: command receives the created job folder and prints JSON.
 export INKWALL_PRIVATE_REVIEW_COMMAND="$HOME/bin/inkwall-local-review"
 php -S 127.0.0.1:8787 tools/private-review-receiver.php
+```
+
+On native Windows, use:
+
+```powershell
+.\start-private-review-windows.cmd
 ```
 
 The command can send the saved job to Ollama, a local script, a local app, or any other private review system. It receives the job folder path as its first argument and must print compact JSON:
