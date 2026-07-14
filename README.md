@@ -88,7 +88,39 @@ cd InkWall
 php -S 127.0.0.1:8080 -t public public/router.php
 ```
 
-Copy the example environment file when you want review mail or AI moderation:
+Fast setup:
+
+```bash
+git clone https://github.com/IamAngusU/InkWall.git
+cd InkWall
+./install.sh
+```
+
+The installer creates `.env`, generates private-review secrets, prepares `data/`, and lets you choose one of three review modes:
+
+- cloud AI with private fallback
+- private computer only
+- local checks only
+
+You can switch later without deleting keys:
+
+```env
+INKWALL_AI_CLOUD_ENABLED=1
+INKWALL_AI_TEXT_CLOUD_ENABLED=1
+INKWALL_AI_IMAGE_CLOUD_ENABLED=1
+INKWALL_REMOTE_REVIEW=fallback
+```
+
+For private-computer-only review:
+
+```env
+INKWALL_AI_CLOUD_ENABLED=0
+INKWALL_AI_TEXT_CLOUD_ENABLED=0
+INKWALL_AI_IMAGE_CLOUD_ENABLED=0
+INKWALL_REMOTE_REVIEW=fallback
+```
+
+Manual setup is also possible. Copy the example environment file when you want review mail or AI moderation:
 
 ```bash
 cp .env.example .env

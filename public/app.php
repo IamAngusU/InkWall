@@ -390,6 +390,14 @@ function inkwall_ai_channel_provider(string $channel): string {
 
 function inkwall_ai_channel_config(string $channel): array {
     $channel = $channel === 'image' ? 'image' : 'text';
+    if (!inkwall_ai_cloud_enabled($channel)) {
+        return [
+            'channel' => $channel,
+            'provider' => $channel === 'image' ? 'manual' : 'local',
+            'model' => $channel === 'image' ? 'manual' : 'local',
+            'cloud_disabled' => true,
+        ];
+    }
     $envKey = $channel === 'image' ? 'INKWALL_AI_IMAGE_PROVIDER' : 'INKWALL_AI_TEXT_PROVIDER';
     $modelKey = $channel === 'image' ? 'INKWALL_AI_IMAGE_MODEL' : 'INKWALL_AI_TEXT_MODEL';
     $json = trim(inkwall_env('INKWALL_AI_CHANNELS_JSON', ''));
@@ -413,6 +421,13 @@ function inkwall_ai_channel_config(string $channel): array {
         };
     }
     return ['channel' => $channel, 'provider' => $provider, 'model' => $model];
+}
+
+function inkwall_ai_cloud_enabled(string $channel = ''): bool {
+    if (!inkwall_env_bool('INKWALL_AI_CLOUD_ENABLED', true)) return false;
+    $channel = $channel === 'image' ? 'IMAGE' : ($channel === 'text' ? 'TEXT' : '');
+    if ($channel !== '') return inkwall_env_bool('INKWALL_AI_' . $channel . '_CLOUD_ENABLED', true);
+    return true;
 }
 
 function inkwall_ai_provider_supports_images(string $provider): bool {
@@ -453,7 +468,7 @@ function inkwall_ai_moderation(string $name, string $message, ?string $imageMime
             'text' => inkwall_ai_review_step('text', 'local', 'local', $localFlags ? 'review' : 'allow', $localFlags, [], 0, ''),
         ],
     ];
-    if (!inkwall_ai_moderation_enabled()) return inkwall_remote_review_apply($result, $noteId, $name, $message, $imageMime, $imageData, 'always');
+    if (!inkwall_ai_moderation_enabled() || !inkwall_ai_cloud_enabled()) return inkwall_remote_review_apply($result, $noteId, $name, $message, $imageMime, $imageData, 'always');
 
     $hasImage = $imageData !== null && $imageMime !== null;
     $textConfig = inkwall_ai_channel_config('text');
@@ -555,7 +570,7 @@ function inkwall_remote_review_apply(array $moderation, string $noteId, string $
     $mode = strtolower(inkwall_env('INKWALL_REMOTE_REVIEW', 'off'));
     if (in_array($mode, ['0', 'false', 'off', 'disabled', 'none'], true)) return $moderation;
     $fallbackOnly = in_array($mode, ['fallback', 'failover', 'on_fail', 'on-fail'], true);
-    if ($fallbackOnly && !inkwall_remote_review_needs_fallback($moderation)) return $moderation;
+    if ($fallbackOnly && $reason !== 'always' && !inkwall_remote_review_needs_fallback($moderation)) return $moderation;
     if (!in_array($mode, ['1', 'true', 'on', 'enabled', 'always', 'all'], true) && !$fallbackOnly) return $moderation;
 
     $remote = inkwall_remote_review_send($moderation, $noteId, $name, $message, $imageMime, $imageData, $reason);
