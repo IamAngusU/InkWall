@@ -63,6 +63,79 @@ function Read-EnvFile($Path) {
     return $values
 }
 
+function Write-EnvValues($Path, $Updates) {
+    $lines = @()
+    if (Test-Path $Path) { $lines = @(Get-Content $Path) }
+    $seen = @{}
+    $updated = foreach ($line in $lines) {
+        if ($line -match '^\s*([^#][^=]+)=') {
+            $key = $Matches[1].Trim()
+            if ($Updates.ContainsKey($key)) {
+                $seen[$key] = $true
+                "$key=$($Updates[$key])"
+                continue
+            }
+        }
+        $line
+    }
+    foreach ($key in $Updates.Keys) {
+        if (-not $seen.ContainsKey($key)) { $updated += "$key=$($Updates[$key])" }
+    }
+    Set-Content -Path $Path -Value $updated -Encoding UTF8
+}
+
+function Configure-PrivateReviewEngine($Existing) {
+    $privateReviewCommand = if ($Existing.ContainsKey("INKWALL_PRIVATE_REVIEW_COMMAND")) { $Existing["INKWALL_PRIVATE_REVIEW_COMMAND"] } else { "" }
+    $ollamaUrl = if ($Existing.ContainsKey("INKWALL_OLLAMA_URL")) { $Existing["INKWALL_OLLAMA_URL"] } else { "http://127.0.0.1:11434" }
+    $ollamaModel = if ($Existing.ContainsKey("INKWALL_OLLAMA_MODEL")) { $Existing["INKWALL_OLLAMA_MODEL"] } else { "gemma3:4b" }
+    $ollamaSendImages = if ($Existing.ContainsKey("INKWALL_OLLAMA_SEND_IMAGES")) { $Existing["INKWALL_OLLAMA_SEND_IMAGES"] } else { "0" }
+    $browserReviewTimeout = if ($Existing.ContainsKey("INKWALL_BROWSER_REVIEW_TIMEOUT_SECONDS")) { $Existing["INKWALL_BROWSER_REVIEW_TIMEOUT_SECONDS"] } else { "180" }
+    $browserReviewOpen = if ($Existing.ContainsKey("INKWALL_BROWSER_REVIEW_OPEN")) { $Existing["INKWALL_BROWSER_REVIEW_OPEN"] } else { "1" }
+
+    Write-Host ""
+    Write-Host "Private computer review engine:" -ForegroundColor Cyan
+    Write-Host "  1) Manual/default: save the job and return the default decision"
+    Write-Host "  2) Ollama on this PC: run tools/private-review-ollama.php"
+    Write-Host "  3) Custom command: run your own local script or app"
+    Write-Host "  4) Browser bridge: open a local review page for a browser AI workflow"
+    $engineDefault = if ($privateReviewCommand -match 'private-review-ollama\.php') { "2" } elseif ($privateReviewCommand -match 'private-review-browser\.php') { "4" } elseif ($privateReviewCommand) { "3" } else { "1" }
+    $engine = Ask "Choose 1, 2, 3, or 4" $engineDefault
+    if ($engine -eq "2") {
+        $privateReviewCommand = "php tools/private-review-ollama.php"
+        $ollamaUrl = Ask "Ollama URL" $ollamaUrl
+        $ollamaModel = Ask "Ollama model" $ollamaModel
+        Write-Host "Ollama image sending:" -ForegroundColor Cyan
+        Write-Host "  0) Text only, image jobs can still be held by policy"
+        Write-Host "  1) Send image bytes to Ollama for multimodal models"
+        $ollamaSendImages = Ask "Choose 0 or 1" $ollamaSendImages
+        if ($ollamaSendImages -notin @("0", "1")) { $ollamaSendImages = "0" }
+    } elseif ($engine -eq "3") {
+        $privateReviewCommand = Ask "Custom review command" $privateReviewCommand
+    } elseif ($engine -eq "4") {
+        $privateReviewCommand = "php tools/private-review-browser.php"
+        Write-Host "Browser bridge mode:" -ForegroundColor Cyan
+        Write-Host "  1) Open the local review page automatically"
+        Write-Host "  0) Only save the files in the inbox"
+        $browserReviewOpen = Ask "Choose 0 or 1" $browserReviewOpen
+        if ($browserReviewOpen -notin @("0", "1")) { $browserReviewOpen = "1" }
+        $browserReviewTimeout = Ask "Seconds to wait for browser-answer.json" $browserReviewTimeout
+        if ($browserReviewTimeout -notmatch '^\d+$') { $browserReviewTimeout = "180" }
+    } else {
+        $privateReviewCommand = ""
+    }
+
+    return @{
+        INKWALL_PRIVATE_REVIEW_COMMAND = $privateReviewCommand
+        INKWALL_OLLAMA_URL = $ollamaUrl
+        INKWALL_OLLAMA_MODEL = $ollamaModel
+        INKWALL_OLLAMA_SEND_IMAGES = $ollamaSendImages
+        INKWALL_OLLAMA_TIMEOUT_SECONDS = "25"
+        INKWALL_BROWSER_REVIEW_OPEN = $browserReviewOpen
+        INKWALL_BROWSER_REVIEW_TIMEOUT_SECONDS = $browserReviewTimeout
+        INKWALL_BROWSER_REVIEW_MODEL = "browser-bridge"
+    }
+}
+
 function GitHub-Username($Value) {
     $candidate = $Value.Trim().TrimEnd("/")
     if ($candidate -match '^https?://') {
@@ -463,6 +536,68 @@ if (-not (Get-Command php -ErrorAction SilentlyContinue)) {
 Write-Host "InkWall quick setup" -ForegroundColor Cyan
 Muted "GitHub, repository, SSH, and server config are checked before anything starts."
 $existing = Read-EnvFile $EnvPath
+
+$hasExistingSetup = $existing.ContainsKey("INKWALL_REMOTE_REVIEW_SECRET") -or $existing.ContainsKey("INKWALL_PRIVATE_REVIEW_SSH_TARGET") -or $existing.ContainsKey("INKWALL_PUBLIC_URL")
+if ($hasExistingSetup) {
+    Write-Host ""
+    Write-Host "Existing InkWall setup found:" -ForegroundColor Cyan
+    Write-Host "  Config: " -NoNewline
+    Good (Join-Path $Root $EnvPath)
+    if ($existing.ContainsKey("INKWALL_PUBLIC_URL")) {
+        Write-Host "  Public URL: " -NoNewline
+        Good $existing["INKWALL_PUBLIC_URL"]
+    }
+    if ($existing.ContainsKey("INKWALL_PRIVATE_REVIEW_SSH_TARGET") -and $existing["INKWALL_PRIVATE_REVIEW_SSH_TARGET"]) {
+        Write-Host "  Server: " -NoNewline
+        Good $existing["INKWALL_PRIVATE_REVIEW_SSH_TARGET"]
+    }
+    if ($existing.ContainsKey("INKWALL_PRIVATE_REVIEW_PORT") -and $existing["INKWALL_PRIVATE_REVIEW_PORT"]) {
+        Write-Host "  Tunnel port: " -NoNewline
+        Good $existing["INKWALL_PRIVATE_REVIEW_PORT"]
+    }
+    if ($existing.ContainsKey("INKWALL_PRIVATE_REVIEW_COMMAND") -and $existing["INKWALL_PRIVATE_REVIEW_COMMAND"]) {
+        Write-Host "  Review engine: " -NoNewline
+        Good $existing["INKWALL_PRIVATE_REVIEW_COMMAND"]
+    } else {
+        Write-Host "  Review engine: " -NoNewline
+        Muted "manual/default"
+    }
+
+    Write-Host ""
+    Write-Host "What do you want to do?" -ForegroundColor Cyan
+    Write-Host "  1) Start existing receiver and tunnel"
+    Write-Host "  2) Show autostart/status"
+    Write-Host "  3) Change only the private review engine"
+    Write-Host "  4) Reconfigure this setup and overwrite .env"
+    Write-Host "  5) Create a separate config profile"
+    $existingAction = Ask "Choose 1, 2, 3, 4, or 5" "1"
+    if ($existingAction -eq "1") {
+        & (Join-Path $Root "manage-private-review-windows.ps1") -Action start
+        exit $LASTEXITCODE
+    } elseif ($existingAction -eq "2") {
+        & (Join-Path $Root "manage-private-review-windows.ps1") -Action status
+        exit $LASTEXITCODE
+    } elseif ($existingAction -eq "3") {
+        $updates = Configure-PrivateReviewEngine $existing
+        Write-EnvValues $EnvPath $updates
+        Good "Private review engine updated in $EnvPath."
+        Write-Host "Restart it with: .\manage-private-review-windows.cmd start"
+        exit 0
+    } elseif ($existingAction -eq "5") {
+        $profileName = Ask "Profile name" "local-test"
+        $slug = ($profileName.ToLowerInvariant() -replace '[^a-z0-9_.-]+', '-').Trim('-')
+        if (-not $slug) { $slug = "local-test" }
+        $EnvPath = ".env.$slug"
+        $existing = Read-EnvFile $EnvPath
+        Warn "Creating separate profile $EnvPath. The default start scripts still use .env unless started with custom arguments."
+    } elseif ($existingAction -ne "4") {
+        exit 0
+    } else {
+        Warn "Reconfiguring will back up and overwrite $EnvPath."
+        if (-not (YesNo "Continue reconfiguration?" "n")) { exit 0 }
+    }
+}
+
 $githubDefault = GitHub-DefaultFromRemote
 if (-not $githubDefault) { $githubDefault = "yourname" }
 if ($existing.ContainsKey("INKWALL_BRANDING_JSON")) {
@@ -655,37 +790,20 @@ if ($mode -eq "1" -and -not $serverPaired) {
 }
 
 if ($remoteMode -ne "off") {
-    Write-Host ""
-    Write-Host "Private computer review engine:" -ForegroundColor Cyan
-    Write-Host "  1) Manual/default: save the job and return the default decision"
-    Write-Host "  2) Ollama on this PC: run tools/private-review-ollama.php"
-    Write-Host "  3) Custom command: run your own local script or app"
-    Write-Host "  4) Browser bridge: open a local review page for a browser AI workflow"
-    $engineDefault = if ($privateReviewCommand -match 'private-review-ollama\.php') { "2" } elseif ($privateReviewCommand -match 'private-review-browser\.php') { "4" } elseif ($privateReviewCommand) { "3" } else { "1" }
-    $engine = Ask "Choose 1, 2, 3, or 4" $engineDefault
-    if ($engine -eq "2") {
-        $privateReviewCommand = "php tools/private-review-ollama.php"
-        $ollamaUrl = Ask "Ollama URL" $ollamaUrl
-        $ollamaModel = Ask "Ollama model" $ollamaModel
-        Write-Host "Ollama image sending:" -ForegroundColor Cyan
-        Write-Host "  0) Text only, image jobs can still be held by policy"
-        Write-Host "  1) Send image bytes to Ollama for multimodal models"
-        $ollamaSendImages = Ask "Choose 0 or 1" $ollamaSendImages
-        if ($ollamaSendImages -notin @("0", "1")) { $ollamaSendImages = "0" }
-    } elseif ($engine -eq "3") {
-        $privateReviewCommand = Ask "Custom review command" $privateReviewCommand
-    } elseif ($engine -eq "4") {
-        $privateReviewCommand = "php tools/private-review-browser.php"
-        Write-Host "Browser bridge mode:" -ForegroundColor Cyan
-        Write-Host "  1) Open the local review page automatically"
-        Write-Host "  0) Only save the files in the inbox"
-        $browserReviewOpen = Ask "Choose 0 or 1" $browserReviewOpen
-        if ($browserReviewOpen -notin @("0", "1")) { $browserReviewOpen = "1" }
-        $browserReviewTimeout = Ask "Seconds to wait for browser-answer.json" $browserReviewTimeout
-        if ($browserReviewTimeout -notmatch '^\d+$') { $browserReviewTimeout = "180" }
-    } else {
-        $privateReviewCommand = ""
+    $engineUpdates = Configure-PrivateReviewEngine @{
+        INKWALL_PRIVATE_REVIEW_COMMAND = $privateReviewCommand
+        INKWALL_OLLAMA_URL = $ollamaUrl
+        INKWALL_OLLAMA_MODEL = $ollamaModel
+        INKWALL_OLLAMA_SEND_IMAGES = $ollamaSendImages
+        INKWALL_BROWSER_REVIEW_OPEN = $browserReviewOpen
+        INKWALL_BROWSER_REVIEW_TIMEOUT_SECONDS = $browserReviewTimeout
     }
+    $privateReviewCommand = $engineUpdates["INKWALL_PRIVATE_REVIEW_COMMAND"]
+    $ollamaUrl = $engineUpdates["INKWALL_OLLAMA_URL"]
+    $ollamaModel = $engineUpdates["INKWALL_OLLAMA_MODEL"]
+    $ollamaSendImages = $engineUpdates["INKWALL_OLLAMA_SEND_IMAGES"]
+    $browserReviewOpen = $engineUpdates["INKWALL_BROWSER_REVIEW_OPEN"]
+    $browserReviewTimeout = $engineUpdates["INKWALL_BROWSER_REVIEW_TIMEOUT_SECONDS"]
 }
 
 $brand = [ordered]@{

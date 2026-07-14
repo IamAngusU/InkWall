@@ -128,6 +128,8 @@ The Windows setup accepts either a GitHub username or profile URL, verifies the 
 
 When the private receiver runs on Windows and InkWall runs on another server, the same setup can finish the connection over SSH. Enter `user@host` once. The wizard checks existing SSH keys first, lets you choose a working key when more than one exists, or can create and install a dedicated InkWall key when password login is available. It then finds the server `.env`, transfers matching secrets over SSH, installs the reverse tunnel, and can start receiver plus tunnel at sign-in. Private keys and review secrets are saved locally and are not printed.
 
+When `.env` already exists, the Windows setup resumes instead of starting over. It shows the saved public URL, server, tunnel port, and private review engine. From there you can start the existing receiver, inspect status, change only the private review engine, reconfigure the current `.env`, or create a separate profile file.
+
 If you only want to start the private review receiver later:
 
 ```powershell
