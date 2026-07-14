@@ -407,9 +407,11 @@ done | head -20
 }
 
 function Test-RemotePortFree($Target, $KeyPath, $Port) {
-    $command = "command -v php >/dev/null 2>&1 || { printf NO_PHP; exit 2; }; php -r '`$s=@stream_socket_server(`"tcp://127.0.0.1:$Port`",`$e,`$m); if (`$s) { fclose(`$s); echo `"FREE`"; }'"
-    $result = & ssh -i $KeyPath -o BatchMode=yes $Target $command 2>$null
-    $value = ($result -join "").Trim()
+    $phpCode = '$s=@stream_socket_server("tcp://127.0.0.1:' + $Port + '",$e,$m); if ($s) { fclose($s); echo "FREE"; }'
+    $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($phpCode))
+    $command = "command -v php >/dev/null 2>&1 || { printf NO_PHP; exit 2; }; php -r `"eval(base64_decode('$encoded'));`""
+    $result = Invoke-QuietSsh $Target $KeyPath $command 12
+    $value = $result.Output.Trim()
     if ($value -eq "NO_PHP") { throw "PHP CLI was not found on the InkWall server." }
     return ($value -eq "FREE")
 }
