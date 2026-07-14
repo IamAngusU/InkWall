@@ -470,14 +470,6 @@ $remoteMode = if ($mode -eq "1") { "fallback" } elseif ($mode -eq "2") { "always
 $deepseekKey = if ($existing.ContainsKey("DEEPSEEK_API_KEY")) { $existing["DEEPSEEK_API_KEY"] } else { "" }
 $openaiKey = if ($existing.ContainsKey("OPENAI_API_KEY")) { $existing["OPENAI_API_KEY"] } else { "" }
 $hadSavedCloudKeys = [bool]($deepseekKey -or $openaiKey)
-if ($mode -eq "1") {
-    if (-not $deepseekKey) { $deepseekKey = Ask-Secret "DeepSeek API key, optional" }
-    if (-not $openaiKey) { $openaiKey = Ask-Secret "OpenAI API key, optional" }
-    if ($hadSavedCloudKeys -and (YesNo "Replace saved cloud API keys?" "n")) {
-        $deepseekKey = Ask-Secret "New DeepSeek API key, optional"
-        $openaiKey = Ask-Secret "New OpenAI API key, optional"
-    }
-}
 
 if (Get-Command Get-ScheduledTask -ErrorAction SilentlyContinue) {
     $oldTask = Get-ScheduledTask -TaskName "InkWall Private Review" -ErrorAction SilentlyContinue
@@ -524,6 +516,17 @@ if ($remoteMode -ne "off") {
                 $remoteEndpoint = "http://127.0.0.1:$privatePort"
             }
 
+            if ($mode -eq "1") {
+                Muted "Existing cloud API keys on the server are kept unless you replace them here."
+                if (YesNo "Update DeepSeek/OpenAI API keys on the server now?" "n") {
+                    $deepseekKey = Ask-Secret "New DeepSeek API key, optional"
+                    $openaiKey = Ask-Secret "New OpenAI API key, optional"
+                } else {
+                    $deepseekKey = ""
+                    $openaiKey = ""
+                }
+            }
+
             $cloudSecretLines = @()
             if ($deepseekKey) { $cloudSecretLines += "DEEPSEEK_API_KEY=$deepseekKey" }
             if ($openaiKey) { $cloudSecretLines += "OPENAI_API_KEY=$openaiKey" }
@@ -561,6 +564,22 @@ INKWALL_REMOTE_REVIEW_TIMEOUT_SECONDS=8
 "@
             Configure-RemoteServer $sshTarget $sshKey $serverEnvPath $pairConfig
             $serverPaired = $true
+        }
+    }
+}
+
+if ($mode -eq "1" -and -not $serverPaired) {
+    if ($hadSavedCloudKeys) {
+        Muted "Saved local cloud API keys will be kept."
+        if (YesNo "Replace saved local cloud API keys?" "n") {
+            $deepseekKey = Ask-Secret "New DeepSeek API key, optional"
+            $openaiKey = Ask-Secret "New OpenAI API key, optional"
+        }
+    } else {
+        Muted "No server was paired, so cloud keys can only be saved in this local .env."
+        if (YesNo "Add local DeepSeek/OpenAI API keys now?" "n") {
+            $deepseekKey = Ask-Secret "DeepSeek API key, optional"
+            $openaiKey = Ask-Secret "OpenAI API key, optional"
         }
     }
 }

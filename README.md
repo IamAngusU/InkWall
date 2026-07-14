@@ -124,7 +124,7 @@ php -v
 .\setup-windows.cmd
 ```
 
-The Windows setup accepts either a GitHub username or profile URL, verifies the account and repository, and derives the display name, profile URL, repository URL, and short site label automatically. It then asks only for the public URL, review email, moderation mode, and optional advanced branding or cloud keys. Verified links and accounts are highlighted in green in the setup output.
+The Windows setup accepts either a GitHub username or profile URL, verifies the account and repository, and derives the display name, profile URL, repository URL, and short site label automatically. It then asks only for the public URL, review email, moderation mode, and optional advanced branding. Cloud API keys are requested only when no server is paired, or when you explicitly choose to replace keys on the server. Verified links and accounts are highlighted in green in the setup output.
 
 When the private receiver runs on Windows and InkWall runs on another server, the same setup can finish the connection over SSH. Enter `user@host` once. The wizard checks existing SSH keys first, lets you choose a working key when more than one exists, or can create and install a dedicated InkWall key when password login is available. It then finds the server `.env`, transfers matching secrets over SSH, installs the reverse tunnel, and can start receiver plus tunnel at sign-in. Private keys and review secrets are saved locally and are not printed.
 
