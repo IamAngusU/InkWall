@@ -644,7 +644,19 @@ if ($hasExistingSetup) {
             Configure-RemoteServer $existing["INKWALL_PRIVATE_REVIEW_SSH_TARGET"] $existing["INKWALL_PRIVATE_REVIEW_SSH_KEY"] $existing["INKWALL_PRIVATE_REVIEW_SERVER_ENV"] "INKWALL_REMOTE_REVIEW_TIMEOUT_SECONDS=210"
         }
         Good "Private review engine updated in $EnvPath."
-        Write-Host "Restart it with: .\manage-private-review-windows.cmd start"
+        if (Get-Command Get-ScheduledTask -ErrorAction SilentlyContinue) {
+            $reviewTask = Get-ScheduledTask -TaskName "InkWall Private Review" -ErrorAction SilentlyContinue
+            if ($reviewTask) {
+                & (Join-Path $Root "manage-private-review-windows.ps1") -Action stop | Out-Host
+                Start-Sleep -Milliseconds 500
+                & (Join-Path $Root "manage-private-review-windows.ps1") -Action start | Out-Host
+                Good "Receiver, tunnel, and local review engine restarted."
+            } else {
+                Write-Host "Start it with: .\manage-private-review-windows.cmd start"
+            }
+        } else {
+            Write-Host "Restart the receiver so the new engine is loaded."
+        }
         exit 0
     } elseif ($existingAction -eq "5") {
         $profileName = Ask "Profile name" "local-test"
