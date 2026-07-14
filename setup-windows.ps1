@@ -15,6 +15,22 @@ function Ask($Prompt, $Default = "") {
     return (Read-Host $Prompt).Trim()
 }
 
+function Info($Text) {
+    Write-Host $Text -ForegroundColor Cyan
+}
+
+function Good($Text) {
+    Write-Host $Text -ForegroundColor Green
+}
+
+function Warn($Text) {
+    Write-Host $Text -ForegroundColor Yellow
+}
+
+function Muted($Text) {
+    Write-Host $Text -ForegroundColor DarkGray
+}
+
 function YesNo($Prompt, $Default = "y") {
     $value = Read-Host "$Prompt [$Default]"
     if ([string]::IsNullOrWhiteSpace($value)) { $value = $Default }
@@ -61,6 +77,31 @@ function GitHub-Username($Value) {
     return $candidate
 }
 
+function GitHub-DefaultFromRemote {
+    if (-not (Get-Command git -ErrorAction SilentlyContinue)) { return "" }
+    $remote = (& git remote get-url origin 2>$null)
+    if (-not $remote) { return "" }
+    $value = ($remote -join "").Trim()
+    if ($value -match 'github\.com[:/]([^/]+)/[^/]+?(?:\.git)?$') {
+        return "https://github.com/$($Matches[1])"
+    }
+    return ""
+}
+
+function Test-WebUrl($Url) {
+    try {
+        $response = Invoke-WebRequest -Uri $Url -Method Head -MaximumRedirection 5 -UseBasicParsing -ErrorAction Stop
+        return ([int]$response.StatusCode -ge 200 -and [int]$response.StatusCode -lt 400)
+    } catch {
+        try {
+            $response = Invoke-WebRequest -Uri $Url -Method Get -MaximumRedirection 5 -UseBasicParsing -ErrorAction Stop
+            return ([int]$response.StatusCode -ge 200 -and [int]$response.StatusCode -lt 400)
+        } catch {
+            return $false
+        }
+    }
+}
+
 function Resolve-GitHubUser($Default = "yourname") {
     while ($true) {
         $raw = Ask "GitHub username or profile URL" $Default
@@ -74,11 +115,31 @@ function Resolve-GitHubUser($Default = "yourname") {
             $user = Invoke-RestMethod -Uri "https://api.github.com/users/$username" -Headers $headers -Method Get
             $displayName = if ([string]::IsNullOrWhiteSpace([string]$user.name)) { [string]$user.login } else { [string]$user.name }
             Write-Host ""
-            Write-Host "Found GitHub account: $displayName (@$($user.login))"
-            Write-Host "Profile: $($user.html_url)"
+            Good "Found GitHub account: $displayName (@$($user.login))"
+            Write-Host "Profile: " -NoNewline
+            Write-Host "$($user.html_url)" -ForegroundColor Green
             if (YesNo "Is this the correct GitHub account?" "y") { return $user }
         } catch {
-            Write-Host "GitHub account '$username' was not found or GitHub could not be reached."
+            $profileUrl = "https://github.com/$username"
+            if (Test-WebUrl $profileUrl) {
+                Good "GitHub profile is reachable: $profileUrl"
+                if (YesNo "Use this GitHub account?" "y") {
+                    return [pscustomobject]@{
+                        login = $username
+                        name = $username
+                        html_url = $profileUrl
+                    }
+                }
+            } else {
+                Warn "GitHub account '$username' was not found or GitHub could not be reached."
+                if (YesNo "Continue with this GitHub account without verification?" "n") {
+                    return [pscustomobject]@{
+                        login = $username
+                        name = $username
+                        html_url = $profileUrl
+                    }
+                }
+            }
         }
     }
 }
@@ -88,10 +149,16 @@ function Resolve-GitHubRepo($User) {
     $defaultUrl = "https://github.com/$($User.login)/InkWall"
     try {
         $repo = Invoke-RestMethod -Uri "https://api.github.com/repos/$($User.login)/InkWall" -Headers $headers -Method Get
-        Write-Host "Repository found: $($repo.html_url)"
+        Write-Host "Repository found: " -NoNewline
+        Write-Host "$($repo.html_url)" -ForegroundColor Green
         return [string]$repo.html_url
     } catch {
-        Write-Host "No InkWall repository was found under @$($User.login)."
+        if (Test-WebUrl $defaultUrl) {
+            Write-Host "Repository found: " -NoNewline
+            Write-Host $defaultUrl -ForegroundColor Green
+            return $defaultUrl
+        }
+        Warn "No InkWall repository was found under @$($User.login)."
     }
 
     while ($true) {
@@ -102,10 +169,18 @@ function Resolve-GitHubRepo($User) {
         }
         try {
             $repo = Invoke-RestMethod -Uri "https://api.github.com/repos/$($Matches[1])/$($Matches[2])" -Headers $headers -Method Get
-            Write-Host "Repository found: $($repo.html_url)"
+            Write-Host "Repository found: " -NoNewline
+            Write-Host "$($repo.html_url)" -ForegroundColor Green
             return [string]$repo.html_url
         } catch {
-            Write-Host "That GitHub repository does not exist or is not publicly reachable."
+            $webRepoUrl = "https://github.com/$($Matches[1])/$($Matches[2])"
+            if (Test-WebUrl $webRepoUrl) {
+                Write-Host "Repository found: " -NoNewline
+                Write-Host $webRepoUrl -ForegroundColor Green
+                return $webRepoUrl
+            }
+            Warn "That GitHub repository does not exist or is not publicly reachable."
+            if (YesNo "Continue with this repository URL without verification?" "n") { return $repoUrl.TrimEnd("/") }
         }
     }
 }
@@ -153,28 +228,124 @@ function Validate-SshTarget($Target) {
     return $Target -match '^[A-Za-z0-9_.-]+@[A-Za-z0-9_.-]+$'
 }
 
-function Ensure-SshKey($Target) {
+function Invoke-QuietSsh($Target, $KeyPath, $RemoteCommand, $Timeout = 8) {
+    $outFile = [IO.Path]::GetTempFileName()
+    $errFile = [IO.Path]::GetTempFileName()
+    $args = @("-i", $KeyPath, "-o", "BatchMode=yes", "-o", "ConnectTimeout=$Timeout", $Target, $RemoteCommand)
+    try {
+        $process = Start-Process -FilePath "ssh" -ArgumentList $args -NoNewWindow -Wait -PassThru -RedirectStandardOutput $outFile -RedirectStandardError $errFile
+        $output = ""
+        if (Test-Path $outFile) { $output = (Get-Content $outFile -Raw -ErrorAction SilentlyContinue) }
+        return @{ ExitCode = $process.ExitCode; Output = $output.Trim() }
+    } finally {
+        Remove-Item $outFile, $errFile -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Test-SshKey($Target, $KeyPath) {
+    if (-not $KeyPath -or -not (Test-Path $KeyPath)) { return $false }
+    $result = Invoke-QuietSsh $Target $KeyPath "printf INKWALL_READY"
+    return ($result.ExitCode -eq 0 -and $result.Output -eq "INKWALL_READY")
+}
+
+function Find-SshKeyCandidates {
+    $sshDir = Join-Path $HOME ".ssh"
+    New-Item -ItemType Directory -Force -Path $sshDir | Out-Null
+    $known = @(
+        "inkwall_review_ed25519",
+        "id_ed25519",
+        "id_ecdsa",
+        "id_rsa"
+    ) | ForEach-Object { Join-Path $sshDir $_ }
+
+    $extra = @()
+    if (Test-Path $sshDir) {
+        $extra = @(Get-ChildItem -Path $sshDir -File -ErrorAction SilentlyContinue |
+            Where-Object {
+                $_.Name -notmatch '\.pub$' -and
+                $_.Name -notmatch '^known_hosts' -and
+                $_.Name -notmatch '^config$'
+            } |
+            Select-Object -ExpandProperty FullName)
+    }
+    return @($known + $extra | Where-Object { Test-Path $_ } | Select-Object -Unique)
+}
+
+function Install-DedicatedSshKey($Target) {
     $sshDir = Join-Path $HOME ".ssh"
     New-Item -ItemType Directory -Force -Path $sshDir | Out-Null
     $keyPath = Join-Path $sshDir "inkwall_review_ed25519"
     if (-not (Test-Path $keyPath)) {
-        Write-Host "Creating a dedicated SSH identity for the encrypted InkWall transport."
+        Info "Creating a dedicated SSH identity for InkWall."
         $keygenArgs = "-q -t ed25519 -f `"$keyPath`" -N `"`""
         $keygen = Start-Process -FilePath "ssh-keygen" -ArgumentList $keygenArgs -Wait -PassThru -NoNewWindow
         if ($keygen.ExitCode -ne 0) { throw "Could not create the InkWall SSH key." }
     }
 
-    $ready = & ssh -i $keyPath -o BatchMode=yes -o ConnectTimeout=8 $Target "printf INKWALL_READY" 2>$null
-    if (($ready -join "").Trim() -ne "INKWALL_READY") {
-        Write-Host "One server login may be requested now to install the dedicated InkWall key."
-        $publicKey = (Get-Content "$keyPath.pub" -Raw).Trim()
-        $publicKey | & ssh -o ConnectTimeout=20 $Target 'umask 077; mkdir -p "$HOME/.ssh"; touch "$HOME/.ssh/authorized_keys"; read key; grep -qxF "$key" "$HOME/.ssh/authorized_keys" || printf "%s\n" "$key" >> "$HOME/.ssh/authorized_keys"'
-        if ($LASTEXITCODE -ne 0) { throw "Could not install the InkWall SSH key on the server." }
+    Info "One server login may be requested now to install the InkWall key."
+    $publicKey = (Get-Content "$keyPath.pub" -Raw).Trim()
+    $publicKey | & ssh -o ConnectTimeout=20 $Target 'umask 077; mkdir -p "$HOME/.ssh"; touch "$HOME/.ssh/authorized_keys"; read key; grep -qxF "$key" "$HOME/.ssh/authorized_keys" || printf "%s\n" "$key" >> "$HOME/.ssh/authorized_keys"'
+    if ($LASTEXITCODE -ne 0) { throw "Could not install the InkWall SSH key on the server. If password login is disabled, choose an existing SSH key instead." }
+
+    if (-not (Test-SshKey $Target $keyPath)) { throw "Passwordless SSH verification failed." }
+    return $keyPath
+}
+
+function Select-SshKey($Target, $ExistingKey = "") {
+    $candidates = @()
+    if ($ExistingKey -and (Test-Path $ExistingKey)) { $candidates += $ExistingKey }
+    $candidates += Find-SshKeyCandidates
+    $candidates = @($candidates | Select-Object -Unique)
+
+    $working = @()
+    if ($candidates.Count -gt 0) {
+        Info "Checking local SSH keys for $Target..."
+        foreach ($candidate in $candidates) {
+            if (Test-SshKey $Target $candidate) { $working += $candidate }
+        }
     }
 
-    $ready = & ssh -i $keyPath -o BatchMode=yes -o ConnectTimeout=8 $Target "printf INKWALL_READY" 2>$null
-    if (($ready -join "").Trim() -ne "INKWALL_READY") { throw "Passwordless SSH verification failed." }
-    return $keyPath
+    if ($working.Count -eq 1) {
+        Good "SSH key works: $($working[0])"
+        return [string]$working[0]
+    }
+    if ($working.Count -gt 1) {
+        Good "Working SSH keys found:"
+        for ($i = 0; $i -lt $working.Count; $i++) { Write-Host "  $($i + 1)) $($working[$i])" -ForegroundColor Green }
+        $choice = Ask "Choose SSH key number" "1"
+        if ($choice -match '^\d+$' -and [int]$choice -ge 1 -and [int]$choice -le $working.Count) {
+            return [string]$working[[int]$choice - 1]
+        }
+        return [string]$working[0]
+    }
+
+    Warn "No working SSH key was found automatically."
+    if ($candidates.Count -gt 0) {
+        Muted "Keys found locally, but the server did not accept them:"
+        for ($i = 0; $i -lt $candidates.Count; $i++) { Muted "  $($i + 1)) $($candidates[$i])" }
+    }
+
+    while ($true) {
+        Write-Host ""
+        Write-Host "SSH connection options:" -ForegroundColor Cyan
+        Write-Host "  1) Choose another private key file"
+        Write-Host "  2) Create and install a dedicated InkWall key with one server password login"
+        Write-Host "  3) Skip server pairing for now"
+        $choice = Ask "Choose 1, 2, or 3" "1"
+        if ($choice -eq "1") {
+            $manual = Ask "Private key path" (Join-Path $HOME ".ssh\id_ed25519")
+            $manual = $manual.Trim('"')
+            if (Test-SshKey $Target $manual) {
+                Good "SSH key works: $manual"
+                return $manual
+            }
+            Warn "That key did not work for $Target."
+        } elseif ($choice -eq "2") {
+            return (Install-DedicatedSshKey $Target)
+        } elseif ($choice -eq "3") {
+            return ""
+        }
+    }
 }
 
 function Find-RemoteEnvPath($Target, $KeyPath, $ExistingPath = "") {
@@ -238,10 +409,11 @@ if (-not (Get-Command php -ErrorAction SilentlyContinue)) {
     exit 1
 }
 
-Write-Host "InkWall quick setup"
-Write-Host "GitHub and connection details are verified before anything starts."
+Write-Host "InkWall quick setup" -ForegroundColor Cyan
+Muted "GitHub, repository, SSH, and server config are checked before anything starts."
 $existing = Read-EnvFile $EnvPath
-$githubDefault = "yourname"
+$githubDefault = GitHub-DefaultFromRemote
+if (-not $githubDefault) { $githubDefault = "https://github.com/IamAngusU" }
 if ($existing.ContainsKey("INKWALL_BRANDING_JSON")) {
     try {
         $existingBrand = $existing["INKWALL_BRANDING_JSON"] | ConvertFrom-Json
@@ -270,17 +442,24 @@ if (YesNo "Customize branding now?" "n") {
 }
 
 Write-Host ""
-Write-Host "Setup summary"
-Write-Host "  Owner: $ownerName (@$($githubUser.login))"
-Write-Host "  Repository: $repoUrl"
-Write-Host "  Public URL: $publicUrl"
-Write-Host "  Review email: $reviewEmail"
+Write-Host "Setup summary" -ForegroundColor Cyan
+Write-Host "  Owner: " -NoNewline
+Good "$ownerName (@$($githubUser.login))"
+Write-Host "  Repository: " -NoNewline
+Write-Host $repoUrl -ForegroundColor Green
+Write-Host "  Public URL: " -NoNewline
+Write-Host $publicUrl -ForegroundColor Green
+Write-Host "  Review email: " -NoNewline
+Good $reviewEmail
 
 Write-Host ""
-Write-Host "Moderation:"
-Write-Host "  1) Cloud review, private computer if cloud is unavailable"
-Write-Host "  2) Private computer only"
+Write-Host "Moderation:" -ForegroundColor Cyan
+Write-Host "  1) Cloud review plus this PC as fallback"
+Muted "     Text/image APIs can review first. If they are off, down, or out of budget, this PC receives the review."
+Write-Host "  2) This PC reviews everything"
+Muted "     No cloud review calls. The server sends reviews to this computer through the SSH tunnel."
 Write-Host "  3) Local safety checks only"
+Muted "     No cloud calls and no private computer review. Only length, Unicode, rate limit, and similar checks."
 $mode = Ask "Choose 1, 2, or 3" "1"
 if ($mode -notin @("1", "2", "3")) { $mode = "1" }
 
@@ -328,22 +507,28 @@ if ($remoteMode -ne "off") {
             if (Validate-SshTarget $sshTarget) { break }
             Write-Host "Please use the form user@host."
         }
-        $sshKey = Ensure-SshKey $sshTarget
-        $oldServerEnv = if ($existing.ContainsKey("INKWALL_PRIVATE_REVIEW_SERVER_ENV")) { $existing["INKWALL_PRIVATE_REVIEW_SERVER_ENV"] } else { "" }
-        $serverEnvPath = Find-RemoteEnvPath $sshTarget $sshKey $oldServerEnv
-        $portAttempts = 0
-        while (-not (Test-RemotePortFree $sshTarget $sshKey $privatePort)) {
-            $portAttempts++
-            if ($portAttempts -ge 100) { throw "No shared free review port was found on this PC and server." }
-            $privatePort = Find-FreeLocalPort ($privatePort + 1)
+        $oldSshKey = if ($existing.ContainsKey("INKWALL_PRIVATE_REVIEW_SSH_KEY")) { $existing["INKWALL_PRIVATE_REVIEW_SSH_KEY"] } else { "" }
+        $sshKey = Select-SshKey $sshTarget $oldSshKey
+        if (-not $sshKey) {
+            Warn "Server pairing was skipped. You can run setup again after SSH access is ready."
+            $sshTarget = ""
             $remoteEndpoint = "http://127.0.0.1:$privatePort"
-        }
+        } else {
+            $oldServerEnv = if ($existing.ContainsKey("INKWALL_PRIVATE_REVIEW_SERVER_ENV")) { $existing["INKWALL_PRIVATE_REVIEW_SERVER_ENV"] } else { "" }
+            $serverEnvPath = Find-RemoteEnvPath $sshTarget $sshKey $oldServerEnv
+            $portAttempts = 0
+            while (-not (Test-RemotePortFree $sshTarget $sshKey $privatePort)) {
+                $portAttempts++
+                if ($portAttempts -ge 100) { throw "No shared free review port was found on this PC and server." }
+                $privatePort = Find-FreeLocalPort ($privatePort + 1)
+                $remoteEndpoint = "http://127.0.0.1:$privatePort"
+            }
 
-        $cloudSecretLines = @()
-        if ($deepseekKey) { $cloudSecretLines += "DEEPSEEK_API_KEY=$deepseekKey" }
-        if ($openaiKey) { $cloudSecretLines += "OPENAI_API_KEY=$openaiKey" }
-        $cloudSecretConfig = $cloudSecretLines -join "`n"
-        $pairConfig = @"
+            $cloudSecretLines = @()
+            if ($deepseekKey) { $cloudSecretLines += "DEEPSEEK_API_KEY=$deepseekKey" }
+            if ($openaiKey) { $cloudSecretLines += "OPENAI_API_KEY=$openaiKey" }
+            $cloudSecretConfig = $cloudSecretLines -join "`n"
+            $pairConfig = @"
 INKWALL_AI_MODERATION=auto
 INKWALL_AI_CLOUD_ENABLED=$cloudEnabled
 INKWALL_AI_TEXT_CLOUD_ENABLED=$textCloud
@@ -374,8 +559,9 @@ INKWALL_REMOTE_REVIEW_SEND_TEXT=1
 INKWALL_REMOTE_REVIEW_SEND_IMAGE=1
 INKWALL_REMOTE_REVIEW_TIMEOUT_SECONDS=8
 "@
-        Configure-RemoteServer $sshTarget $sshKey $serverEnvPath $pairConfig
-        $serverPaired = $true
+            Configure-RemoteServer $sshTarget $sshKey $serverEnvPath $pairConfig
+            $serverPaired = $true
+        }
     }
 }
 

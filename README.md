@@ -124,9 +124,9 @@ php -v
 .\setup-windows.cmd
 ```
 
-The Windows setup accepts either a GitHub username or profile URL, verifies the account and repository, and derives the display name, profile URL, repository URL, and short site label automatically. It then asks only for the public URL, review email, moderation mode, and optional advanced branding or cloud keys.
+The Windows setup accepts either a GitHub username or profile URL, verifies the account and repository, and derives the display name, profile URL, repository URL, and short site label automatically. It then asks only for the public URL, review email, moderation mode, and optional advanced branding or cloud keys. Verified links and accounts are highlighted in green in the setup output.
 
-When the private receiver runs on Windows and InkWall runs on another server, the same setup can finish the connection over SSH. Enter `user@host` once. The wizard creates a dedicated SSH key, finds the server `.env`, transfers matching secrets over SSH, installs the reverse tunnel, and can start receiver plus tunnel at sign-in. Private keys are saved locally and are not printed.
+When the private receiver runs on Windows and InkWall runs on another server, the same setup can finish the connection over SSH. Enter `user@host` once. The wizard checks existing SSH keys first, lets you choose a working key when more than one exists, or can create and install a dedicated InkWall key when password login is available. It then finds the server `.env`, transfers matching secrets over SSH, installs the reverse tunnel, and can start receiver plus tunnel at sign-in. Private keys and review secrets are saved locally and are not printed.
 
 If you only want to start the private review receiver later:
 
@@ -165,9 +165,9 @@ Autostart can be managed later without editing files:
 
 The installer creates `.env`, generates private-review secrets, prepares `data/`, and lets you choose one of three review modes:
 
-- cloud AI with private fallback
-- private computer only
-- local checks only
+- cloud review plus this PC as fallback: cloud providers review first, this PC receives reviews when cloud review is off, unavailable, or out of budget
+- this PC reviews everything: no cloud review calls, the server sends reviews through the SSH tunnel
+- local safety checks only: no cloud review and no private computer review
 
 You can switch later without deleting keys:
 
