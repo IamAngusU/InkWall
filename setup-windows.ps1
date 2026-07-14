@@ -408,28 +408,30 @@ done | head -20
 
 function Test-RemotePortFree($Target, $KeyPath, $Port) {
     $script = @"
-if ! command -v php >/dev/null 2>&1; then
-  printf NO_PHP
-  exit 2
+if command -v ss >/dev/null 2>&1; then
+  if ss -ltnH "sport = :$Port" 2>/dev/null | grep -q .; then
+    printf BUSY
+  else
+    printf FREE
+  fi
+  exit 0
 fi
-php <<'PHP'
-<?php
-`$port = $Port;
-`$server = @stream_socket_server("tcp://127.0.0.1:" . `$port, `$errno, `$errstr);
-if (`$server) {
-    fclose(`$server);
-    echo "FREE";
-} else {
-    echo "BUSY";
-}
-PHP
+if command -v netstat >/dev/null 2>&1; then
+  if netstat -ltn 2>/dev/null | awk '{print `$4}' | grep -Eq '(^|[.:])$Port`$'; then
+    printf BUSY
+  else
+    printf FREE
+  fi
+  exit 0
+fi
+printf UNKNOWN
 "@
     $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($script))
     $command = "printf '%s' '$encoded' | base64 -d | sh"
     $result = Invoke-QuietSsh $Target $KeyPath $command 15
     $value = $result.Output.Trim()
-    if ($value -eq "NO_PHP") { throw "PHP CLI was not found on the InkWall server." }
-    return ($value -eq "FREE")
+    if ($value -eq "BUSY") { return $false }
+    return $true
 }
 
 function Configure-RemoteServer($Target, $KeyPath, $EnvFile, $ConfigText) {
@@ -557,15 +559,23 @@ if ($remoteMode -ne "off") {
         } else {
             $oldServerEnv = if ($existing.ContainsKey("INKWALL_PRIVATE_REVIEW_SERVER_ENV")) { $existing["INKWALL_PRIVATE_REVIEW_SERVER_ENV"] } else { "" }
             $serverEnvPath = Find-RemoteEnvPath $sshTarget $sshKey $oldServerEnv (Env-CandidatePaths $publicUrl)
-            Info "Finding a review port that is free on this PC and the server..."
+            Info "Finding a local SSH tunnel port. No public firewall port is opened."
             $portAttempts = 0
             while (-not (Test-RemotePortFree $sshTarget $sshKey $privatePort)) {
                 $portAttempts++
-                if ($portAttempts -ge 100) { throw "No shared free review port was found on this PC and server." }
+                if ($portAttempts -ge 20) {
+                    Warn "Several nearby ports look busy on the server."
+                    $manualPort = Ask "Review tunnel port" ([string]$privatePort)
+                    if ($manualPort -notmatch '^\d+$') { throw "Invalid review tunnel port." }
+                    $privatePort = [int]$manualPort
+                    if (-not (Test-LocalPortFree $privatePort)) { throw "Port $privatePort is not free on this PC." }
+                    break
+                }
                 Muted "Port $privatePort is not available. Trying the next port."
                 $privatePort = Find-FreeLocalPort ($privatePort + 1)
                 $remoteEndpoint = "http://127.0.0.1:$privatePort"
             }
+            $remoteEndpoint = "http://127.0.0.1:$privatePort"
             Good "Review port selected: $privatePort"
 
             if ($mode -eq "1") {
