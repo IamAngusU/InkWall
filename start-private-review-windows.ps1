@@ -133,6 +133,35 @@ function Test-ServerCanReachReceiver($Server, $SshKey, $PortToCheck) {
     }
 }
 
+function Get-ContextBridgeConnection {
+    if (-not $env:INKWALL_CONTEXTBRIDGE_CONFIG -or -not (Test-Path $env:INKWALL_CONTEXTBRIDGE_CONFIG)) { return $null }
+    $listen = "127.0.0.1:32145"
+    $token = ""
+    foreach ($line in Get-Content $env:INKWALL_CONTEXTBRIDGE_CONFIG) {
+        if ($line -match '^\s*listen:\s*([^#\s]+)') { $listen = $Matches[1].Trim('"').Trim("'") }
+        if ($line -match '^\s*token:\s*([^#\s]+)') { $token = $Matches[1].Trim('"').Trim("'") }
+    }
+    if (-not $token) { return $null }
+    return @{ URL = "http://$listen"; Token = $token }
+}
+
+function Send-ContextBridgeTunnelHeartbeat($State, $Target, $PortToCheck) {
+    $connection = Get-ContextBridgeConnection
+    if (-not $connection) { return }
+    $payload = @{
+        state = $State
+        target = $Target
+        transport = "SSH with encrypted InkWall payloads"
+        local_port = $PortToCheck
+        remote_port = $PortToCheck
+    } | ConvertTo-Json -Compress
+    try {
+        Invoke-RestMethod -Method Post -Uri ($connection.URL + "/v1/tunnel/heartbeat") -Headers @{ Authorization = "Bearer $($connection.Token)" } -ContentType "application/json" -Body $payload -TimeoutSec 3 | Out-Null
+    } catch {
+        Log-Line "ContextBridge tunnel heartbeat failed: $($_.Exception.Message)"
+    }
+}
+
 if (-not (Get-Command php -ErrorAction SilentlyContinue)) {
     Write-Host "PHP CLI was not found in PATH."
     exit 1
@@ -294,16 +323,30 @@ try {
         }
         Good "Secure tunnel connected."
         Log-Line "SSH tunnel connected"
-        if (Test-ServerCanReachReceiver $Server $sshKey $selectedPort) {
+        $serverReachable = Test-ServerCanReachReceiver $Server $sshKey $selectedPort
+        if ($serverReachable) {
             Good "Server can reach this receiver on 127.0.0.1:$selectedPort."
             Log-Line "Server reachability probe succeeded"
+            Send-ContextBridgeTunnelHeartbeat "connected" $Server $selectedPort
         } else {
             Warn "Tunnel is open, but the reachability probe did not confirm it yet."
             Log-Line "Server reachability probe did not confirm tunnel"
+            Send-ContextBridgeTunnelHeartbeat "degraded" $Server $selectedPort
         }
         $seenReceiverLines = 0
+        $lastTunnelHeartbeat = Get-Date
+        $lastReachabilityProbe = Get-Date
         while (-not $sshProcess.HasExited -and -not $phpProcess.HasExited) {
             Start-Sleep -Milliseconds 500
+            if (((Get-Date) - $lastTunnelHeartbeat).TotalSeconds -ge 10) {
+                if (((Get-Date) - $lastReachabilityProbe).TotalSeconds -ge 30) {
+                    $serverReachable = Test-ServerCanReachReceiver $Server $sshKey $selectedPort
+                    $lastReachabilityProbe = Get-Date
+                }
+                $heartbeatState = if ($serverReachable) { "connected" } else { "degraded" }
+                Send-ContextBridgeTunnelHeartbeat $heartbeatState $Server $selectedPort
+                $lastTunnelHeartbeat = Get-Date
+            }
             $receiverLines = @(Get-Content $phpServerLog -ErrorAction SilentlyContinue | Where-Object { $_ -match '\[\d{2}:\d{2}:\d{2}\]\s+(.+)$' })
             if ($receiverLines.Count -le $seenReceiverLines) { continue }
             foreach ($line in $receiverLines[$seenReceiverLines..($receiverLines.Count - 1)]) {
@@ -322,6 +365,7 @@ try {
         if ($phpProcess.HasExited) { break }
         Write-Host "Tunnel disconnected. " -NoNewline
         Muted "Reconnecting in 5 seconds."
+        Send-ContextBridgeTunnelHeartbeat "disconnected" $Server $selectedPort
         Log-Line "SSH tunnel disconnected with code $($sshProcess.ExitCode)"
         Start-Sleep -Seconds 5
     }
