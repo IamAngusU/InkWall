@@ -414,7 +414,7 @@ function inkwall_ai_channel_config(string $channel): array {
         $model = match ($provider) {
             'openai', 'openai_moderation' => inkwall_env('INKWALL_AI_MODERATION_MODEL', 'omni-moderation-latest'),
             'openai_vision' => inkwall_env('INKWALL_OPENAI_VISION_MODEL', inkwall_env('INKWALL_AI_MODERATION_MODEL', 'gpt-4o-mini')),
-            'deepseek' => inkwall_env('INKWALL_DEEPSEEK_MODEL', inkwall_env('INKWALL_AI_MODERATION_MODEL', 'deepseek-v4-flash')),
+            'deepseek' => inkwall_env('INKWALL_DEEPSEEK_MODEL', inkwall_env('INKWALL_AI_MODERATION_MODEL', 'deepseek-flash')),
             'ollama' => inkwall_env('INKWALL_OLLAMA_MODEL', inkwall_env('OLLAMA_MODEL', 'qwen3:latest')),
             'manual' => 'manual',
             default => 'local',
@@ -432,7 +432,7 @@ function inkwall_ai_cloud_enabled(string $channel = ''): bool {
 
 function inkwall_ai_provider_supports_images(string $provider): bool {
     if (in_array($provider, ['openai', 'openai_moderation', 'openai_vision'], true)) return true;
-    if ($provider === 'deepseek') return in_array(strtolower(inkwall_env('INKWALL_DEEPSEEK_SEND_IMAGES', '0')), ['1', 'true', 'yes', 'on'], true);
+    if ($provider === 'deepseek') return in_array(strtolower(inkwall_env('INKWALL_DEEPSEEK_SEND_IMAGES', '1')), ['1', 'true', 'yes', 'on'], true);
     return false;
 }
 
@@ -1147,7 +1147,7 @@ function inkwall_ai_parse_chat_json(string $raw): array {
 
 function inkwall_ai_chat_moderation(string $provider, string $name, string $message, ?string $imageMime, ?string $imageData, array $localFlags, string $modelOverride = ''): array {
     $hasImage = $imageData !== null && $imageMime !== null;
-    $deepSeekVision = $provider === 'deepseek' && in_array(strtolower(inkwall_env('INKWALL_DEEPSEEK_SEND_IMAGES', '0')), ['1', 'true', 'yes', 'on'], true);
+    $deepSeekVision = $provider === 'deepseek' && in_array(strtolower(inkwall_env('INKWALL_DEEPSEEK_SEND_IMAGES', '1')), ['1', 'true', 'yes', 'on'], true);
     $reviewUncheckedImages = !in_array(strtolower(inkwall_env('INKWALL_AI_ALLOW_UNCHECKED_IMAGES', '0')), ['1', 'true', 'yes', 'on'], true);
     $imageFlags = ($hasImage && !$deepSeekVision && $reviewUncheckedImages) ? ['image_unchecked'] : [];
     $fallbackModel = $modelOverride !== '' ? $modelOverride : $provider;
@@ -1155,14 +1155,16 @@ function inkwall_ai_chat_moderation(string $provider, string $name, string $mess
     try {
         if ($provider === 'deepseek') {
             $apiKey = inkwall_env('DEEPSEEK_API_KEY');
-            $model = $modelOverride !== '' ? $modelOverride : inkwall_env('INKWALL_DEEPSEEK_MODEL', inkwall_env('INKWALL_AI_MODERATION_MODEL', 'deepseek-v4-flash'));
+            $model = $modelOverride !== '' ? $modelOverride : inkwall_env('INKWALL_DEEPSEEK_MODEL', inkwall_env('INKWALL_AI_MODERATION_MODEL', 'deepseek-flash'));
             if ($apiKey === '') return inkwall_ai_unavailable_result('deepseek', $model, $localFlags, 'DeepSeek API key missing');
             $base = rtrim(inkwall_env('DEEPSEEK_BASE_URL', 'https://api.deepseek.com'), '/');
             $userContent = inkwall_ai_chat_prompt($name, $message, $hasImage, $deepSeekVision);
             if ($hasImage && $deepSeekVision && in_array($imageMime, ['image/webp', 'image/png', 'image/jpeg'], true)) {
+                $visionDetail = strtolower(inkwall_env('INKWALL_DEEPSEEK_VISION_DETAIL', 'low'));
+                if (!in_array($visionDetail, ['low', 'high', 'original', 'auto'], true)) $visionDetail = 'low';
                 $userContent = [
                     ['type' => 'text', 'text' => $userContent],
-                    ['type' => 'image_url', 'image_url' => ['url' => 'data:' . $imageMime . ';base64,' . base64_encode((string)$imageData)]],
+                    ['type' => 'image_url', 'image_url' => ['url' => 'data:' . $imageMime . ';base64,' . base64_encode((string)$imageData), 'detail' => $visionDetail]],
                 ];
             }
             $payload = [
@@ -1171,6 +1173,7 @@ function inkwall_ai_chat_moderation(string $provider, string $name, string $mess
                     ['role' => 'system', 'content' => 'Return JSON only. Never output block or reject.'],
                     ['role' => 'user', 'content' => $userContent],
                 ],
+                'thinking' => ['type' => 'disabled'],
                 'temperature' => 0,
                 'max_tokens' => 180,
                 'response_format' => ['type' => 'json_object'],

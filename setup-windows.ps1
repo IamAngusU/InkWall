@@ -834,9 +834,8 @@ if ($remoteMode -ne "off") {
 
             if ($mode -eq "1") {
                 Muted "Existing cloud API keys on the server are kept unless you replace them here."
-                if (YesNo "Update DeepSeek/OpenAI API keys on the server now?" "n") {
+                if (YesNo "Update the DeepSeek API key on the server now?" "n") {
                     $deepseekKey = Ask-Secret "New DeepSeek API key, optional"
-                    $openaiKey = Ask-Secret "New OpenAI API key, optional"
                 } else {
                     $deepseekKey = ""
                     $openaiKey = ""
@@ -854,16 +853,18 @@ INKWALL_AI_TEXT_CLOUD_ENABLED=$textCloud
 INKWALL_AI_IMAGE_CLOUD_ENABLED=$imageCloud
 INKWALL_AI_PROVIDER=deepseek
 INKWALL_AI_TEXT_PROVIDER=deepseek
-INKWALL_AI_TEXT_MODEL=deepseek-v4-flash
+INKWALL_AI_TEXT_MODEL=deepseek-flash
 $cloudSecretConfig
 DEEPSEEK_BASE_URL=https://api.deepseek.com
-INKWALL_DEEPSEEK_MODEL=deepseek-v4-flash
+INKWALL_DEEPSEEK_MODEL=deepseek-flash
 INKWALL_DEEPSEEK_BALANCE_GUARD=1
 INKWALL_DEEPSEEK_BALANCE_FAIL_CLOSED=0
 INKWALL_DEEPSEEK_FAIL_OPEN=1
 INKWALL_DEEPSEEK_DAILY_SPEND_LIMIT_USD=1.00
-INKWALL_AI_IMAGE_PROVIDER=openai_vision
-INKWALL_AI_IMAGE_MODEL=gpt-4o-mini
+INKWALL_DEEPSEEK_SEND_IMAGES=1
+INKWALL_DEEPSEEK_VISION_DETAIL=low
+INKWALL_AI_IMAGE_PROVIDER=deepseek
+INKWALL_AI_IMAGE_MODEL=deepseek-flash
 INKWALL_OPENAI_VISION_MODEL=gpt-4o-mini
 INKWALL_OPENAI_VISION_DETAIL=low
 INKWALL_OPENAI_VISION_FAIL_OPEN=1
@@ -889,15 +890,13 @@ INKWALL_REMOTE_REVIEW_TIMEOUT_SECONDS=210
 if ($mode -eq "1" -and -not $serverPaired) {
     if ($hadSavedCloudKeys) {
         Muted "Saved local cloud API keys will be kept."
-        if (YesNo "Replace saved local cloud API keys?" "n") {
+        if (YesNo "Replace the saved DeepSeek API key?" "n") {
             $deepseekKey = Ask-Secret "New DeepSeek API key, optional"
-            $openaiKey = Ask-Secret "New OpenAI API key, optional"
         }
     } else {
         Muted "No server was paired, so cloud keys can only be saved in this local .env."
-        if (YesNo "Add local DeepSeek/OpenAI API keys now?" "n") {
+        if (YesNo "Add a local DeepSeek API key now?" "n") {
             $deepseekKey = Ask-Secret "DeepSeek API key, optional"
-            $openaiKey = Ask-Secret "OpenAI API key, optional"
         }
     }
 }
@@ -951,19 +950,20 @@ INKWALL_AI_IMAGE_CLOUD_ENABLED=$imageCloud
 
 INKWALL_AI_PROVIDER=deepseek
 INKWALL_AI_TEXT_PROVIDER=deepseek
-INKWALL_AI_TEXT_MODEL=deepseek-v4-flash
+INKWALL_AI_TEXT_MODEL=deepseek-flash
 DEEPSEEK_API_KEY=$deepseekKey
 DEEPSEEK_BASE_URL=https://api.deepseek.com
-INKWALL_DEEPSEEK_MODEL=deepseek-v4-flash
+INKWALL_DEEPSEEK_MODEL=deepseek-flash
 INKWALL_DEEPSEEK_BALANCE_GUARD=1
 INKWALL_DEEPSEEK_BALANCE_FAIL_CLOSED=0
 INKWALL_DEEPSEEK_FAIL_OPEN=1
 INKWALL_DEEPSEEK_DAILY_SPEND_LIMIT_USD=1.00
 INKWALL_DEEPSEEK_ESTIMATED_CALL_USD=0.01
-INKWALL_DEEPSEEK_SEND_IMAGES=0
+INKWALL_DEEPSEEK_SEND_IMAGES=1
+INKWALL_DEEPSEEK_VISION_DETAIL=low
 
-INKWALL_AI_IMAGE_PROVIDER=openai_vision
-INKWALL_AI_IMAGE_MODEL=gpt-4o-mini
+INKWALL_AI_IMAGE_PROVIDER=deepseek
+INKWALL_AI_IMAGE_MODEL=deepseek-flash
 OPENAI_API_KEY=$openaiKey
 INKWALL_OPENAI_VISION_MODEL=gpt-4o-mini
 INKWALL_OPENAI_VISION_DETAIL=low
