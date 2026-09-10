@@ -234,17 +234,17 @@ INKWALL_OPENAI_DAILY_SPEND_LIMIT_USD=1.00
 INKWALL_OPENAI_ESTIMATED_IMAGE_CALL_USD=0.01
 INKWALL_OPENAI_VISION_FAIL_OPEN=1
 
-# DeepSeek, OpenAI-compatible review
+# DeepSeek V4.1 Flash, text and image review
 INKWALL_AI_PROVIDER=deepseek
 DEEPSEEK_API_KEY=...
-INKWALL_DEEPSEEK_MODEL=deepseek-v4-flash
+INKWALL_DEEPSEEK_MODEL=deepseek-flash
 INKWALL_DEEPSEEK_BALANCE_GUARD=1
 INKWALL_DEEPSEEK_MIN_BALANCE_USD=0.25
 INKWALL_DEEPSEEK_DAILY_SPEND_LIMIT_USD=1.00
 INKWALL_DEEPSEEK_ESTIMATED_CALL_USD=0.01
 INKWALL_DEEPSEEK_FAIL_OPEN=0
-# Enable only if your DeepSeek model/API accepts OpenAI-style image content.
-INKWALL_DEEPSEEK_SEND_IMAGES=0
+INKWALL_DEEPSEEK_SEND_IMAGES=1
+INKWALL_DEEPSEEK_VISION_DETAIL=low
 
 # Ollama, local text review
 INKWALL_AI_PROVIDER=ollama
@@ -257,9 +257,9 @@ You can also split text and image review by provider. Empty channel values keep 
 ```env
 INKWALL_AI_PROVIDER=deepseek
 INKWALL_AI_TEXT_PROVIDER=deepseek
-INKWALL_AI_TEXT_MODEL=deepseek-v4-flash
-INKWALL_AI_IMAGE_PROVIDER=openai_vision
-INKWALL_AI_IMAGE_MODEL=gpt-4o-mini
+INKWALL_AI_TEXT_MODEL=deepseek-flash
+INKWALL_AI_IMAGE_PROVIDER=deepseek
+INKWALL_AI_IMAGE_MODEL=deepseek-flash
 ```
 
 For a more future-proof config, use the JSON channel form. `manual` means the channel is not model-reviewed and can be held by policy.
@@ -274,7 +274,7 @@ Each note stores a structured review chain in `ai_review_json`:
 {
   "text": {
     "provider": "deepseek",
-    "model": "deepseek-v4-flash",
+    "model": "deepseek-flash",
     "decision": "allow",
     "flags": ["advertising"],
     "confidence": 0.98,
@@ -291,7 +291,7 @@ Each note stores a structured review chain in `ai_review_json`:
 }
 ```
 
-DeepSeek image sending is opt-in because the public DeepSeek API docs may differ by model and account. Ollama is text-only in the default InkWall integration. If a user submits an image with a text-only provider, InkWall adds `image_unchecked` by default. Set `INKWALL_AI_REVIEW_UNCHECKED_IMAGES=1` if those images should always wait for human review, or `INKWALL_AI_ALLOW_UNCHECKED_IMAGES=1` if you do not want the audit flag.
+DeepSeek V4.1 Flash supports image input through the OpenAI-compatible API, so new InkWall configurations use one non-thinking `deepseek-flash` request for combined text and image review. Set `INKWALL_DEEPSEEK_SEND_IMAGES=0` to keep DeepSeek text-only. Ollama remains text-only in the default InkWall integration. If a user submits an image with a text-only provider, InkWall adds `image_unchecked` by default. Set `INKWALL_AI_REVIEW_UNCHECKED_IMAGES=1` if those images should always wait for human review, or `INKWALL_AI_ALLOW_UNCHECKED_IMAGES=1` if you do not want the audit flag.
 
 For OpenAI image review, the API key only needs `Responses (/v1/responses)` write access. `List models` read access is optional for your own diagnostics. InkWall does not need OpenAI image generation, files, assistants, vector stores, chat completions, or the moderation endpoint when you use `openai_vision`.
 

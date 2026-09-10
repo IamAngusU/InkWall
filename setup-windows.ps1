@@ -87,24 +87,47 @@ function Write-EnvValues($Path, $Updates) {
 function Set-ContextBridgeProvider($ConfigPath, $Provider) {
     $yaml = Get-Content $ConfigPath -Raw
     if ($Provider -eq "browser") {
-        $yaml = $yaml -replace '(?m)^\s{4}provider: ollama\s*$', '    provider: browser'
-        $yaml = $yaml -replace '(?m)^\s{4}fallback: \[browser\]\s*$', '    fallback: []'
+        $yaml = [regex]::Replace($yaml, '(?ms)(^  (?:default|inkwall):\r?\n(?:(?!^  [A-Za-z0-9_-]+:).)*?^    provider:\s*)ollama\s*$', '${1}browser')
+        $yaml = [regex]::Replace($yaml, '(?ms)(^  (?:default|inkwall):\r?\n(?:(?!^  [A-Za-z0-9_-]+:).)*?^    fallback:\s*)\[browser\]\s*$', '${1}[]')
     } else {
-        $yaml = $yaml -replace '(?m)^\s{4}provider: browser\s*$', '    provider: ollama'
-        $yaml = $yaml -replace '(?m)^\s{4}fallback: \[\]\s*$', '    fallback: [browser]'
+        $yaml = [regex]::Replace($yaml, '(?ms)(^  (?:default|inkwall):\r?\n(?:(?!^  [A-Za-z0-9_-]+:).)*?^    provider:\s*)browser\s*$', '${1}ollama')
+        $yaml = [regex]::Replace($yaml, '(?ms)(^  (?:default|inkwall):\r?\n(?:(?!^  [A-Za-z0-9_-]+:).)*?^    fallback:\s*)\[\]\s*$', '${1}[browser]')
     }
     $utf8 = New-Object System.Text.UTF8Encoding($false)
     [IO.File]::WriteAllText($ConfigPath, $yaml, $utf8)
+}
+
+function Get-ContextBridgeProvider($ConfigPath) {
+    if (-not $ConfigPath -or -not (Test-Path $ConfigPath)) { return "ollama" }
+    $yaml = Get-Content $ConfigPath -Raw
+    if ($yaml -match '(?ms)^  (?:default|inkwall):\r?\n(?:(?!^  [A-Za-z0-9_-]+:).)*?^    provider:\s*browser\s*$') {
+        return "browser"
+    }
+    return "ollama"
 }
 
 function Ensure-ContextBridge($Provider) {
     $installDir = Join-Path $Root "tools\contextbridge"
     $exe = Join-Path $installDir "contextbridge.exe"
     $configPath = Join-Path $installDir "config.yml"
-    $extensionPath = Join-Path $installDir "extension"
+    $extensionPath = Join-Path $installDir "extension\chromium"
 
-    if (-not (Test-Path $exe)) {
-        Info "ContextBridge is not installed yet. Downloading and verifying the official GitHub release..."
+    $shouldInstall = -not (Test-Path $exe)
+    if (-not $shouldInstall) {
+        try {
+            Info "Checking the installed ContextBridge version..."
+            $installedVersion = ((& $exe version 2>$null) -join "").Trim()
+            $latestRelease = Invoke-RestMethod -Uri "https://api.github.com/repos/IamAngusU/ContextBridge/releases/latest" -Headers @{ "User-Agent" = "InkWall-Setup" }
+            $shouldInstall = $installedVersion -ne [string]$latestRelease.tag_name
+            if ($shouldInstall) { Muted "Updating ContextBridge from $installedVersion to $($latestRelease.tag_name)." }
+            else { Good "ContextBridge $installedVersion is current." }
+        } catch {
+            Warn "The update check was unavailable. Keeping the installed ContextBridge binary."
+        }
+    }
+
+    if ($shouldInstall) {
+        Info "Downloading and verifying the official ContextBridge release..."
         $installer = Join-Path ([IO.Path]::GetTempPath()) ("contextbridge-install-" + [guid]::NewGuid().ToString("N") + ".ps1")
         try {
             Invoke-WebRequest -Uri "https://raw.githubusercontent.com/IamAngusU/ContextBridge/main/install.ps1" -OutFile $installer -UseBasicParsing
@@ -113,7 +136,8 @@ function Ensure-ContextBridge($Provider) {
         } finally {
             Remove-Item $installer -Force -ErrorAction SilentlyContinue
         }
-    } elseif (-not (Test-Path $configPath)) {
+    }
+    if (-not (Test-Path $configPath)) {
         & $exe init --config $configPath | Out-Host
         if ($LASTEXITCODE -ne 0) { throw "ContextBridge config could not be created." }
     }
@@ -624,19 +648,30 @@ if ($hasExistingSetup) {
 
     Write-Host ""
     Write-Host "What do you want to do?" -ForegroundColor Cyan
-    Write-Host "  1) Start existing receiver and tunnel"
+    Write-Host "  1) Update if needed, then start the existing receiver and tunnel"
     Write-Host "  2) Show autostart/status"
     Write-Host "  3) Change only the private review engine"
     Write-Host "  4) Reconfigure this setup and overwrite .env"
     Write-Host "  5) Create a separate config profile"
     $existingAction = Ask "Choose 1, 2, 3, 4, or 5" "1"
     if ($existingAction -eq "1") {
+        if ($existing.ContainsKey("INKWALL_PRIVATE_REVIEW_COMMAND") -and $existing["INKWALL_PRIVATE_REVIEW_COMMAND"] -match 'contextbridge') {
+            & (Join-Path $Root "manage-private-review-windows.ps1") -Action stop | Out-Host
+            $provider = Get-ContextBridgeProvider $existing["INKWALL_CONTEXTBRIDGE_CONFIG"]
+            $bridge = Ensure-ContextBridge $provider
+            Write-EnvValues $EnvPath @{
+                INKWALL_CONTEXTBRIDGE_EXE = $bridge.Exe
+                INKWALL_CONTEXTBRIDGE_CONFIG = $bridge.Config
+                INKWALL_CONTEXTBRIDGE_EXTENSION = $bridge.Extension
+            }
+        }
         & (Join-Path $Root "manage-private-review-windows.ps1") -Action start
         exit $LASTEXITCODE
     } elseif ($existingAction -eq "2") {
         & (Join-Path $Root "manage-private-review-windows.ps1") -Action status
         exit $LASTEXITCODE
     } elseif ($existingAction -eq "3") {
+        & (Join-Path $Root "manage-private-review-windows.ps1") -Action stop | Out-Host
         $updates = Configure-PrivateReviewEngine $existing
         Write-EnvValues $EnvPath $updates
         if ($updates["INKWALL_CONTEXTBRIDGE_EXE"] -and $existing["INKWALL_PRIVATE_REVIEW_SSH_TARGET"] -and $existing["INKWALL_PRIVATE_REVIEW_SSH_KEY"] -and $existing["INKWALL_PRIVATE_REVIEW_SERVER_ENV"]) {
@@ -799,9 +834,8 @@ if ($remoteMode -ne "off") {
 
             if ($mode -eq "1") {
                 Muted "Existing cloud API keys on the server are kept unless you replace them here."
-                if (YesNo "Update DeepSeek/OpenAI API keys on the server now?" "n") {
+                if (YesNo "Update the DeepSeek API key on the server now?" "n") {
                     $deepseekKey = Ask-Secret "New DeepSeek API key, optional"
-                    $openaiKey = Ask-Secret "New OpenAI API key, optional"
                 } else {
                     $deepseekKey = ""
                     $openaiKey = ""
@@ -819,16 +853,18 @@ INKWALL_AI_TEXT_CLOUD_ENABLED=$textCloud
 INKWALL_AI_IMAGE_CLOUD_ENABLED=$imageCloud
 INKWALL_AI_PROVIDER=deepseek
 INKWALL_AI_TEXT_PROVIDER=deepseek
-INKWALL_AI_TEXT_MODEL=deepseek-v4-flash
+INKWALL_AI_TEXT_MODEL=deepseek-flash
 $cloudSecretConfig
 DEEPSEEK_BASE_URL=https://api.deepseek.com
-INKWALL_DEEPSEEK_MODEL=deepseek-v4-flash
+INKWALL_DEEPSEEK_MODEL=deepseek-flash
 INKWALL_DEEPSEEK_BALANCE_GUARD=1
 INKWALL_DEEPSEEK_BALANCE_FAIL_CLOSED=0
 INKWALL_DEEPSEEK_FAIL_OPEN=1
 INKWALL_DEEPSEEK_DAILY_SPEND_LIMIT_USD=1.00
-INKWALL_AI_IMAGE_PROVIDER=openai_vision
-INKWALL_AI_IMAGE_MODEL=gpt-4o-mini
+INKWALL_DEEPSEEK_SEND_IMAGES=1
+INKWALL_DEEPSEEK_VISION_DETAIL=low
+INKWALL_AI_IMAGE_PROVIDER=deepseek
+INKWALL_AI_IMAGE_MODEL=deepseek-flash
 INKWALL_OPENAI_VISION_MODEL=gpt-4o-mini
 INKWALL_OPENAI_VISION_DETAIL=low
 INKWALL_OPENAI_VISION_FAIL_OPEN=1
@@ -854,15 +890,13 @@ INKWALL_REMOTE_REVIEW_TIMEOUT_SECONDS=210
 if ($mode -eq "1" -and -not $serverPaired) {
     if ($hadSavedCloudKeys) {
         Muted "Saved local cloud API keys will be kept."
-        if (YesNo "Replace saved local cloud API keys?" "n") {
+        if (YesNo "Replace the saved DeepSeek API key?" "n") {
             $deepseekKey = Ask-Secret "New DeepSeek API key, optional"
-            $openaiKey = Ask-Secret "New OpenAI API key, optional"
         }
     } else {
         Muted "No server was paired, so cloud keys can only be saved in this local .env."
-        if (YesNo "Add local DeepSeek/OpenAI API keys now?" "n") {
+        if (YesNo "Add a local DeepSeek API key now?" "n") {
             $deepseekKey = Ask-Secret "DeepSeek API key, optional"
-            $openaiKey = Ask-Secret "OpenAI API key, optional"
         }
     }
 }
@@ -916,19 +950,20 @@ INKWALL_AI_IMAGE_CLOUD_ENABLED=$imageCloud
 
 INKWALL_AI_PROVIDER=deepseek
 INKWALL_AI_TEXT_PROVIDER=deepseek
-INKWALL_AI_TEXT_MODEL=deepseek-v4-flash
+INKWALL_AI_TEXT_MODEL=deepseek-flash
 DEEPSEEK_API_KEY=$deepseekKey
 DEEPSEEK_BASE_URL=https://api.deepseek.com
-INKWALL_DEEPSEEK_MODEL=deepseek-v4-flash
+INKWALL_DEEPSEEK_MODEL=deepseek-flash
 INKWALL_DEEPSEEK_BALANCE_GUARD=1
 INKWALL_DEEPSEEK_BALANCE_FAIL_CLOSED=0
 INKWALL_DEEPSEEK_FAIL_OPEN=1
 INKWALL_DEEPSEEK_DAILY_SPEND_LIMIT_USD=1.00
 INKWALL_DEEPSEEK_ESTIMATED_CALL_USD=0.01
-INKWALL_DEEPSEEK_SEND_IMAGES=0
+INKWALL_DEEPSEEK_SEND_IMAGES=1
+INKWALL_DEEPSEEK_VISION_DETAIL=low
 
-INKWALL_AI_IMAGE_PROVIDER=openai_vision
-INKWALL_AI_IMAGE_MODEL=gpt-4o-mini
+INKWALL_AI_IMAGE_PROVIDER=deepseek
+INKWALL_AI_IMAGE_MODEL=deepseek-flash
 OPENAI_API_KEY=$openaiKey
 INKWALL_OPENAI_VISION_MODEL=gpt-4o-mini
 INKWALL_OPENAI_VISION_DETAIL=low

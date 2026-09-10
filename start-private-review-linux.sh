@@ -81,6 +81,10 @@ export INKWALL_PRIVATE_REVIEW_SECRET="$SECRET_VALUE"
 export INKWALL_PRIVATE_REVIEW_ENCRYPTION_KEY="$ENCRYPTION_VALUE"
 export INKWALL_PRIVATE_REVIEW_DIR="${INKWALL_PRIVATE_REVIEW_DIR:-$HOME/InkWallReviewInbox}"
 export INKWALL_PRIVATE_REVIEW_DEFAULT="${INKWALL_PRIVATE_REVIEW_DEFAULT:-review}"
+for key in INKWALL_PRIVATE_REVIEW_COMMAND INKWALL_CONTEXTBRIDGE_EXE INKWALL_CONTEXTBRIDGE_CONFIG; do
+  value="$(env_get "$key" || true)"
+  if [ -n "$value" ]; then export "$key=$value"; fi
+done
 mkdir -p "$INKWALL_PRIVATE_REVIEW_DIR"
 
 endpoint="http://127.0.0.1:$selected"
@@ -93,10 +97,109 @@ env_set INKWALL_REMOTE_REVIEW_ENCRYPT 1
 printf '%s\n' "InkWall private review receiver"
 printf 'Inbox: %s\n' "$INKWALL_PRIVATE_REVIEW_DIR"
 printf 'Local URL: http://%s:%s\n\n' "$HOST_NAME" "$selected"
-printf '%s\n' "SSH reverse tunnel example:"
-printf 'ssh -N -R 127.0.0.1:%s:%s:%s user@your-server\n\n' "$selected" "$HOST_NAME" "$selected"
-printf '%s\n' "Set the server endpoint to:"
-printf 'INKWALL_REMOTE_REVIEW_ENDPOINT=%s\n\n' "$endpoint"
+ssh_target="$(env_get INKWALL_PRIVATE_REVIEW_SSH_TARGET || true)"
+ssh_key="$(env_get INKWALL_PRIVATE_REVIEW_SSH_KEY || true)"
+if [ -z "$ssh_target" ]; then
+  printf '%s\n' "Server tunnel: not configured"
+  printf 'Pair a server first or set INKWALL_PRIVATE_REVIEW_SSH_TARGET in %s.\n\n' "$ENV_FILE"
+  cd "$ROOT_DIR"
+  exec php -S "$HOST_NAME:$selected" tools/private-review-receiver.php
+fi
+
+if ! command -v ssh >/dev/null 2>&1; then
+  printf '%s\n' "OpenSSH client was not found in PATH."
+  exit 1
+fi
+
+contextbridge_connection() {
+  local config="${INKWALL_CONTEXTBRIDGE_CONFIG:-}"
+  [ -f "$config" ] || return 1
+  local listen token
+  listen="$(sed -nE 's/^[[:space:]]*listen:[[:space:]]*([^#[:space:]]+).*/\1/p' "$config" | head -n 1 | tr -d "'\"")"
+  token="$(sed -nE 's/^[[:space:]]*token:[[:space:]]*([^#[:space:]]+).*/\1/p' "$config" | head -n 1 | tr -d "'\"")"
+  [ -n "$token" ] || return 1
+  printf '%s\t%s' "${listen:-127.0.0.1:32145}" "$token"
+}
+
+tunnel_heartbeat() {
+  local state="$1"
+  command -v curl >/dev/null 2>&1 || return 0
+  local connection listen token body
+  connection="$(contextbridge_connection || true)"
+  [ -n "$connection" ] || return 0
+  listen="${connection%%$'\t'*}"
+  token="${connection#*$'\t'}"
+  body="$(php -r 'echo json_encode(["state"=>$argv[1],"target"=>$argv[2],"transport"=>"SSH with encrypted InkWall payloads","local_port"=>(int)$argv[3],"remote_port"=>(int)$argv[3]], JSON_UNESCAPED_SLASHES);' "$state" "$ssh_target" "$selected")"
+  curl -fsS --max-time 3 -X POST -H "Authorization: Bearer $token" -H 'Content-Type: application/json' --data "$body" "http://$listen/v1/tunnel/heartbeat" >/dev/null 2>&1 || true
+}
+
+server_probe() {
+  local args=(-o BatchMode=yes -o ConnectTimeout=8)
+  [ -n "$ssh_key" ] && args+=(-i "$ssh_key")
+  args+=("$ssh_target" "curl -s -X POST -H 'X-InkWall-Probe: 1' -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:$selected/")
+  [ "$(ssh "${args[@]}" 2>/dev/null || true)" = "200" ]
+}
 
 cd "$ROOT_DIR"
-exec php -S "$HOST_NAME:$selected" tools/private-review-receiver.php
+mkdir -p "$ROOT_DIR/data/logs"
+php -S "$HOST_NAME:$selected" tools/private-review-receiver.php >"$ROOT_DIR/data/logs/private-review-php-output.log" 2> >(tee -a "$ROOT_DIR/data/logs/private-review-php-server.log" >&2) &
+php_pid=$!
+bridge_pid=""
+ssh_pid=""
+
+cleanup() {
+  tunnel_heartbeat disconnected
+  [ -n "$ssh_pid" ] && kill "$ssh_pid" 2>/dev/null || true
+  [ -n "$bridge_pid" ] && kill "$bridge_pid" 2>/dev/null || true
+  kill "$php_pid" 2>/dev/null || true
+}
+trap cleanup EXIT INT TERM
+
+if [ -n "${INKWALL_CONTEXTBRIDGE_EXE:-}" ] && [ -x "$INKWALL_CONTEXTBRIDGE_EXE" ] && [ -f "${INKWALL_CONTEXTBRIDGE_CONFIG:-}" ]; then
+  if ! "$INKWALL_CONTEXTBRIDGE_EXE" health --config "$INKWALL_CONTEXTBRIDGE_CONFIG" >/dev/null 2>&1; then
+    "$INKWALL_CONTEXTBRIDGE_EXE" serve --config "$INKWALL_CONTEXTBRIDGE_CONFIG" >>"$ROOT_DIR/data/logs/contextbridge.log" 2>&1 &
+    bridge_pid=$!
+    sleep 1
+  fi
+  printf 'ContextBridge: http://127.0.0.1:32145\n'
+fi
+
+printf 'Server tunnel: %s\n' "$ssh_target"
+printf '%s\n' "Transport: SSH with encrypted InkWall payloads"
+printf '%s\n' "Waiting for review jobs. Receiver events stay visible in this terminal."
+
+while kill -0 "$php_pid" 2>/dev/null; do
+  ssh_args=(-N -o BatchMode=yes -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -R "127.0.0.1:$selected:$HOST_NAME:$selected")
+  [ -n "$ssh_key" ] && ssh_args+=(-i "$ssh_key")
+  ssh_args+=("$ssh_target")
+  printf '%s\n' "Connecting secure tunnel..."
+  ssh "${ssh_args[@]}" &
+  ssh_pid=$!
+  sleep 1
+  if ! kill -0 "$ssh_pid" 2>/dev/null; then
+    printf '%s\n' "Tunnel failed. Retrying in 5 seconds."
+    wait "$ssh_pid" 2>/dev/null || true
+    sleep 5
+    continue
+  fi
+  if server_probe; then
+    printf 'Secure tunnel connected. Server probe passed on 127.0.0.1:%s.\n' "$selected"
+    state=connected
+  else
+    printf '%s\n' "Tunnel is open, but the server probe is still pending."
+    state=degraded
+  fi
+  tunnel_heartbeat "$state"
+  ticks=0
+  while kill -0 "$ssh_pid" 2>/dev/null && kill -0 "$php_pid" 2>/dev/null; do
+    sleep 2
+    ticks=$((ticks + 1))
+    if [ $((ticks % 5)) -eq 0 ]; then tunnel_heartbeat "$state"; fi
+    if [ $((ticks % 15)) -eq 0 ]; then if server_probe; then state=connected; else state=degraded; fi; fi
+  done
+  wait "$ssh_pid" 2>/dev/null || true
+  ssh_pid=""
+  tunnel_heartbeat disconnected
+  printf '%s\n' "Tunnel disconnected. Reconnecting in 5 seconds."
+  sleep 5
+done
